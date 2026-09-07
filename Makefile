@@ -22,6 +22,7 @@ KICK        := Kick-Midway-MCR-by-Dar
 BURGER_TIME := Burger-Time-by-Dar
 DEFENDER    := Defender-by-Dar
 TRAVERSE_USA := Traverse-USA-by-Dar
+CRAZY_KONG   := Crazy-Kong-by-Dar
 
 # Bare `make` prints help instead of running a build.
 .DEFAULT_GOAL := help
@@ -292,6 +293,31 @@ all-traverse-usa:
 clean-traverse-usa:
 	$(MAKE) -C "$(TRAVERSE_USA)" clean
 
+# ---- Crazy Kong ----
+setup-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" setup
+
+create-prj-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" create_prj
+
+clk-wiz-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" clk_wiz
+
+patch-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" patch
+
+synth-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" synth
+
+bitstream-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" bitstream
+
+all-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" all
+
+clean-crazy-kong:
+	$(MAKE) -C "$(CRAZY_KONG)" clean
+
 help:
 	@echo "Top-level port driver. Each step delegates to the machine's own Makefile."
 	@echo "Usage: make <step>-<machine>"
@@ -307,6 +333,7 @@ help:
 	@echo "  BurgerTime  : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Defender    : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Traverse-USA: setup create-prj clk-wiz patch synth bitstream all clean"
+	@echo "  Crazy Kong  : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo
 	@echo "Examples:"
 	@echo "  make setup-galaga      make synth-time-pilot      make bitstream-pooyan"

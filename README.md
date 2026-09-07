@@ -13,7 +13,8 @@ source of truth for that machine's design and build.
 
 Time-Pilot-by-Dar, Pooyan-by-Dar, Bagman-FPGA-Dar, Berzerk-FPGA-by-Dar, Burnin-Rubber-by-Dar, 
 Galaga-Midway-by-Dar, Tron-by-Dar, Kick-Midway-MCR-by-Dar, Burger-Time-by-Dar,
-Popeye-by-Dar, Defender-by-Dar, Solar-Fox-by-Dar, Zaxxon-by-Dar and
+Popeye-by-Dar, Defender-by-Dar, Solar-Fox-by-Dar, Zaxxon-by-Dar,
+Crazy-Kong-by-Dar and
 Computer-Space-by-Dar are complete, fully-scripted, hardware-verified ports.
 Computer Space is a discrete-game core (no romset); see its README for the
 dedicated controls (JA fire / pushbutton start) and rocket-missile fire fix.
@@ -55,6 +56,19 @@ pristine ~3 MHz keyboard clock is too slow for the onboard USB-HID host —
 same fix as Congo Bongo/Arcade_Zaxxon/Pooyan). See the machine
 `README.md` for the keyboard-connector/clock note.
 
+Crazy-Kong-by-Dar is hardware-verified on the Basys 3 (bitstream 2026-09-07;
+0 critical warnings/errors through implementation; post-route
+WNS = 36.461 ns — a single 12 MHz core clock leaves huge timing margin).
+Single-clock design, native 31 kHz progressive video: the core's internal
+`line_doubler` drives real `video_hs`/`video_vs`, so the port needs no
+imported scandoubler and no expose patch. The one pristine-tree change is the
+synthesis-width fix `ckong_xor_width.patch` (`ckong.vhd:405-408` 13-bit vs
+5-bit `xor`, the same video-addressing bug `bagman_xor_width.patch` fixes,
+constants zero-padded to 13 bits — no behavior change). The keyboard is
+**always on the onboard USB-HID connector (C17/B17), not JB**, already clocked
+at `clock_12` = 12 MHz (no divider needed). See the machine `README.md` for
+controls and the keyboard note.
+
 Every machine directory now carries a scripted setup: `contrib/tools/setup_<game>.sh`
 (fetches the Dar archive into a gitignored `dloads/` cache with an embedded
 SHA-256 check, extracts it, applies any synthesis-fix patches) chaining into
@@ -87,6 +101,7 @@ instead of `prep_roms.sh`.
 | Xevious (Namco 1982) | 18 + 11 MHz | `basys3/xevious_basys3.xpr`, `xevious_basys3` | `xevious_expose_hsync_vsync.patch` | `xevious.zip` |
 | Zaxxon (Gremlin/Sega 1980) | 24 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
 | Computer Space (Nutting Associates 1971) | 6 + 50 MHz | `basys3/computer_space_basys3.xpr`, `computer_space_basys3` | `computer_space_de10_lite_to_basys3.patch`, `computer_space_motion_q_assoc.patch`, `computer_space_rocket_timer_synth_fix.patch` | — (discrete-game core, no romset) |
+| Crazy Kong (Irem M-52 1981) | 12 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
 
 Directory naming is not uniform: `Bagman-FPGA-Dar` and `Berzerk-FPGA-by-Dar`
 differ from the `-by-Dar` convention; `Sky-skipper-by-Dar` uses a lowercase `s`.
@@ -155,8 +170,8 @@ needed a patch to expose hsync/vsync in the first place, unlike
 Galaga/Burnin-Rubber's native ones — see
 `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md`); Time Pilot and Pooyan
 import `vga_scandoubler.v` (DECA); Bagman and Berzerk instantiate Dar's
-`line_doubler` inside the core; Kick, Popeye, Sky Skipper and Solar Fox generate
-progressive 31 kHz natively in the core (`tv15Khz_mode = '0'`).
+`line_doubler` inside the core; Kick, Popeye, Sky Skipper, Solar Fox, and Crazy
+Kong generate progressive 31 kHz natively in the core (`tv15Khz_mode = '0'`).
 
 ## Shared tools
 
