@@ -75,24 +75,26 @@ The default external-IO mapping below is used unless a specific source port forc
 | 1P start | `btnL` | |
 | 2P start | `btnR` | |
 | joystick left/right/up/down/fire | PMODA `JA[0..4]` (JA1–4, JA7) | active-low, switch to GND; OR-merged with the keyboard |
-| PS/2 keyboard | JB1/JB3 `ps2_dat`/`ps2_clk` (A14/B15), **or** onboard USB HID `ps2_dat`/`ps2_clk` (B17/C17) | take all keys defined in the DE10-lite top source being ported; see keyboard-clock note below |
+| PS/2 keyboard | onboard USB HID `ps2_dat`/`ps2_clk` (B17/C17) — **default**; JB1/JB3 Pmod (A14/B15) legacy | take all keys defined in the DE10-lite top source being ported; see keyboard-clock note below |
 | dipswitches | `sw` bits | map all dipswitches from the DE10-lite top |
 | audio PWM | `O_PMODAMP2_AIN/GAIN/SHUTD` (JC) | sound-enable + gain on the switches |
 | VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `Hsync`, `Vsync` | 4-4-4 RGB; see TV note below |
 
 - **PS/2 keyboard, two IO options — pick per port, both wire to the same
   `io_ps2_keyboard.vhd`/`kbd_joystick.vhd` unchanged**:
-  - **JB1/JB3 Pmod** (A14/B15 `ps2_dat`/`ps2_clk`) — an external PS/2
-    breakout wired to the Pmod header. The project's default until
-    2026-09-03; still valid, still used by most existing ports.
   - **Onboard USB HID host** (the template's `##USB HID (PS/2)` XDC block,
     B17/C17 `ps2_dat`/`ps2_clk`) — the Basys 3 has an onboard PIC24-based
     USB-A host port that translates a plugged-in USB keyboard into the
-    *same* PS/2 protocol/pins a direct device would use. No VHDL logic
-    change either way — this is purely an XDC pin choice (comment out the
-    JB1/JB3 lines, uncomment the `##USB HID (PS/2)` lines, retarget their
-    placeholder `PS2Clk`/`PS2Data` port names to the port's actual
-    `ps2_clk`/`ps2_dat`).
+    *same* PS/2 protocol/pins a direct device would use. **This is the
+    project default for all new ports** (convention since 2026-09); it needs
+    no external breakout and is what the template XDC ships enabled.
+    No VHDL logic change either way — this is purely an XDC pin choice
+    (comment out the JB1/JB3 lines, uncomment the `##USB HID (PS/2)` lines,
+    retarget their placeholder `PS2Clk`/`PS2Data` port names to the port's
+    actual `ps2_clk`/`ps2_dat`).
+  - **JB1/JB3 Pmod** (A14/B15 `ps2_dat`/`ps2_clk`) — an external PS/2
+    breakout wired to the Pmod header. Legacy option, kept for older ports
+    that predate the USB-HID convention; not used for new ports.
   - **Keyboard-clock rate matters and differs between the two options —
     this is the one gotcha that isn't a simple pin swap.** The clock fed to
     `io_ps2_keyboard`'s `clk` port (usually a divided-down `clock_24` or
@@ -109,15 +111,19 @@ The default external-IO mapping below is used unless a specific source port forc
     exact symptom or already used 6 MHz for unrelated reasons. When porting
     a new machine for the onboard USB HID port (or moving an existing one
     to it), check/set the keyboard-clock divider to give **at least 6 MHz**,
-    not whatever ratio the pristine source happens to use verbatim.
+    not whatever ratio the pristine source happens to use verbatim. Sky
+    Skipper clocks `io_ps2_keyboard`/`kbd_joystick` directly on its 40 MHz
+    core clock — the simplest independent clock.
   - **Don't just retarget the pristine divider's threshold if it's shared
     with anything else.** Some pristine tops reuse the same divider/counter
     for the keyboard clock *and* another gated signal (e.g. a PWM audio
     accumulator update, as in Congo Bongo) — changing that counter's period
     to hit 6 MHz would also change the other signal's rate as an untested
     side effect. Add a second, independent counter dedicated to the
-    keyboard clock instead, and leave the original counter (and whatever
-    else it gates) untouched.
+    keyboard clock instead (or feed a fast core clock directly — Sky Skipper
+    re-clocks `io_ps2_keyboard`/`kbd_joystick` straight off its 40 MHz core
+    clock and leaves the pristine counter gating only the PWM accumulator),
+    and leave the original counter (and whatever else it gates) untouched.
 - **TV display**: VGA is always supported. Additionally keep 15 kHz TV display support
   (native RGB + composite sync on HS) if the source port provides it.
 - **LEDs / 7-segment display**: if the port source actively drives LEDs or a 7-segment
@@ -147,7 +153,8 @@ pristine core, using an existing full port's top level as the worked example.
    the ~2× read/write ratio for real horizontal doubling.
 6. **Audio** — keep the PWM accumulator; drive mono `O_PMODAMP2_AIN`; route the sound-enable and
    gain switches to `O_PMODAMP2_SHUTD` / `O_PMODAMP2_GAIN`.
-7. **Inputs** — keep the PS/2 keyboard + `kbd_joystick`; OR-merge the JA joystick (inverted
+7. **Inputs** — keep the keyboard (`io_ps2_keyboard` + `kbd_joystick`) on the onboard USB-HID
+    connector by default; OR-merge the JA joystick (inverted
    active-low → active-high to match the core boundary); coin/start via fire+direction combos;
    P2 mirrors P1.
 8. **PROM VHDL** — generated from the staged romset (never distributed).

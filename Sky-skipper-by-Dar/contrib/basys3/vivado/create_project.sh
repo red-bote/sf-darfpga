@@ -9,8 +9,9 @@
 # 2. Copy the .xpr into place.
 # 3. Copy Basys-3-Master.xdc into constrs_1/imports/digilent-xdc-master/.
 #
-# The core generates progressive 31 kHz video natively (tv15Khz_mode = '0'), so
-# no external scandoubler is imported.
+# The core generates progressive 31 kHz video natively (tv15Khz_mode = '0'
+# drives pixels on a 20 MHz clock with real video_hs/video_vs; '1' selects the
+# 15 kHz interlaced timing), so no external scandoubler is imported.
 #
 # clk_wiz_0 IP generation (make_clk_wiz_0.sh) and the top level are separate.
 

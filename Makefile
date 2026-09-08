@@ -23,6 +23,8 @@ BURGER_TIME := Burger-Time-by-Dar
 DEFENDER    := Defender-by-Dar
 TRAVERSE_USA := Traverse-USA-by-Dar
 CRAZY_KONG   := Crazy-Kong-by-Dar
+CRAZY_CLIMBER := Crazy-Climber-by-Dar
+SKY_SKIPPER   := Sky-skipper-by-Dar
 
 # Bare `make` prints help instead of running a build.
 .DEFAULT_GOAL := help
@@ -141,7 +143,13 @@ clean-bagman:
         synth-kick bitstream-kick all-kick clean-kick \
         setup-traverse-usa create-prj-traverse-usa clk-wiz-traverse-usa \
         patch-traverse-usa synth-traverse-usa bitstream-traverse-usa \
-        all-traverse-usa clean-traverse-usa
+        all-traverse-usa clean-traverse-usa \
+        setup-crazy-climber create-prj-crazy-climber clk-wiz-crazy-climber \
+        patch-crazy-climber synth-crazy-climber bitstream-crazy-climber \
+        all-crazy-climber clean-crazy-climber \
+        setup-sky-skipper create-prj-sky-skipper clk-wiz-sky-skipper \
+        patch-sky-skipper synth-sky-skipper bitstream-sky-skipper \
+        all-sky-skipper clean-sky-skipper
 
 # ---- Berzerk ----
 setup-berzerk:
@@ -318,6 +326,56 @@ all-crazy-kong:
 clean-crazy-kong:
 	$(MAKE) -C "$(CRAZY_KONG)" clean
 
+# ---- Crazy Climber ----
+setup-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" setup
+
+create-prj-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" create_prj
+
+clk-wiz-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" clk_wiz
+
+patch-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" patch
+
+synth-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" synth
+
+bitstream-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" bitstream
+
+all-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" all
+
+clean-crazy-climber:
+	$(MAKE) -C "$(CRAZY_CLIMBER)" clean
+
+# ---- Sky Skipper ----
+setup-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" setup
+
+create-prj-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" create_prj
+
+clk-wiz-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" clk_wiz
+
+patch-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" patch
+
+synth-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" synth
+
+bitstream-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" bitstream
+
+all-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" all
+
+clean-sky-skipper:
+	$(MAKE) -C "$(SKY_SKIPPER)" clean
+
 help:
 	@echo "Top-level port driver. Each step delegates to the machine's own Makefile."
 	@echo "Usage: make <step>-<machine>"
@@ -334,6 +392,8 @@ help:
 	@echo "  Defender    : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Traverse-USA: setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Crazy Kong  : setup create-prj clk-wiz patch synth bitstream all clean"
+	@echo "  Crazy Climber: setup create-prj clk-wiz patch synth bitstream all clean"
+	@echo "  Sky Skipper : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo
 	@echo "Examples:"
 	@echo "  make setup-galaga      make synth-time-pilot      make bitstream-pooyan"

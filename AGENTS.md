@@ -15,7 +15,7 @@ FPGA ports of Dar's arcade hardware (`darfpga@aol.fr`) to the Digilent Basys 3
 independent project under its own `<Machine>-by-Dar/` directory.
 
 A directory is an actual Basys 3 port if it has `contrib/`, a `Makefile`, and
-a `README.md`. Currently all 19 machine dirs are ports.
+a `README.md`. Currently all 20 machine dirs are ports.
 
 New ports start from the generic templates in `wip/machine/`: the project
 `wip/machine/contrib/basys3/basys3-project-template.xpr`, its in-project
@@ -58,9 +58,10 @@ Steps must run in order. From the machine directory:
 
 Root-level shorthand: `make all-galaga`, `make bitstream-pooyan`, etc.
 
-**Root Makefile covers only 11 of the 19 ports** (Galaga, Pooyan, Time Pilot,
-Bagman, Berzerk, Tron, Kick, BurgerTime, Defender, Traverse-USA, Crazy Kong).
-Burnin-Rubber, Popeye, Phoenix, Sky-skipper, Solar-Fox, Computer-Space,
+**Root Makefile covers only 13 of the 20 ports** (Galaga, Pooyan, Time Pilot,
+Bagman, Berzerk, Tron, Kick, BurgerTime, Defender, Traverse-USA, Crazy Kong,
+Crazy Climber, Sky Skipper).
+Burnin-Rubber, Popeye, Phoenix, Solar-Fox, Computer-Space,
 Xevious, and Zaxxon each have a machine-level `Makefile` but no root
 delegation — build those with `make <step>` from inside the machine directory. Root step names are hyphenated
 (`create-prj-galaga`, `clk-wiz-galaga`); per-machine Makefile targets use

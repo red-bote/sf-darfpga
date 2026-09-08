@@ -9,7 +9,7 @@ VIVADO       := contrib/basys3/vivado
 
 # External IO summary (printed by `make help`) and display-mode switching input
 # (printed by `make help` and at the end of `make all`/`make bitstream`).
-IO_SUMMARY   := <io_summary>    # e.g. "PS/2 keyboard (JB); JA joystick; ..." ; empty if none
+IO_SUMMARY   := <io_summary>    # e.g. "USB-HID keyboard; JA joystick; ..." ; empty if none
 DISPLAY_HINT := <display_hint>  # e.g. "F8 toggles 31 kHz VGA / 15 kHz TV" ; empty if none
 
 DISPLAY_REMINDER := @echo "REMINDER: if nothing appears on the display, first try toggling the display mode: $(DISPLAY_HINT)."

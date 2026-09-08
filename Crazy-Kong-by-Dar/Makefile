@@ -12,7 +12,7 @@ define display_reminder
 	$(if $(DISPLAY_HINT),$(DISPLAY_REMINDER))
 endef
 
-.PHONY: all setup create_prj clk_wiz patch synth bitstream load clean help
+.PHONY: all setup create_prj clk_wiz patch synth bitstream load rebuild-load clean help
 
 all: setup clk_wiz patch
 	$(display_reminder)
@@ -40,10 +40,17 @@ bitstream: synth
 	$(display_reminder)
 
 # Program the bitstream into the Basys3 SRAM with openFPGALoader.
+# Fast: this does NOT rebuild — it programs the existing bit only. Fails
+# clearly if no bitstream has been built yet.
 # Volatile: the FPGA loses the configuration on power cycle - re-run `make load`.
 BIT := vhdl_ckong_rev_0_1_2018_06_06/basys3/ckong_basys3.runs/impl_1/ckong_basys3.bit
 
-load: bitstream
+load:
+	@test -f $(BIT) || { echo "No bitstream at $(BIT) - run 'make bitstream' first." >&2; exit 1; }
+	openFPGALoader -b basys3 $(BIT)
+
+# Fresh build then program (previous `make load` behavior).
+rebuild-load: bitstream
 	openFPGALoader -b basys3 $(BIT)
 
 clean:
@@ -51,5 +58,5 @@ clean:
 
 help:
 	@echo "Crazy Kong (Irem M-52) Basys 3 port. External IO used: $(IO_SUMMARY)"
-	@echo "Steps: setup create_prj clk_wiz patch synth bitstream load clean (default: all)"
+	@echo "Steps: setup create_prj clk_wiz patch synth bitstream load (program existing bit) rebuild-load clean (default: all)"
 	$(display_reminder)
