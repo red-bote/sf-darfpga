@@ -25,6 +25,7 @@ TRAVERSE_USA := Traverse-USA-by-Dar
 CRAZY_KONG   := Crazy-Kong-by-Dar
 CRAZY_CLIMBER := Crazy-Climber-by-Dar
 SKY_SKIPPER   := Sky-skipper-by-Dar
+SATANS_HOLLOW := Satans-Hollow-by-Dar
 
 # Bare `make` prints help instead of running a build.
 .DEFAULT_GOAL := help
@@ -376,6 +377,31 @@ all-sky-skipper:
 clean-sky-skipper:
 	$(MAKE) -C "$(SKY_SKIPPER)" clean
 
+# ---- Satans Hollow ----
+setup-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" setup
+
+create-prj-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" create_prj
+
+clk-wiz-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" clk_wiz
+
+patch-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" patch
+
+synth-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" synth
+
+bitstream-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" bitstream
+
+all-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" all
+
+clean-satans-hollow:
+	$(MAKE) -C "$(SATANS_HOLLOW)" clean
+
 help:
 	@echo "Top-level port driver. Each step delegates to the machine's own Makefile."
 	@echo "Usage: make <step>-<machine>"
@@ -394,6 +420,7 @@ help:
 	@echo "  Crazy Kong  : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Crazy Climber: setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Sky Skipper : setup create-prj clk-wiz patch synth bitstream all clean"
+	@echo "  Satans Hollow: setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo
 	@echo "Examples:"
 	@echo "  make setup-galaga      make synth-time-pilot      make bitstream-pooyan"

@@ -118,6 +118,18 @@ PWM audio) with the default `sw(13)=0` bitstream; the display mode selector
 (`sw(13)` = 31 kHz VGA / 15 kHz TV, XORed with the F8 keyboard toggle) is the
 single user-facing display control.
 
+Satans-Hollow-by-Dar is a fully scripted, documented port of Dar's Bally Midway
+MCR core (native progressive 31 kHz video — no scandoubler; single 40 MHz clock
+via `clk_wiz_0`; USB-HID keyboard on the onboard connector, JA1=Left/JA2=Right/
+JA7=Fire joystick, mono left-channel PWM audio on PmodAMP2, `sw(13)`⊕F8 display
+mode). The source archive fetch, SHA-256 integrity, `.bat` conversion and the
+single-romset pre/post-flight (`~/roms/shollow.zip`, including the midssio
+`82s123.12d` PROM renamed to `midssio_82s123.12d`) all pass, and all 6 PROM
+VHDLs are generated; the wrapper rewrite is formatter-clean and its
+`satan_hollow_de10_lite_to_basys3.patch` is generated. `make setup` / `make
+patch` are exercised; `make synth` + `make bitstream` + hardware bring-up are
+still pending.
+
 Every machine directory now carries a scripted setup: `contrib/tools/setup_<game>.sh`
 (fetches the Dar archive into a gitignored `dloads/` cache with an embedded
 SHA-256 check, extracts it, applies any synthesis-fix patches) chaining into
@@ -142,6 +154,7 @@ instead of `prep_roms.sh`.
 | Popeye (Nintendo 1982) | 40.32 MHz | `basys3/popeye_basys3.xpr`, `popeye_basys3` | `popeye_linmix_sensitivity.patch` | `popeye.zip` + `popeyeu.zip` |
 | Phoenix (Amstar 1980) | 11 + 50 MHz | `basys3/phoenix_basys3.xpr`, `phoenix_basys3` | `phoenix_expose_hsync_vsync.patch` | `phoenix.zip` |
 | Pooyan (Konami 1982) | 12 + 14 MHz | `basys3/pooyan_basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch` | `pooyan.zip` |
+| Satans/Hollow (Bally Midway MCR 1981) | 40 MHz | `basys3/satans_hollow_basys3.xpr`, `satans_hollow_basys3` | — | `shollow.zip` |
 | Sky Skipper (Nintendo 1981) | 40 MHz | `basys3/sky_skipper_basys3.xpr`, `sky_skipper_basys3` | — | `skyskipr.zip` |
 | Solar Fox (Bally Midway 1981) | 40 MHz | `basys3/solar_fox_basys3.xpr`, `solar_fox_basys3` | — | `solarfox.zip` |
 | Time Pilot (Konami 1982) | 12.288 + 14.318 MHz | `basys3/time_pilot_basys3.xpr`, `time_pilot_basys3` | — | `timeplt.zip` |
@@ -226,9 +239,11 @@ needed a patch to expose hsync/vsync in the first place, unlike
 Galaga/Burnin-Rubber's native ones — see
 `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md`); Time Pilot and Pooyan
 import `vga_scandoubler.v` (DECA); Bagman and Berzerk instantiate Dar's
-`line_doubler` inside the core; Kick, Popeye, Sky Skipper, Solar Fox, and Crazy
-Kong generate progressive 31 kHz natively in the core (`tv15Khz_mode = '0'`).
-Of these, Sky Skipper's mode is selectable by `sw(13)` (0 = 31 kHz VGA default,
+`line_doubler` inside the core; Kick, Popeye, Sky Skipper, Solar Fox, Crazy
+Kong, and Satans/Hollow generate progressive 31 kHz natively in the core
+(`tv15Khz_mode = '0'`).
+Of these, Sky Skipper's and Satans/Hollow's mode is selectable by `sw(13)`
+(0 = 31 kHz VGA default,
 1 = 15 kHz TV) XOR F8; the others are F8-toggled only.
 
 ## Shared tools

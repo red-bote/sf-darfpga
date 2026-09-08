@@ -58,9 +58,9 @@ Steps must run in order. From the machine directory:
 
 Root-level shorthand: `make all-galaga`, `make bitstream-pooyan`, etc.
 
-**Root Makefile covers only 13 of the 20 ports** (Galaga, Pooyan, Time Pilot,
+**Root Makefile covers 14 of the 21 ports** (Galaga, Pooyan, Time Pilot,
 Bagman, Berzerk, Tron, Kick, BurgerTime, Defender, Traverse-USA, Crazy Kong,
-Crazy Climber, Sky Skipper).
+Crazy Climber, Sky Skipper, Satans Hollow).
 Burnin-Rubber, Popeye, Phoenix, Solar-Fox, Computer-Space,
 Xevious, and Zaxxon each have a machine-level `Makefile` but no root
 delegation — build those with `make <step>` from inside the machine directory. Root step names are hyphenated
