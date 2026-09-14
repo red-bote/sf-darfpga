@@ -11,11 +11,29 @@ source of truth for that machine's design and build.
 
 ## Status
 
-Time-Pilot-by-Dar, Pooyan-by-Dar, Bagman-FPGA-Dar, Berzerk-FPGA-by-Dar, Burnin-Rubber-by-Dar, 
-Galaga-Midway-by-Dar, Tron-by-Dar, Kick-Midway-MCR-by-Dar, Burger-Time-by-Dar,
-Popeye-by-Dar, Defender-by-Dar, Solar-Fox-by-Dar, Zaxxon-by-Dar,
-Crazy-Kong-by-Dar and
-Computer-Space-by-Dar are complete, fully-scripted, hardware-verified ports.
+### The following are complete, fully-scripted, hardware-verified ports:
+Bagman-FPGA-Dar
+Berzerk-FPGA-by-Dar
+Burger-Time-by-Dar
+Burnin-Rubber-by-Dar
+Computer-Space-by-Dar
+Crazy-Climber-by-Dar
+Crazy-Kong-by-Dar
+Defender-by-Dar
+Galaga-Midway-by-Dar
+Kick-Midway-MCR-by-Dar
+Phoenix-by-Dar
+Pooyan-by-Dar
+Popeye-by-Dar
+Satans-Hollow-by-Dar
+Sky-skipper-by-Dar
+Solar-Fox-by-Dar
+Time-Pilot-by-Dar
+Traverse-USA-by-Dar
+Tron-by-Dar
+Xevious-by-Dar
+Zaxxon-by-Dar
+
 Computer Space is a discrete-game core (no romset); see its README for the
 dedicated controls (JA fire / pushbutton start) and rocket-missile fire fix.
 

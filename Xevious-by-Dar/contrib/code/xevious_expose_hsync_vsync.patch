@@ -1,0 +1,25 @@
+diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd
+--- a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd
++++ b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd
+@@ -137,8 +137,8 @@
+  video_clk      : out std_logic;
+  video_csync    : out std_logic;
+  video_blankn   : out std_logic;
+--- video_hs     : out std_logic;
+--- video_vs     : out std_logic;
++ video_hs     : out std_logic;
++ video_vs     : out std_logic;
+  audio          : out std_logic_vector(10 downto 0);
+ 
+ -- ledr           : out std_logic_vector(17 downto 0);
+@@ -1336,8 +1336,8 @@
+ enable  => ena_vidgen,
+ hcnt    => hcnt,
+ vcnt    => vcnt,
+-hsync   => open,
+-vsync   => open,
++hsync   => video_hs,
++vsync   => video_vs,
+ csync   => video_csync,
+ blankn  => video_blankn
+ );

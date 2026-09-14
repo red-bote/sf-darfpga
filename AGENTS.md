@@ -15,7 +15,7 @@ FPGA ports of Dar's arcade hardware (`darfpga@aol.fr`) to the Digilent Basys 3
 independent project under its own `<Machine>-by-Dar/` directory.
 
 A directory is an actual Basys 3 port if it has `contrib/`, a `Makefile`, and
-a `README.md`. Currently all 20 machine dirs are ports.
+a `README.md`. Currently all 21 machine dirs are ports.
 
 New ports start from the generic templates in `wip/machine/`: the project
 `wip/machine/contrib/basys3/basys3-project-template.xpr`, its in-project
