@@ -91,9 +91,11 @@ These generated files must exist before the project can be synthesized.
 ## Project setup
 
 The root `Makefile` wraps the scripted setup: `make setup` (download+extract upstream, apply
-patch, build the PROM generator, unzip the romset, generate PROM VHDL, copy ported assets),
-`make clk_wiz` (generate the `clk_wiz_0` IP, depends on setup), `make patch` (regenerate the
-DE10→Basys3 top level and its patch, depends on setup), `make all` (setup + clk_wiz + patch),
+patch, build the PROM generator, unzip the romset, generate PROM VHDL),
+`make create_prj` (lay down the project tree and copy the ported assets),
+`make clk_wiz` (generate the `clk_wiz_0` IP, depends on setup and create_prj),
+`make patch` (regenerate the DE10→Basys3 top level and its patch, depends on setup),
+`make all` (setup + clk_wiz + patch, so transitively create_prj),
 `make synth` (run synthesis, depends on setup/clk_wiz/patch), `make bitstream`
 (implementation + write_bitstream, depends on synth), and `make clean` (remove the generated
 `vhdl_pooyan_rev_0_2_2020_04_26/` tree).
@@ -102,7 +104,8 @@ Project structure lives in `vhdl_pooyan_rev_0_2_2020_04_26/basys3/`. Use the Xil
 `vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3/pooyan_basys3.xpr` (top entity
 `pooyan_basys3`, part `xc7a35tcpg236-1`).
 
-Copy-in files (from `contrib/basys3/`):
+`make create_prj` runs `contrib/basys3/vivado/create_project.sh`, which copies from
+`contrib/basys3/`:
 
 - `vivado/pooyan_basys3.xpr` → `basys3/pooyan_basys3/pooyan_basys3.xpr`
 - `vivado/pooyan_basys3.xdc` → `basys3/pooyan_basys3/pooyan_basys3.srcs/constrs_1/imports/digilent-xdc-master/`
@@ -128,7 +131,8 @@ Run Vivado build scripts from `/tmp` so `vivado.log` / `vivado.jou` stay outside
 
 ## Creating the Vivado Basys3 project
 
-From scratch, to (re)build `pooyan_basys3.xpr`:
+From scratch, to (re)build `pooyan_basys3.xpr` (steps 1–4 are scripted by
+`make create_prj`, i.e. `contrib/basys3/vivado/create_project.sh`):
 
 1. Create a Vivado 2020.2 project for part `xc7a35tcpg236-1`, VHDL target language, top
    entity `pooyan_basys3`, saved as `basys3/pooyan_basys3/pooyan_basys3.xpr`.
@@ -190,5 +194,4 @@ authors the new `pooyan_basys3.vhd` top level and emits
 
 - Dip switches 1–8 confirmed working on hardware.
 - 15 kHz display is not connected; needs a switch wired to enable/disable TV mode.
-- Pooyan lacks create_prj so eventually should be brought up to date with the rest.
 

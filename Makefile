@@ -9,8 +9,9 @@
 # e.g.  make setup-galaga          make synth-time-pilot
 #       make create-prj-galaga     make bitstream-pooyan
 #
-# Available steps vary per machine (create_prj is not universal — Pooyan lacks
-# it). Use `make help` to list what each machine supports.
+# Every machine under the root Makefile supports the same full step set
+# Use `make help` to list what each machine
+# supports.
 
 GALAGA      := Galaga-Midway-by-Dar
 POOYAN      := Pooyan-by-Dar
@@ -58,6 +59,9 @@ clean-galaga:
 # ---- Pooyan ----
 setup-pooyan:
 	$(MAKE) -C "$(POOYAN)" setup
+
+create-prj-pooyan:
+	$(MAKE) -C "$(POOYAN)" create_prj
 
 clk-wiz-pooyan:
 	$(MAKE) -C "$(POOYAN)" clk_wiz
@@ -129,7 +133,7 @@ clean-bagman:
 
 .PHONY: help setup-galaga create-prj-galaga clk-wiz-galaga patch-galaga \
         synth-galaga bitstream-galaga all-galaga clean-galaga \
-        setup-pooyan clk-wiz-pooyan patch-pooyan synth-pooyan \
+        setup-pooyan create-prj-pooyan clk-wiz-pooyan patch-pooyan synth-pooyan \
         bitstream-pooyan all-pooyan clean-pooyan \
         setup-time-pilot create-prj-time-pilot clk-wiz-time-pilot \
         patch-time-pilot synth-time-pilot bitstream-time-pilot \
@@ -408,7 +412,7 @@ help:
 	@echo
 	@echo "Machines and their steps:"
 	@echo "  Galaga      : setup create-prj clk-wiz patch synth bitstream all clean"
-	@echo "  Pooyan      : setup          clk-wiz patch synth bitstream all clean"
+	@echo "  Pooyan      : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Time-Pilot  : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Bagman      : setup create-prj clk-wiz patch synth bitstream all clean"
 	@echo "  Berzerk     : setup create-prj clk-wiz patch synth bitstream all clean"

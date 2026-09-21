@@ -15,7 +15,10 @@ FPGA ports of Dar's arcade hardware (`darfpga@aol.fr`) to the Digilent Basys 3
 independent project under its own `<Machine>-by-Dar/` directory.
 
 A directory is an actual Basys 3 port if it has `contrib/`, a `Makefile`, and
-a `README.md`. Currently all 21 machine dirs are ports.
+a `README.md`. Currently 20 machine dirs qualify. `Crazy-Climber-by-Dar/` is
+documented in the root `README.md` and has root Makefile targets, but the
+directory does not exist yet — treat anything about Crazy Climber as
+aspirational.
 
 New ports start from the generic templates in `wip/machine/`: the project
 `wip/machine/contrib/basys3/basys3-project-template.xpr`, its in-project
@@ -23,33 +26,36 @@ constraints `basys3-project-template.srcs/constrs_1/imports/
 digilent-xdc-master/Basys-3-Master.xdc`, the per-machine Makefile
 `wip/machine/Makefile.template`, and the tokenized build-script templates
 under `wip/machine/contrib/` (`tools/`, `basys3/tools/`, `basys3/vivado/`).
-The ported `.xpr` and `.xdc` derive from the sample project
-(`basys3-project-template.xpr` + its in-project `Basys-3-Master.xdc`).
+The ported `.xpr` and `.xdc` derive from the sample project.
 
 ## Repo layout
 
-- Each `<Machine>-by-Dar/` owns its own `Makefile`, `contrib/`, and
-  `PORTING_SPEC.md`.
+- Each `<Machine>-by-Dar/` owns its own `Makefile`, `contrib/`, `README.md`,
+  and a `PORTING_SPEC.md` (canonical location `contrib/basys3/PORTING_SPEC.md`;
+  Galaga, Pooyan, Time-Pilot still have it at the machine top level).
 - The root `Makefile` delegates to per-machine Makefiles:
   `make <step>-<machine>` (e.g. `make setup-galaga`, `make synth-pooyan`).
 - Root `README.md` is the machine index with clock frequencies, project names,
-  and romsets.
+  romsets, and the per-machine Status (scripted / synthesized / bitstream /
+  hardware-verified) — the authoritative status record.
 - Each machine's `README.md` is the single source of truth for that machine's
-  design and build.
+  design and build (IO pinout, MMCM constants, verify greps).
 - `tools/vhdl_formatter.py` — stdlib-only VHDL indent/alignment formatter
   (`--check`, `--align`, `--indent N`).
-- `downloads.md` — index of archived Dar source zips (SourceForge URL + SHA
-  pattern); consult when a `setup_<machine>.sh` needs an archive URL/hash.
+- Archive URL + SHA-256 for each machine's Dar source are **embedded in
+  `contrib/tools/setup_<game>.sh`**, not in a separate index.
 
 ## Build workflow (per machine)
 
 Steps must run in order. From the machine directory:
 
-1. `make setup` — fetches Dar source archive (SHA-256 verified), applies
-   synthesis-fix patches, compiles `make_vhdl_prom`, converts the `.bat` to
-   `.sh`, stages romsets, generates PROM VHDL.
-2. `make create_prj` — creates Vivado project, copies `.xpr`/`.xdc`, imports
-   scandoubler. (Not all machines have this step.)
+1. `make setup` — fetches Dar source archive into the gitignored `dloads/`
+   cache (SHA-256 verified), extracts it, applies synthesis-fix patches,
+   compiles `make_vhdl_prom`, converts the `.bat` to `.sh`, stages romsets,
+   generates PROM VHDL.
+2. `make create_prj` — `contrib/basys3/vivado/create_project.sh` lays down the
+   project tree and copies `.xpr`/`.xdc`/scandoubler into it. Every machine
+   exposes this step; `setup` does not copy the ported assets.
 3. `make clk_wiz` — generates `clk_wiz_0` MMCM IP (100 MHz → core clocks).
 4. `make patch` — regenerates top-level wrapper and porting patch.
 5. `make synth` — synthesis only (resets `synth_1` first).
@@ -58,27 +64,30 @@ Steps must run in order. From the machine directory:
 
 Root-level shorthand: `make all-galaga`, `make bitstream-pooyan`, etc.
 
-**Root Makefile covers 14 of the 21 ports** (Galaga, Pooyan, Time Pilot,
+**Root Makefile delegates for 14 machines** (Galaga, Pooyan, Time Pilot,
 Bagman, Berzerk, Tron, Kick, BurgerTime, Defender, Traverse-USA, Crazy Kong,
-Crazy Climber, Sky Skipper, Satans Hollow).
-Burnin-Rubber, Popeye, Phoenix, Solar-Fox, Computer-Space,
-Xevious, and Zaxxon each have a machine-level `Makefile` but no root
-delegation — build those with `make <step>` from inside the machine directory. Root step names are hyphenated
-(`create-prj-galaga`, `clk-wiz-galaga`); per-machine Makefile targets use
-underscores (`create_prj`, `clk_wiz`). Run `make help` for the current step
-matrix.
+Crazy Climber, Sky Skipper, Satans Hollow). The other 7 dirs (Burnin-Rubber,
+Popeye, Phoenix, Solar-Fox, Computer-Space, Xevious, Zaxxon) have a
+machine-level `Makefile` but no root delegation — build those with
+`make <step>` from inside the machine directory. Root step names are
+hyphenated (`create-prj-galaga`, `clk-wiz-galaga`); per-machine Makefile
+targets use underscores (`create_prj`, `clk_wiz`). Run `make help` for the
+current step matrix.
 
 ## Tool / path resolution
 
 `ENV_VAR → project default → interactive prompt`:
 - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-- ROMs: `ROMZIP` → `~/roms/<set>.zip` (some machines use `ROMZIP2`)
+- romsets: `ROMZIP` → `~/roms/<set>.zip`; two-romset machines add `ROMZIP2`
+  (Galaga uses `ROMZIP1` + `ROMZIP2`)
 
 **Vivado builds run from `/tmp`** so `vivado.log`/`vivado.jou` stay outside the
 repo.
 
-`contrib/basys3/vga_scandoubler.v` is the canonical cleanroom import — **never
-modify it**.
+`contrib/basys3/code/vga_scandoubler.v` (the DECA scandoubler, per-machine
+import for Pooyan and Time-Pilot) is a cleanroom import — **never modify
+it**. Same for the `mist/scandoubler.v` import under `contrib/code/` where
+present.
 
 ## Copyright hard rule
 
@@ -89,14 +98,21 @@ pristine Dar sources.
 ## VHDL formatting
 
 Run `tools/vhdl_formatter.py` on VHDL files. Dependency-free (stdlib only).
-Idempotent. `--check` for CI, `--align` for column alignment.
+Idempotent. `--check` for CI, `--align` for column alignment. There is no
+automated test suite; verification is patch dry-runs + formatter `--check` +
+Vivado synthesis/timing (status in root `README.md`).
 
 ## Common gotchas
 
 - Directory naming is not uniform: `Bagman-FPGA-Dar` and `Berzerk-FPGA-by-Dar`
   differ from the `-by-Dar` convention; `Sky-skipper-by-Dar` uses a lowercase `s`.
-- Machines needing two romsets (Tron, Galaga, Popeye) require the extra set for
-  color PROMs, CPU/speech ROMs absent from the plain set (resolved via `ROMZIP2`).
+- Machines needing two romsets (Galaga, Tron, Popeye) require the extra set for
+  color PROMs, CPU/speech ROMs absent from the plain set (resolved via
+  `ROMZIP2`).
 - Some ports are scripted but not yet through `make synth`/`make bitstream`
-  (e.g. Xevious); the root `README.md` Status
-  section is the current record of each machine's verified state.
+  (e.g. Xevious, Satans-Hollow); the root `README.md` Status section is the
+  current record of each machine's verified state.
+- `Crazy-Climber-by-Dar/` has root Makefile targets and a README stanza but no
+  directory — do not `make *-crazy-climber` expecting a build.
+- Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
+  drift; the root `Makefile` and `README.md` Status are the live record.
