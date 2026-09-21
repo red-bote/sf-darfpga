@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12 MHz video, 14 MHz sound) for the
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12.288 MHz video, 14.318 MHz sound) for the
 # Basys3 port and place its Verilog wrappers where pooyan_basys3.xpr expects them.
 #
 # The main project's .xpr references two imported files (pooyan_basys3.xpr):
@@ -36,9 +36,9 @@ set_property -dict [list \
     CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12.000} \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12.288} \
     CONFIG.CLKOUT2_USED {true} \
-    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {14.000} \
+    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {14.318} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
 ] [get_ips clk_wiz_0]
 

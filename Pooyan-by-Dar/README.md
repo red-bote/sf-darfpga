@@ -39,9 +39,10 @@ This file is the single source of truth for design and build. Operational rules 
 
 ## Clocking
 
-The Basys3 provides a 100 MHz oscillator. A Vivado MMCM (`clk_wiz_0`) derives the 12 MHz
-(video board) and 14 MHz (sound board) clocks. The top level instantiates `clk_wiz_0`; its IP
-files must be (re)generated and placed under `sources_1/imports/clk_wiz_0/`.
+The Basys3 provides a 100 MHz oscillator. A Vivado MMCM (`clk_wiz_0`) derives the 12.288 MHz
+(video board core) and 14.318 MHz (sound board) clocks. The top level instantiates `clk_wiz_0`; its IP
+files must be (re)generated and placed under `sources_1/imports/clk_wiz_0/`. The wizard solves
+to `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`, `CLKOUT1_DIVIDE=56`.
 
 ## VGA
 
@@ -146,7 +147,7 @@ From scratch, to (re)build `pooyan_basys3.xpr` (steps 1–4 are scripted by
    `sources_1/imports/deca/vga_scandoubler.v` (canonical, never modify).
 4. Add constraints: `contrib/basys3/vivado/pooyan_basys3.xdc` →
    `constrs_1/imports/digilent-xdc-master/`.
-5. Generate the `clk_wiz_0` MMCM IP, deriving 12 MHz and 14 MHz from the 100 MHz Basys3
+5. Generate the `clk_wiz_0` MMCM IP, deriving 12.288 MHz and 14.318 MHz from the 100 MHz Basys3
    oscillator; place its outputs under `sources_1/imports/clk_wiz_0/`.
 6. Generate the top level `pooyan_basys3.vhd` under `sources_1/new/` with `make patch`
    (writes the authored top level from `contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh`
@@ -165,8 +166,8 @@ authors the new `pooyan_basys3.vhd` top level and emits
 1. **Port list** — map the Basys3 IO per `pooyan_basys3.xdc`: `clk` (100 MHz), `sw`, `btnC`,
    joystick on `JA[]`, PS/2 on `jb` (`ps2_dat`, `ps2_clk`), PmodAMP2 on `jc`
    (`O_PMODAMP2_AIN/GAIN/SHUTD`), `vga_r/g/b[3:0]`, `vga_hs`, `vga_vs`.
-2. **Clocking** — replace the DE10 `max10_pll_12M_14M` with `clk_wiz_0` (12/14 MHz from the
-   100 MHz oscillator); keep the internal `clock_6` divider that feeds the PS/2 path.
+2. **Clocking** — replace the DE10 `max10_pll_12M_14M` with `clk_wiz_0` (12.288/14.318 MHz from the
+    100 MHz oscillator); keep the internal `clock_6` divider that feeds the PS/2 path.
 3. **Core instantiation** — keep the `pooyan` entity port map unchanged (r/g/b, csync,
    blankn, hs, vs, audio_out).
 4. **VGA via scan doubler** — feed the core's 3+3+2-bit video (zero-extended to 6-bit) into

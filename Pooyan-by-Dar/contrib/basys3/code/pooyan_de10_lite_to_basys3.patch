@@ -363,7 +363,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +-- Basys3 port by Red~Bote.
 +--
 +-- Ported from pooyan_de10_lite.vhd (DE10-lite rev 02 26/04/2020):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz / 14 MHz
++--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12.288 MHz / 14.318 MHz
 +--  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
 +--  - Mono PWM audio on PmodAMP2 (JC); sw14 = sound enable, sw15 = gain select
 +--  - 31 kHz VGA on the Basys3 VGA connector via vga_scandoubler

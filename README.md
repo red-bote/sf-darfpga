@@ -171,7 +171,7 @@ instead of `prep_roms.sh`.
 | Kick (Midway MCR 1981) | 40 MHz | `basys3/kick_basys3.xpr`, `kick_basys3` | — | `kick.zip` |
 | Popeye (Nintendo 1982) | 40.32 MHz | `basys3/popeye_basys3.xpr`, `popeye_basys3` | `popeye_linmix_sensitivity.patch` | `popeye.zip` + `popeyeu.zip` |
 | Phoenix (Amstar 1980) | 11 + 50 MHz | `basys3/phoenix_basys3.xpr`, `phoenix_basys3` | `phoenix_expose_hsync_vsync.patch` | `phoenix.zip` |
-| Pooyan (Konami 1982) | 12 + 14 MHz | `basys3/pooyan_basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch` | `pooyan.zip` |
+| Pooyan (Konami 1982) | 12.288 + 14.318 MHz | `basys3/pooyan_basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch` | `pooyan.zip` |
 | Satans/Hollow (Bally Midway MCR 1981) | 40 MHz | `basys3/satans_hollow_basys3.xpr`, `satans_hollow_basys3` | — | `shollow.zip` |
 | Sky Skipper (Nintendo 1981) | 40 MHz | `basys3/sky_skipper_basys3.xpr`, `sky_skipper_basys3` | — | `skyskipr.zip` |
 | Solar Fox (Bally Midway 1981) | 40 MHz | `basys3/solar_fox_basys3.xpr`, `solar_fox_basys3` | — | `solarfox.zip` |

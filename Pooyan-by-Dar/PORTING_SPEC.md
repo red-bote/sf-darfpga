@@ -30,8 +30,8 @@ Replace the DE10-lite ports (`max10_clk1_50`, `ledr`, `key`, `sw(9:0)`, `hex0-3`
 ## 2. Clocking
 
 - Replace the DE10 `max10_pll_12M_14M` (50 MHz in) with the Basys 3 `clk_wiz_0` MMCM
-  (100 MHz in → 12 MHz core + 14 MHz sound board).
-- Keep the internal `clock_6` divider (halves `clock_12`) that feeds the PS/2 path.
+  (100 MHz in → 12.288 MHz core + 14.318 MHz sound board).
+- Keep the internal `clock_6` divider (halves `clock_12` → 6.144 MHz) that feeds the PS/2 path.
 
 ## 3. Reset polarity
 
