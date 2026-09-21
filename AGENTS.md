@@ -63,16 +63,15 @@ Steps must run in order. From the machine directory:
 7. `make clean` — removes the Vivado project/build tree only.
 
 Root-level shorthand: `make all-galaga`, `make bitstream-pooyan`, etc.
+Aggregates over all machines: `make clean` (delegated) and `make bitstream`
+(sweep that builds only machines lacking an `impl_1` `.bit`, skipping
+already-built ones; long-running Vivado sweep).
 
-**Root Makefile delegates for 14 machines** (Galaga, Pooyan, Time Pilot,
-Bagman, Berzerk, Tron, Kick, BurgerTime, Defender, Traverse-USA, Crazy Kong,
-Crazy Climber, Sky Skipper, Satans Hollow). The other 7 dirs (Burnin-Rubber,
-Popeye, Phoenix, Solar-Fox, Computer-Space, Xevious, Zaxxon) have a
-machine-level `Makefile` but no root delegation — build those with
-`make <step>` from inside the machine directory. Root step names are
-hyphenated (`create-prj-galaga`, `clk-wiz-galaga`); per-machine Makefile
-targets use underscores (`create_prj`, `clk_wiz`). Run `make help` for the
-current step matrix.
+**The root `Makefile` delegates every step for all 20 present machine dirs.**
+Its targets, `.PHONY` list, and `make help` matrix are all generated from the
+single `PORTS` list (`token:directory`), so the matrix cannot drift. Root step
+names are hyphenated (`create-prj-galaga`, `clk-wiz-galaga`); per-machine
+Makefile targets use underscores (`create_prj`, `clk_wiz`).
 
 ## Tool / path resolution
 
@@ -112,7 +111,8 @@ Vivado synthesis/timing (status in root `README.md`).
 - Some ports are scripted but not yet through `make synth`/`make bitstream`
   (e.g. Xevious, Satans-Hollow); the root `README.md` Status section is the
   current record of each machine's verified state.
-- `Crazy-Climber-by-Dar/` has root Makefile targets and a README stanza but no
-  directory — do not `make *-crazy-climber` expecting a build.
+- `Crazy-Climber-by-Dar/` has a README stanza but no directory, so it is
+  deliberately **not** in the root Makefile `PORTS` list — there are no
+  `*-crazy-climber` targets.
 - Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
   drift; the root `Makefile` and `README.md` Status are the live record.
