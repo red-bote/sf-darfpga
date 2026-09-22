@@ -8,6 +8,9 @@
 # 2. Extract it into the repo root as vhdl_popeye_rev_0_3_2020_01_27/.
 # 3. Apply any fix patches idempotently (patch -p1 --forward).
 #    Glob covers both contrib/<dir>/code/*.patch and contrib/code/*.patch.
+#    Excludes *_de10_lite_to_basys3.patch: that file is a record of the
+#    top-level rewrite (authored by make_de10_lite_to_basys3_patch.sh, applied
+#    to a different target file), not a fix to apply to the pristine tree.
 # 4. Run contrib/tools/prep_roms.sh (compile make_vhdl_prom, convert .bat,
 #    unzip romsets, generate PROM VHDL).
 #
@@ -56,6 +59,7 @@ unzip -o "$ZIP" -d "$ROOT"
 step "3/4 Applying fix patches (contrib/*/code/*.patch and contrib/code/*.patch)"
 for p in "$ROOT"/contrib/*/code/*.patch "$ROOT"/contrib/code/*.patch; do
     [ -e "$p" ] || continue
+    case "$p" in *_de10_lite_to_basys3.patch) continue ;; esac
     echo "==> applying $p"
     patch -p1 --forward < "$p"
 done
