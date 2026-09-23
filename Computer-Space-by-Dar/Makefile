@@ -1,32 +1,8 @@
-# Default target: build the whole scripted Basys3 port tree.
-TOOLS        := contrib/tools
-BASYS3_TOOLS := contrib/basys3/tools
-VIVADO       := contrib/basys3/vivado
+GAME         := computer_space
+SRC_DIR      := vhdl_computer_space_rev_1_1_2017_11_22
+TOP_ENTITY   := computer_space_basys3
+DISPLAY_NAME := Computer Space
+IO_SUMMARY   := Onboard USB HID keyboard (C17/B17) + JA joystick OR-merged (rotate/thrust/fire); btnU/D/L/R=start (any); btnC=reset; JC PmodAMP2 PWM audio; sw(14)=amp shutdown, sw(15)=amp gain, sw(13)=display mode; VGA 4-4-4 RGB via MiST scandoubler
+DISPLAY_HINT := sw(13): 0 = 31 kHz VGA (scandoubled), 1 = 15 kHz TV
 
-.PHONY: all setup clk_wiz patch synth bitstream clean
-
-all: setup clk_wiz patch
-
-setup:
-	$(TOOLS)/setup_computer_space.sh
-
-create_prj:
-	$(VIVADO)/create_project.sh
-
-clk_wiz: setup create_prj
-	$(VIVADO)/make_clk_wiz_0.sh
-
-# Regenerate computer_space_de10_lite_to_basys3.patch and computer_space_basys3.vhd top level.
-patch: setup
-	$(BASYS3_TOOLS)/make_de10_lite_to_basys3_patch.sh
-
-# Run synthesis only (resets synth_1 first).
-synth: setup clk_wiz patch
-	$(BASYS3_TOOLS)/make_computer_space_basys3_bitstream.sh synth
-
-# Implementation + write_bitstream (depends on synthesis).
-bitstream: synth
-	$(BASYS3_TOOLS)/make_computer_space_basys3_bitstream.sh bitstream
-
-clean:
-	rm -rf vhdl_computer_space_rev_1_1_2017_11_22
+include ../tools/mk/machine.mk

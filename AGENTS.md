@@ -15,10 +15,8 @@ FPGA ports of Dar's arcade hardware (`darfpga@aol.fr`) to the Digilent Basys 3
 independent project under its own `<Machine>-by-Dar/` directory.
 
 A directory is an actual Basys 3 port if it has `contrib/`, a `Makefile`, and
-a `README.md`. Currently 20 machine dirs qualify. `Crazy-Climber-by-Dar/` is
-documented in the root `README.md` and has root Makefile targets, but the
-directory does not exist yet — treat anything about Crazy Climber as
-aspirational.
+a `README.md`. Currently 20 machine dirs qualify, every one listed in the root
+`Makefile` `PORTS` table.
 
 New ports start from the generic templates in `wip/machine/`: the project
 `wip/machine/contrib/basys3/basys3-project-template.xpr`, its in-project
@@ -67,7 +65,7 @@ Aggregates over all machines: `make clean` (delegated) and `make bitstream`
 (sweep that builds only machines lacking an `impl_1` `.bit`, skipping
 already-built ones; long-running Vivado sweep).
 
-**The root `Makefile` delegates every step for all 20 present machine dirs.**
+**The root `Makefile` delegates every step for the 20 `PORTS`-listed machines.**
 Its targets, `.PHONY` list, and `make help` matrix are all generated from the
 single `PORTS` list (`token:directory`), so the matrix cannot drift. Root step
 names are hyphenated (`create-prj-galaga`, `clk-wiz-galaga`); per-machine
@@ -111,8 +109,7 @@ Vivado synthesis/timing (status in root `README.md`).
 - Some ports are scripted but not yet through `make synth`/`make bitstream`
   (e.g. Xevious, Satans-Hollow); the root `README.md` Status section is the
   current record of each machine's verified state.
-- `Crazy-Climber-by-Dar/` has a README stanza but no directory, so it is
-  deliberately **not** in the root Makefile `PORTS` list — there are no
-  `*-crazy-climber` targets.
 - Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
-  drift; the root `Makefile` and `README.md` Status are the live record.
+  drift; the root `Makefile` `PORTS` list and the present machine dirs are the
+  live record (the root `README.md` Status can lag a dir removal, e.g. it
+  still lists Crazy-Climber after `Crazy-Climber-by-Dar/` was deleted).

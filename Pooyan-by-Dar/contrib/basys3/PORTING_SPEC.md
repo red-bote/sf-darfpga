@@ -10,7 +10,7 @@ summary. The concrete result is the tracked diff
 `Pooyan-by-Dar/contrib/basys3/code/pooyan_de10_lite_to_basys3.patch`.
 
 - Source: `vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd` (pristine Dar tree)
-- Target: `pooyan_basys3.vhd` (written to `basys3/pooyan_basys3/pooyan_basys3.srcs/sources_1/new/`)
+- Target: `pooyan_basys3.vhd` (written to `basys3/pooyan_basys3.srcs/sources_1/new/`)
 - Nature of the change: a **full rewrite of the wrapper**; the `pooyan` core port map is
   unchanged.
 

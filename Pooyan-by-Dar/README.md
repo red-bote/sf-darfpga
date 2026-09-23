@@ -102,15 +102,15 @@ patch, build the PROM generator, unzip the romset, generate PROM VHDL),
 `vhdl_pooyan_rev_0_2_2020_04_26/` tree).
 
 Project structure lives in `vhdl_pooyan_rev_0_2_2020_04_26/basys3/`. Use the Xilinx project at
-`vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3/pooyan_basys3.xpr` (top entity
+`vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3.xpr` (top entity
 `pooyan_basys3`, part `xc7a35tcpg236-1`).
 
 `make create_prj` runs `contrib/basys3/vivado/create_project.sh`, which copies from
 `contrib/basys3/`:
 
-- `vivado/pooyan_basys3.xpr` → `basys3/pooyan_basys3/pooyan_basys3.xpr`
-- `vivado/pooyan_basys3.xdc` → `basys3/pooyan_basys3/pooyan_basys3.srcs/constrs_1/imports/digilent-xdc-master/`
-- `code/vga_scandoubler.v` → `basys3/pooyan_basys3/pooyan_basys3.srcs/sources_1/imports/deca/vga_scandoubler.v`
+- `vivado/pooyan_basys3.xpr` → `basys3/pooyan_basys3.xpr`
+- `vivado/pooyan_basys3.xdc` → `basys3/pooyan_basys3.srcs/constrs_1/imports/digilent-xdc-master/`
+- `code/vga_scandoubler.v` → `basys3/pooyan_basys3.srcs/sources_1/imports/deca/vga_scandoubler.v`
 
 The constraints file is based on the
 [Digilent Basys-3-Master.xdc](https://github.com/Digilent/digilent-xdc/blob/master/Basys-3-Master.xdc).
@@ -128,7 +128,7 @@ Run Vivado build scripts from `/tmp` so `vivado.log` / `vivado.jou` stay outside
 
 `make synth` resets and runs the `synth_1` run. `make bitstream` runs the `impl_1` run through
 `write_bitstream` (it depends on `synth`), producing
-`vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3/pooyan_basys3.runs/impl_1/pooyan_basys3.bit`.
+`vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3.runs/impl_1/pooyan_basys3.bit`.
 
 ## Creating the Vivado Basys3 project
 
@@ -136,7 +136,7 @@ From scratch, to (re)build `pooyan_basys3.xpr` (steps 1–4 are scripted by
 `make create_prj`, i.e. `contrib/basys3/vivado/create_project.sh`):
 
 1. Create a Vivado 2020.2 project for part `xc7a35tcpg236-1`, VHDL target language, top
-   entity `pooyan_basys3`, saved as `basys3/pooyan_basys3/pooyan_basys3.xpr`.
+   entity `pooyan_basys3`, saved as `basys3/pooyan_basys3.xpr`.
 2. Reference (do not copy) the RTL sources from `vhdl_pooyan_rev_0_2_2020_04_26/`:
 - `rtl_dar/` — `pooyan.vhd`, `pooyan_sound_board.vhd`, `gen_ram.vhd`,
       `io_ps2_keyboard.vhd`, `kbd_joystick.vhd`

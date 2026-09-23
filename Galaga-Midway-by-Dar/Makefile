@@ -1,32 +1,7 @@
-# Default target: build the whole scripted Basys3 port tree.
-TOOLS        := contrib/tools
-BASYS3_TOOLS := contrib/basys3/tools
-VIVADO       := contrib/basys3/vivado
+GAME         := galaga
+SRC_DIR      := vhdl_galaga_rev_0_3_2018_05_06
+TOP_ENTITY   := galaga_basys3
+IO_SUMMARY   := Atari-style joystick on JA + PS/2 keyboard (JB) OR-merged; btnC=reset; JC PmodAMP2 PWM audio; sw(14)=shutdown, sw(15)=gain, sw(13)=display mode; VGA 4-4-4 RGB via MiST scandoubler
+DISPLAY_HINT := sw(13): 0 = 31 kHz VGA, 1 = 15 kHz TV
 
-.PHONY: all setup clk_wiz patch synth bitstream clean
-
-all: setup clk_wiz patch
-
-setup:
-	$(TOOLS)/setup_galaga.sh
-
-create_prj:
-	$(VIVADO)/create_project.sh
-
-clk_wiz: setup create_prj
-	$(VIVADO)/make_clk_wiz_0.sh
-
-# Regenerate galaga_de10_lite_to_basys3.patch and galaga_basys3.vhd top level.
-patch: setup
-	$(BASYS3_TOOLS)/make_de10_lite_to_basys3_patch.sh
-
-# Run synthesis only (resets synth_1 first).
-synth: setup clk_wiz patch
-	$(BASYS3_TOOLS)/make_galaga_basys3_bitstream.sh synth
-
-# Implementation + write_bitstream (depends on synthesis).
-bitstream: synth
-	$(BASYS3_TOOLS)/make_galaga_basys3_bitstream.sh bitstream
-
-clean:
-	rm -rf vhdl_galaga_rev_0_3_2018_05_06
+include ../tools/mk/machine.mk

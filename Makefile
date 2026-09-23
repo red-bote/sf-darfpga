@@ -65,16 +65,34 @@ MACHINE_TARGETS := $(foreach s,$(STEPS),$(foreach p,$(PORTS),$(s)-$(call token,$
 # Bare `make` prints help instead of running a build.
 .DEFAULT_GOAL := help
 
-.PHONY: help clean bitstream $(MACHINE_TARGETS)
+.PHONY: help clean patch bitstream $(MACHINE_TARGETS)
 
-# Clean every machine (delegated). Leaves the dloads/ source-archive cache in
-# place so a later `make setup` does not re-download.
+# Regenerate every machine's top-level VHDL placement + provenance patch
+# (delegated `patch`, which pulls in `setup` per machine — downloading a
+# machine's source archive on first run if not already cached in dloads/).
+# This is the regression check used throughout the shared-library migration:
+# run it twice and `git status`/`git diff` the *_de10_lite_to_basys3.patch
+# files to confirm byte-identical output against HEAD.
+patch:
+	@for p in $(PORTS); do \
+	  d="$${p#*:}"; \
+	  t="$${p%%:*}"; \
+	  [ -d "$$d" ] || { echo "skipping missing directory $$d"; continue; }; \
+	  echo "==> patch: $$d"; \
+	  $(MAKE) -C "$$d" patch || exit 1; \
+	done
+	@echo "Patch sweep complete."
+
+# Clean every machine (delegated) and remove the cross-machine build-metrics
+# log. Leaves the dloads/ source-archive cache in place so a later `make
+# setup` does not re-download.
 clean:
 	@for p in $(PORTS); do \
 	  d="$${p#*:}"; \
 	  [ -d "$$d" ] || { echo "skipping missing directory $$d"; continue; }; \
 	  $(MAKE) -C "$$d" clean || exit 1; \
 	done
+	@rm -f build-metrics.csv
 	@echo "All machines cleaned."
 
 # Build every machine's bitstream, skipping machines that already have
@@ -109,7 +127,11 @@ help:
 	  printf "  %-16s : setup create-prj clk-wiz patch synth bitstream all clean\n" "$$t"; \
 	done
 	@echo
-	@echo "Cleaning: make clean delegates 'clean' to every machine (keeps the dloads/ cache)."
+	@echo "Patch: make patch regenerates every machine's top-level .vhd placement +"
+	@echo "       provenance patch (delegated, pulls in setup). Run twice and diff"
+	@echo "       against git HEAD to regression-test the shared build library."
+	@echo "Cleaning: make clean delegates 'clean' to every machine (keeps the dloads/ cache)"
+	@echo "          and removes build-metrics.csv."
 	@echo "Bitstream: make bitstream builds machines lacking an impl_1 .bit,"
 	@echo "           skipping already-built ones (Vivado, long-running; per"
 	@echo "           .opencode/rules.md run only on explicit request)."

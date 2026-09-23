@@ -1,61 +1,17 @@
-# Default target: build the whole scripted Basys3 port tree.
-# Generic template — copy to <Machine>-by-Dar/Makefile and substitute:
-#   <game>    snake_case name used in setup_<game>.sh, make_<game>_basys3_bitstream.sh,
-#             <game>_de10_lite_to_basys3.patch and <game>_basys3.vhd
-#   <src_dir> extracted archive dir that `clean` removes (e.g. vhdl_<game>_rev_<ver>_<date>)
-TOOLS        := contrib/tools
-BASYS3_TOOLS := contrib/basys3/tools
-VIVADO       := contrib/basys3/vivado
+# Generic Makefile template — copy to <Machine>-by-Dar/Makefile and substitute:
+#   <game>         snake_case name (setup_<game>.sh, make_<game>_basys3_bitstream.sh)
+#   <src_dir>      extracted archive dir that `clean` removes (e.g. vhdl_<game>_rev_<ver>_<date>)
+#   <TOP_ENTITY>   Basys3 top entity, usually <game>_basys3
+#   <io_summary>   printed by `make help`; empty if none
+#   <display_hint> printed by `make help` and at the end of `make all`/`make bitstream`; empty if none
+#
+# All 8 standard targets (setup create_prj clk_wiz patch synth bitstream
+# clean help) are defined once in sf-darfpga/tools/mk/machine.mk and
+# included here — see that file for what each target does.
+GAME         := <game>
+SRC_DIR      := <src_dir>
+TOP_ENTITY   := <TOP_ENTITY>
+IO_SUMMARY   := <io_summary>
+DISPLAY_HINT := <display_hint>
 
-# External IO summary (printed by `make help`) and display-mode switching input
-# (printed by `make help` and at the end of `make all`/`make bitstream`).
-IO_SUMMARY   := <io_summary>    # e.g. "USB-HID keyboard; JA joystick; ..." ; empty if none
-DISPLAY_HINT := <display_hint>  # e.g. "F8 toggles 31 kHz VGA / 15 kHz TV" ; empty if none
-
-DISPLAY_REMINDER := @echo "REMINDER: if nothing appears on the display, first try toggling the display mode: $(DISPLAY_HINT)."
-
-define display_reminder
-	$(if $(DISPLAY_HINT),$(DISPLAY_REMINDER))
-endef
-
-.PHONY: all setup create_prj clk_wiz patch synth bitstream load clean help
-
-all: setup clk_wiz patch
-	$(display_reminder)
-
-setup:
-	$(TOOLS)/setup_<game>.sh
-
-create_prj:
-	$(VIVADO)/create_project.sh
-
-clk_wiz: setup create_prj
-	$(VIVADO)/make_clk_wiz_0.sh
-
-# Regenerate <game>_de10_lite_to_basys3.patch and <game>_basys3.vhd top level.
-patch: setup
-	$(BASYS3_TOOLS)/make_de10_lite_to_basys3_patch.sh
-
-# Run synthesis only (resets synth_1 first).
-synth: setup clk_wiz patch
-	$(BASYS3_TOOLS)/make_<game>_basys3_bitstream.sh synth
-
-# Implementation + write_bitstream (depends on synthesis).
-bitstream: synth
-	$(BASYS3_TOOLS)/make_<game>_basys3_bitstream.sh bitstream
-	$(display_reminder)
-
-# Program the bitstream into the Basys3 SRAM with openFPGALoader.
-# Volatile: the FPGA loses the configuration on power cycle - re-run `make load`.
-BIT := <src_dir>/basys3/<game>_basys3.runs/impl_1/<game>_basys3.bit
-
-load: bitstream
-	openFPGALoader -b basys3 $(BIT)
-
-clean:
-	rm -rf <src_dir>
-
-help:
-	@echo "<game> Basys 3 port. External IO used: $(IO_SUMMARY)"
-	@echo "Steps: setup create_prj clk_wiz patch synth bitstream load clean (default: all)"
-	$(display_reminder)
+include ../tools/mk/machine.mk

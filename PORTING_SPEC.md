@@ -24,8 +24,12 @@ ambiguous, copy what an existing full port does.
 
 Bring the machine up in this order, mirroring an existing full port's scripts for each step.
 
-1. **Scaffold** — create `README.md` at the machine root, `PORTING_SPEC.md` under
-   `contrib/basys3/`, and the `contrib/basys3/{code,tools,vivado}` skeleton.
+1. **Scaffold** — `sf-darfpga/tools/new-port.sh <game> --src-dir ... --url ... --sha256 ...
+   --de10-top ... --top-entity ...` generates the `Makefile`, `contrib/{tools,basys3/tools,
+   basys3/vivado}` scripts, and a stub `contrib/basys3/code/<top-entity>.vhd` from the
+   `wip/machine/` templates in one step (see step 8's note on what it does and does not fill
+   in). Then author `README.md` at the machine root and `PORTING_SPEC.md` under
+   `contrib/basys3/` by hand.
 2. **Source archive** — obtain the Dar source zip (download index: `~/tmp/downloads.md`) and
    extract it into `vhdl_<machine>_rev_.../` at the machine root.
 3. **Synthesis-fix patches** — any `contrib/basys3/code/*.patch` (e.g. a core-specific
@@ -34,8 +38,11 @@ Bring the machine up in this order, mirroring an existing full port's scripts fo
 4. **Rom prep** — `prep_roms.sh`: compile `make_vhdl_prom` on the host (`gcc ... -lm`), convert
    `make_<machine>_proms.bat` → `.sh` (the `.bat`→`.sh` sed rules), unzip `~/roms/<set>.zip`,
    run the generator to produce the PROM VHDL in place.
-5. **Source setup** — `setup_<machine>.sh`: download/extract the archive, apply patches, then
-   chain into rom-prep.
+5. **Source setup** — `setup_<machine>.sh`: a thin wrapper around the shared
+   `darfpga_setup()` (`sf-darfpga/tools/lib/darfpga-setup.sh`), which downloads/extracts the
+   archive, applies fix patches (excluding the `*_de10_lite_to_basys3.patch` provenance
+   record — hardcoded in the shared function, not a per-machine detail to get right or wrong),
+   then chains into rom-prep.
 6. **Clock IP** — `make_clk_wiz_0.sh`: generate the `clk_wiz_0` MMCM deriving the core/sound
    clocks from the 100 MHz Basys 3 oscillator; place its wrappers where the `.xpr` references them.
 7. **Project** — `create_project.sh`: clone the starting project from
@@ -44,14 +51,44 @@ Bring the machine up in this order, mirroring an existing full port's scripts fo
    template constraints file `Basys-3-Master.xdc`, uncommenting/renaming only the
    port lines the port uses;
    add the core sources, scandoubler import, and clk_wiz_0 wrappers.
-8. **Makefile** — wire `all / setup / clk_wiz / clean` to the scripts; add `patch / synth /
-   bitstream / load` once their scripts exist. `load` programs the bitstream into the Basys3
-   SRAM via `openFPGALoader -b basys3 <bit>` (volatile; depends on `bitstream`).
+8. **Makefile** — set `GAME` / `SRC_DIR` / `TOP_ENTITY` / `IO_SUMMARY` / `DISPLAY_HINT` and
+   `include ../tools/mk/machine.mk`, which defines all 8 standard targets (`setup create_prj
+   clk_wiz patch synth bitstream clean help`) once, shared across every migrated machine.
 
 Steps 4–7 are templated under `wip/machine/contrib/` (`tools/`, `basys3/tools/`,
-`basys3/vivado/`); the build scripts derive from those templates by substituting
-`<game>` / `<src_dir>` / archive URL+SHA / clock / romset tokens, and the top-level
-VHDL body is authored per port.
+`basys3/vivado/`); `new-port.sh` (step 1) substitutes `<game>` / `<src_dir>` / archive URL+SHA
+/ entity-name tokens automatically. What's still authored by hand per port: the top-level VHDL
+itself (a real, tracked file at `contrib/basys3/code/<top-entity>.vhd` — format it with
+`sf-darfpga/tools/vhdl_formatter.py`; see §4), `prep_roms.sh`'s romset-unzip step (single vs.
+multi-romset, or a cross-machine borrow like Tron's `midssio.zip`), and
+`create_project.sh`'s scandoubler import / `make_clk_wiz_0.sh`'s clock frequency.
+
+**Migration status**: all 21 committed sf-darfpga machines use the shared-library convention
+above (`tools/lib/darfpga-{setup,patch,bitstream}.sh` + `tools/mk/machine.mk`). Two needed a
+small, backward-compatible extension to the shared library, each documented in its own thin
+wrapper script: **Computer-Space-by-Dar** (`--de10-dir rtl`, `--extra-exclude`, `--binary` — its
+pristine top lives in `rtl/` not `rtl_dar/`, it has two extra provenance-only patches, and its
+fix patches are CRLF-sensitive; its former inline rom-prep logic also moved into a proper
+`contrib/tools/prep_roms.sh` to fit the shared `darfpga_setup()`'s call shape), and
+**Phoenix-by-Dar** (`--flat-archive`, its zip has no internal top-level folder). `machine.mk`
+also gained `load`/`rebuild-load` targets and a `DISPLAY_NAME` variable during this migration,
+needed by machines whose prior Makefile already had them.
+
+**Pooyan-by-Dar** originally needed a third extension (`--xpr-subdir`, for a Vivado project
+nested one level deeper than every other machine: `basys3/pooyan_basys3/pooyan_basys3.xpr`).
+That nesting was a leftover artifact from however its tracked `.xpr` was first captured (Vivado's
+own `create_project <name> <dir>` command defaults to a nested `<dir>/<name>/<name>.xpr` layout;
+every other machine's `.xpr` was captured flat from the start), not a deliberate design choice —
+it has since been flattened to match the standard `basys3/<top-entity>.xpr` layout, and
+`--xpr-subdir`/`XPR_SUBDIR` were removed from the shared library entirely (no other machine used
+them).
+
+New ports (via `new-port.sh`, step 1) start directly in this shape; verify any future change to
+the shared library or to a machine's own scripts with `make clean && make setup && make patch
+&& make patch` (the second `patch` run is the regression check — it must reproduce the exact
+`.patch` bytes already at `HEAD`) — this is exactly the check that caught the original
+Popeye-by-Dar bug that motivated this convention (a missing patch-exclusion, corrupting the
+generated `.patch` on a second run; see git history).
 
 ## 3. External IO convention (standard Basys3 mapping)
 
@@ -134,7 +171,11 @@ The default external-IO mapping below is used unless a specific source port forc
 ## 4. Porting steps (DE10-lite → Basys3)
 
 The reusable transformations for the top-level wrapper. Each should be confirmed against the
-pristine core, using an existing full port's top level as the worked example.
+pristine core, using an existing full port's top level as the worked example. On a
+shared-library machine (§2 step 8) the result is authored directly as
+`contrib/basys3/code/<top-entity>.vhd`, a real file — not as a bash here-doc inside the patch
+script. The diff this file's `make patch` step produces against the pristine upstream top
+level is a provenance record only; it documents the transformation below, it does not drive it.
 
 1. **Port list** — replace the DE10-lite ports (`max10_clk1_50`, `ledr`, `key`, `sw(9:0)`,
    `hex0-3`, `gpio`) with the Basys 3 set (`clk` 100 MHz, `sw(15:0)`, `btnC`, `ps2_dat/ps2_clk`,

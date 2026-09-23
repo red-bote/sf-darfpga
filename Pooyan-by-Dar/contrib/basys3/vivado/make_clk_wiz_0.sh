@@ -15,7 +15,7 @@ VIVADO=/tools/Xilinx/Vivado/2020.2/bin/vivado
 PART=xc7a35tcpg236-1
 
 # Absolute path to this repo's basys3 port tree.
-XPR_DIR="$(cd "$(dirname "$0")/../../../vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3" && pwd)"
+XPR_DIR="$(cd "$(dirname "$0")/../../../vhdl_pooyan_rev_0_2_2020_04_26/basys3" && pwd)"
 CLK_WIZ_IMPORT_DIR="$XPR_DIR/pooyan_basys3.srcs/sources_1/imports/clk_wiz_0"
 
 # Throwaway project location (logs stay outside the repo).
