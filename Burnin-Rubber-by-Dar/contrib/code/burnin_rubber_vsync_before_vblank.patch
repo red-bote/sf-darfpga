@@ -1,0 +1,12 @@
+diff --git a/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd b/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
+--- a/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
++++ b/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
+@@ -615,7 +615,7 @@
+   end if;
+   
+   if hcnt = hcnt_base then 
+-	 if vcnt = 240 then
++	 if vcnt = 248 then -- fixed 2026-09-23: was 240, asserting video_vs 8 lines before vblank onset (vcnt=248), causing the last 8 active-picture lines to be swallowed by vsync on the VGA/scandoubler path -- see KNOWN_ISSUES.md
+ 	   vsync_cnt := X"0";
+     else
+       if vsync_cnt < X"F" then vsync_cnt := vsync_cnt + '1'; end if;

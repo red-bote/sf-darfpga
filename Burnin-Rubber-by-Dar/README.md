@@ -61,16 +61,26 @@ Buttons (active-low, switch to GND):
 
 ## Known issues
 
-- Bottommost horizontal scanline is not visible (would be on the left with a
-  rotated monitor).
+None currently open. Previously: bottommost horizontal scanlines were not
+visible on the VGA/scandoubler path -- fixed via
+`contrib/code/burnin_rubber_vsync_before_vblank.patch` (`video_vs` was
+asserting 8 lines before `vblank`, so the last 8 active-picture lines were
+lost to vsync on a real VGA monitor), applied alongside
+`contrib/code/burnin_rubber_vcnt_272_lines.patch` (vertical line count,
+261 -> 272 per the original Bump&Jump schematics -- an independently-correct
+but not load-bearing fix, kept for schematic accuracy). Both apply
+automatically via `make setup`; confirmed resolved on hardware 2026-09-23.
+See `KNOWN_ISSUES.md` for the full investigation.
 
 ## Scripted setup
 
 `contrib/tools/setup_burnin_rubber.sh` automates the manual steps below: it
 fetches the Dar archive into the gitignored `dloads/` cache (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_burnin_rubber_rev_0_0_2017_12_22/`, then runs
-`contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
+tampered), extracts it as `vhdl_burnin_rubber_rev_0_0_2017_12_22/`, applies
+`contrib/code/burnin_rubber_vcnt_272_lines.patch` and
+`contrib/code/burnin_rubber_vsync_before_vblank.patch` (see Known issues
+above), then runs `contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
 `make_burnin_rubber_proms.bat`, stage the romset from `$ROMZIP` (default
 `~/roms/brubber.zip`) and generate the PROM VHDL. Run it via `make setup`. The
 MiST `scandoubler.v` (see Features above) is likewise fetched on first build and

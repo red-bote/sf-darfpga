@@ -1,0 +1,12 @@
+diff --git a/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd b/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
+--- a/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
++++ b/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
+@@ -234,7 +234,7 @@
+ 			hcnt <= hcnt + '1';
+ 			if hcnt = 383 then
+ 				hcnt <= (others => '0');
+-				if vcnt = 260 then -- total should be 272 from Bump&Jump schematics !
++				if vcnt = 271 then -- fixed 2026-09-23: total is 272 lines per Bump&Jump schematics (was 260, an 11-line shortfall -- see KNOWN_ISSUES.md)
+ 					vcnt <= (others => '0');
+ 				else
+ 					vcnt <= vcnt + '1';
