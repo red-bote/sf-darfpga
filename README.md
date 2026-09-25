@@ -45,13 +45,15 @@ unlike every other machine in this project; `contrib/code/phoenix_expose_hsync_v
 (a two-file patch) exposes real hsync/vsync from the core for the imported
 MiST scandoubler, replacing an earlier wrapper-only composite-sync
 separator that hardware-tested with no display. A separate patch adding
-external control ports (JA joystick / dedicated buttons) was tried and
-hardware-tested with no input registering at all; a repo-wide search found
-no other core in this project needed a similar patch, so there was no
-validated reference to debug against, and it has been reverted — Phoenix
-is PS/2-keyboard only. See
-`Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` for the full design
-record.
+external control ports (JA joystick / dedicated buttons) has been tried
+twice and hardware-tested both times, reverted both times: no input
+registered at all on the first attempt; on the second (2026-09-25), physical
+pin toggling and the core-side netlist wiring were exhaustively re-verified
+correct end-to-end, yet it still produced no in-game effect -- an unresolved
+contradiction. Keyboard moved to the onboard USB-HID host (C17/B17)
+2026-09-23, a pin-only XDC change, hardware-confirmed. Reset also
+hardware-confirmed. See `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` and
+root `KNOWN_ISSUES.md` for the full design record.
 
 Xevious-by-Dar is fully scripted and documented (assets authored end to end
 from the Galaga/Phoenix reference; same imported `mist/scandoubler.v`
@@ -181,7 +183,7 @@ instead of `prep_roms.sh`.
 | Xevious (Namco 1982) | 18 + 11 MHz | `basys3/xevious_basys3.xpr`, `xevious_basys3` | `xevious_expose_hsync_vsync.patch` | `xevious.zip` |
 | Zaxxon (Gremlin/Sega 1980) | 24 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
 | Computer Space (Nutting Associates 1971) | 6 + 50 MHz | `basys3/computer_space_basys3.xpr`, `computer_space_basys3` | `computer_space_de10_lite_to_basys3.patch`, `computer_space_motion_q_assoc.patch`, `computer_space_rocket_timer_synth_fix.patch` | — (discrete-game core, no romset) |
-| Crazy Kong (Irem M-52 1981) | 12 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
+| Crazy Kong (Kyoei/Falcon 1981) | 12 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
 | Crazy Climber (Nichibutsu 1980) | 12 MHz | `basys3/crazy_climber_basys3.xpr`, `crazy_climber_basys3` | `crazy_climber_de10_lite_to_basys3.patch` | `cclimber.zip` |
 
 Directory naming is not uniform: `Bagman-FPGA-Dar` and `Berzerk-FPGA-by-Dar`
@@ -263,6 +265,21 @@ Kong, and Satans/Hollow generate progressive 31 kHz natively in the core
 Of these, Sky Skipper's and Satans/Hollow's mode is selectable by `sw(13)`
 (0 = 31 kHz VGA default,
 1 = 15 kHz TV) XOR F8; the others are F8-toggled only.
+
+## Backlog
+
+- Catalog, per machine, the resulting core/pixel clock frequencies actually
+  achieved by each `clk_wiz_0` MMCM configuration, the resultant VGA output
+  frequency (31 kHz progressive vs. 15 kHz TV path), and the original arcade
+  hardware's real crystal frequency where it can be determined from
+  schematics/documentation. Done — see `CLOCK_CRYSTAL_CATALOG.md`.
+  Crazy-Kong-by-Dar's hardware-family attribution (previously described
+  repo-wide as "Irem M-52 bootleg of Donkey Kong") was corrected to
+  Crazy-Climber-derived hardware (Kyoei/Falcon), per MAME's `cclimber.cpp`
+  driver and Wikipedia — the crystal figure itself was unaffected. See that
+  file's Crazy-Kong section for a still-open, unresolved discrepancy between
+  MAME's generic raster size and this repo's own core/Dar's README.txt video
+  timing description.
 
 ## Shared tools
 

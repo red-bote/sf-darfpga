@@ -1,6 +1,7 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Crazy Kong (Irem M-52, 1981 bootleg of Donkey Kong;
--- per Dar's README the core plays Crazy Kong Part II / Falcon) by Dar
+-- Basys3 Top level for Crazy Kong (Crazy-Climber-derived hardware,
+-- Kyoei/Falcon, 1981; per MAME's cclimber.cpp driver and Dar's README the
+-- core plays Crazy Kong Part II / Falcon) by Dar
 -- (darfpga@aol.fr) (06/06/2018)
 -- http://darfpga.blogspot.fr
 --

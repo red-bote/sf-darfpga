@@ -26,7 +26,7 @@ extracted source archive for the original Dar release notes.
   design record.
 - **Sound**: mono PWM audio on PmodAMP2; `sw(14)` = AMP shutdown/enable,
   `sw(15)` = AMP gain.
-- **Controls**: JA joystick + PS/2 keyboard (JB), OR-merged. Xevious has an
+- **Controls**: JA joystick + PS/2 keyboard (onboard USB HID host), OR-merged. Xevious has an
   "up" (move flight path up) control but no "down" control; "down" is
   keyboard-only. Dedicated buttons: btnU = coin, btnL = start1, btnR = start2.
 
@@ -54,7 +54,7 @@ the keyboard.
 | btnC | `btnC` | reset (active-high) |
 | btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / start1 / start2 |
 | JA1-4,7 | `JA(0..4)` | right, left, up, fire, bomb (down unused) |
-| JB1 / JB3 | `ps2_dat` / `ps2_clk` | PS/2 keyboard |
+| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown/enable: 0 = off, 1 = on |

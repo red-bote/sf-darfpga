@@ -29,18 +29,18 @@
 --    output path.
 --  - The pristine phoenix entity accepts only a PS/2 keyboard scancode
 --    stream (no coin/start/button ports exist on it at all). A patch
---    (contrib/code/phoenix_expose_control_ports.patch) adding external
---    coin/start/fire/direction ports, OR-merged internally with the PS/2
---    path and driven from the wrapper's JA joystick + dedicated buttons,
---    was tried and hardware-tested: no input registered at all (PS/2
---    keyboard, sound, and video were all confirmed working on the same
---    build). A repo-wide precedent search found Phoenix is the only core
---    in this project with PS/2 decode inside the core and no native
---    discrete-input ports, and that patch was the only one anywhere in the
---    repo adding discrete control-input ports to a pristine core -- no
---    comparable, validated implementation exists to debug against or copy
---    (see contrib/basys3/PORTING_SPEC.md). The patch has been reverted;
---    this port is PS/2-keyboard only.
+--    adding external coin/start/fire/direction ports (JA joystick +
+--    dedicated buttons), OR-merged internally with the PS/2 path, has been
+--    tried twice and hardware-tested both times: no input registered at all
+--    on the first attempt (PS/2 keyboard, sound, and video were confirmed
+--    working on the same build); on the second attempt (2026-09-25),
+--    physical pin toggling and the core-side netlist wiring were both
+--    exhaustively re-verified correct end-to-end (including adding a
+--    debounce/pulse-stretch synchronizer, since raw quick taps were found to
+--    sometimes be missed) -- yet JA/buttons still produced no in-game effect
+--    at all, an unresolved contradiction between verified-correct digital
+--    logic and observed behavior. Rolled back both times; this port is
+--    PS/2-keyboard only. Full investigation record in root KNOWN_ISSUES.md.
 --  - audio_select is 3 bits on the core (100/101/110/111 solo effect1/
 --    effect2/effect3/melody, else mixed); wired to sw(10 downto 8) here
 --    (the pristine DE10-lite top hardcodes it to "000", i.e. always mixed).
@@ -48,6 +48,12 @@
 --    (reproduces the pristine top's 13-bit accumulator verbatim).
 --  - btnC = reset (also resets the MMCM; core held in reset until MMCM
 --    lock). No other buttons or JA joystick are wired (see above).
+--  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
+--    project default since 2026-09 (root PORTING_SPEC.md §3) -- pure XDC
+--    pin choice, no VHDL change; the core's PS/2 decode already ran fine at
+--    its native clock rate on the legacy JB1/JB3 path, and that same rate is
+--    unchanged here (no clock-divider work was needed for this machine).
+--    Hardware-confirmed working 2026-09-23.
 --  - No led port: the pristine top's ledr assignment is a static debug
 --    pattern ("101010101"), not core-driven, so it is omitted entirely --
 --    matches Bagman/Pooyan/Time-Pilot/Berzerk/Burnin-Rubber's convention.

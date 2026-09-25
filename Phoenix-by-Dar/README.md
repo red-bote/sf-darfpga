@@ -28,11 +28,14 @@ archive for the original Dar release notes.
 - **Sound**: mono PWM audio on PmodAMP2; `audio_select` (3-bit, sw(10:8))
   selects effect1/effect2/effect3/melody solo or the default mix.
 - **Controls**: PS/2 keyboard only (native, handled entirely inside the
-  core). A JA joystick / dedicated buttons patch
-  (`contrib/code/phoenix_expose_control_ports.patch`) was tried and
-  hardware-tested: no input registered at all, on the same build where
-  keyboard, sound, and video were all confirmed working. It has been
-  reverted — see "Known issues" and `contrib/basys3/PORTING_SPEC.md`.
+  core). JA joystick / dedicated-button support has been attempted twice
+  (external ports OR-merged into the core's PS/2-derived signals) and
+  hardware-tested both times: no input registered at all on the first
+  attempt; on the second (2026-09-25), physical pin toggling and the
+  core-side netlist wiring were exhaustively re-verified correct end-to-end,
+  yet it still produced no in-game effect — an unresolved contradiction.
+  Rolled back both times; see "Known issues" and root `KNOWN_ISSUES.md` for
+  the full investigation record.
 
 | Input | Keyboard |
 |-------|----------|
@@ -54,7 +57,7 @@ archive for the original Dar release notes.
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown/enable: 0 = off, 1 = on |
 | sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
-| JB1 / JB3 | `ps2_dat` / `ps2_clk` | PS/2 keyboard |
+| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
 
@@ -64,8 +67,8 @@ archive for the original Dar release notes.
 fetches the Dar archive into the gitignored `dloads/` cache (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing
 or tampered), extracts it as `vhdl_phoenix_DE10_lite/` (the archive has no
-internal top-level folder, unlike every other machine's), applies the two
-fix patches (see "Fix patches" below), then runs
+internal top-level folder, unlike every other machine's), applies the fix
+patches (see "Fix patches" below), then runs
 `contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, run the
 reconstructed `make_phoenix_proms.sh` (the upstream archive ships no
 `.bat`/`tools_prom_src`), stage the romset from `$ROMZIP` (default
@@ -113,15 +116,24 @@ grep -c video_hs vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd   # expect 2 (port d
 
 ## Known issues
 
-- No JA joystick / dedicated-button support. A patch adding external
-  control ports to the core (`phoenix_expose_control_ports.patch`) was
-  tried and hardware-tested: no input registered at all, on a build where
-  PS/2 keyboard, sound, and VGA display were all confirmed working. A
-  repo-wide search found no other core in this project needed a similar
-  patch (Phoenix uniquely decodes PS/2 inside the core with no native
-  discrete-input ports), so there was no validated reference to debug
-  against. Reverted — Phoenix is PS/2-keyboard only. See
-  `contrib/basys3/PORTING_SPEC.md` for the full record.
+- JA joystick / dedicated-button support: attempted twice, both times
+  reverted. First attempt (a patch adding external control ports to the
+  core, OR-merged into the PS/2-derived signals) was hardware-tested and
+  found to register no input at all, on a build where PS/2 keyboard, sound,
+  and VGA display were all confirmed working. Second attempt (2026-09-25)
+  rewired from scratch with a debounce/pulse-stretch synchronizer added;
+  physical pin toggling and the core-side netlist wiring were both
+  exhaustively re-verified correct end-to-end (down to confirming the same
+  CPU register bit the working PS/2 path uses), yet it still produced no
+  in-game effect at all — an unresolved contradiction between verified
+  digital logic and observed behavior. Rolled back; this port is
+  PS/2-keyboard only. Full investigation record in root `KNOWN_ISSUES.md`.
+
+Fixed 2026-09-23: keyboard moved from the legacy JB1/JB3 Pmod header onto
+the onboard USB-HID host (C17/B17), matching the project default. Pure XDC
+pin swap, no clock-divider work needed. Hardware-confirmed 2026-09-23.
+
+Fixed 2026-09-23: reset (`btnC`) hardware-confirmed working.
 
 ## Build status
 

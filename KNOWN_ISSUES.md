@@ -51,9 +51,21 @@ Entry format:
   below the >= 6 MHz the onboard USB-HID port needs, so the XDC pin swap alone won't be
   enough; needs an independent keyboard-clock divider first (same pattern as
   `vhdl_congo_bongo/contrib/basys3/PORTING_SPEC.md` §5's fix).
-- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
-- **Status**: open. This is one of the 5 machines already identified needing this class
-  of fix (see the tabled USB-HID keyboard-conversion workstream); not yet applied here.
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault. Clock
+  value independently re-verified 2026-09-24 (exact: `clock_40`=40.000 MHz, `clock_div`
+  toggling `clock_kbd` every 20 cycles = 2.000 MHz) -- claim confirmed.
+
+  A first fix attempt (2026-09-24) added a new, independent `clock_div_kbd` counter
+  (2-bit, mod-3) dedicated to `clock_kbd` only (`clock_40` / 6 = 6.667 MHz), leaving
+  the pre-existing `clock_div`/PWM-gate counter unchanged, plus the standard XDC pin
+  swap. Staged cleanly (fresh `make setup/create_prj/clk_wiz/patch`, no errors;
+  `check_syntax` clean apart from one pre-existing, unrelated warning) but hardware
+  testing found **no video and no sound** -- reverted in full (tracked files restored
+  to HEAD, build tree cleaned) before any further diagnosis. User is rebuilding the
+  pristine, unmodified port as a baseline to verify against first.
+- **Status**: open. Reverted to pristine; not yet re-attempted. Needs re-investigation
+  of the no-video/no-sound symptom before retrying -- do not just reapply the reverted
+  change unchanged.
 
 ### Phoenix-by-Dar: no dedicated buttons/JA joystick; keyboard not on the standard USB-HID convention
 - **Reported**: 2026-09-22
@@ -68,11 +80,40 @@ Entry format:
   part IS a simple pin swap: Phoenix's keyboard clock (`clock_11`, core-internal, no
   wrapper-level divider) is already 11 MHz, above the >= 6 MHz USB-HID needs, so no
   clock-divider fix is required here, unlike Kick-Midway-MCR above.
-- **Tried**: JA/buttons -- see above, hardware-tested and reverted (no input
-  registered). USB-HID pin swap -- not yet attempted on this machine.
-- **Status**: open. USB-HID is a low-risk pin-only change (same pattern as the other
-  machines in the tabled workstream). JA/buttons needs re-investigation of the prior
-  failure before retrying -- do not just reapply the reverted patch unchanged.
+- **Tried**: USB-HID pin swap applied 2026-09-23: `Basys-3-Master.xdc`'s `##Pmod
+  Header JB` (A14/B15) lines commented out, `##USB HID (PS/2)` (C17/B17) lines
+  uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to `ps2_clk`/
+  `ps2_dat` -- pure XDC change, no VHDL edit. Hardware-confirmed 2026-09-23: `btnC`
+  (reset) and the full PS/2 keyboard path (coin/1P start/2P start/left/right/
+  shield/fire) work correctly.
+
+  JA/buttons attempted twice, both reverted. First attempt (recovered from git
+  history, commit `64d170b`/`384b9e2`): hardware-tested with no input registering at
+  all (2026-09-22). Second attempt (2026-09-25, "reapply the full patch as before"):
+  rewritten from scratch (`btnU`=coin, `btnD`=redundant coin, `btnL`=1P start,
+  `btnR`=2P start, JA1=right/JA2=left/JA4=up(shield)/JA7=fire), verified clean at
+  the syntax/staging level, and hardware-tested extensively. Found: raw pin
+  toggling confirmed correct via a temporary LED diagnostic; a forensic netlist
+  trace proved every signal reaches the exact same CPU register bit
+  (`phoenix_inst/cpu8085/u0/DI_Reg[0..2]`) the working PS/2 F1/F2/F3 keys use;
+  quick taps were sometimes missed (no debounce existed on the raw path) and were
+  fixed with an added `debounce_stretch` synchronizer -- yet even after that fix,
+  JA/buttons still produced zero in-game effect, an unresolved contradiction
+  between verified-correct digital logic and observed behavior. A further LED tap
+  on the post-debounce `ext_coin`/`ext_start1`/`ext_start2` signals themselves was
+  built but never read (hardware testing was interrupted by a JTAG/USB
+  disconnection before it could be tried). Per user request (2026-09-25, "unroll
+  the hacks... just leave the usb-hid conversion"), all JA/buttons code (the
+  `debounce_stretch` block, `btnU`/`btnD`/`btnL`/`btnR`/`JA`/`led` ports, the
+  `ext_*` signals/wiring, and the recreated core patch) was fully reverted,
+  keeping only the USB-HID conversion. Verified via fresh `make clean && make
+  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
+  `check_syntax` (clean) that the reverted source matches the USB-HID-only state.
+- **Status**: USB-HID pin swap and keyboard/reset are hardware-confirmed working
+  and done. JA/buttons: code fully reverted 2026-09-25 (not merely paused) after
+  two inconclusive hardware attempts; needs a fresh approach before retrying --
+  the unread `ext_coin`/`ext_start1`/`ext_start2` LED-tap diagnostic (see above) is
+  the most promising unexplored lead if this is picked up again.
 
 ### Tron-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-23
@@ -86,38 +127,56 @@ Entry format:
   `vhdl_congo_bongo/contrib/basys3/PORTING_SPEC.md` §5's fix). Identical situation to
   Kick-Midway-MCR-by-Dar above.
 - **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
-- **Status**: open. One of the 5 machines already identified needing this class of fix
-  (see the tabled USB-HID keyboard-conversion workstream); not yet applied here.
+
+  A fix attempt (2026-09-25, same pattern as Kick-Midway-MCR/Solar-Fox: new
+  independent `clock_div_kbd` counter dedicated to `clock_kbd`, XDC pin swap) staged
+  and verified cleanly (fresh `make setup/create_prj/clk_wiz/patch`, no errors;
+  `check_syntax` clean apart from pre-existing unrelated warnings) but was reverted
+  before hardware testing at the user's request ("not sure about tron, undo it") --
+  same caution as the Kick-Midway-MCR revert. Tracked files restored to HEAD, build
+  tree cleaned.
+- **Status**: open. Reverted to pristine; not yet re-attempted.
 
 ### Time-Pilot-by-Dar: keyboard not on USB-HID; controls don't follow the standard allocation
 - **Reported**: 2026-09-23
 - **Symptom**: two separate gaps.
-  1. **USB-HID**: keyboard is still wired to the legacy JB1/JB3 Pmod header
-     (`Basys-3-Master.xdc`'s `##Pmod Header JB` block active, `##USB HID (PS/2)` C17/B17
-     block commented out). Unlike Kick/Tron above, this one needs XDC pin swap only:
-     the keyboard clock (`clock_6`, a dedicated `clock_12` / 2 toggle, not shared with
-     the PWM audio gate -- audio runs on its own separate `clock_14`) is exactly 6 MHz,
-     already at the >= 6 MHz the onboard USB-HID port needs.
+  1. **USB-HID**: keyboard was wired to the legacy JB1/JB3 Pmod header. Unlike
+     Kick/Tron above, this one needed XDC pin swap only: the keyboard clock
+     (`clock_6`, a dedicated `clock_12` / 2 toggle, not shared with the PWM audio gate
+     -- audio runs on its own separate `clock_14`) was independently re-verified
+     (2026-09-23) at 6.144 MHz (`clock_12` achieves 12.288 MHz, not a clean 12.000 --
+     a documentation-precision correction to this entry's earlier "exactly 6 MHz"; the
+     verdict is unaffected), comfortably above the >= 6 MHz the onboard USB-HID port
+     needs. Fixed 2026-09-23: `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented
+     out, `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
+     `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat` -- pure XDC change, no VHDL edit. Verified
+     via fresh `make clean && make setup && make create_prj && make clk_wiz && make
+     patch`: no errors, copied project XDC confirmed to carry the swap.
+     Hardware-confirmed 2026-09-25.
   2. **Controls**: only `btnC` (reset) is wired; coin and start are reachable only via
      keyboard or joystick fire+direction combos (fire+up = coin, fire+left = start1,
      fire+right = start2) -- no dedicated `btnU`/`btnL`/`btnR`, unlike the standard
      mapping in root `PORTING_SPEC.md` §3 (single coin input, so no `btnD` needed, same
      as Galaga-Midway-by-Dar/Popeye-by-Dar above). The XDC already has the `btnU`/`btnL`/
-     `btnR` pin definitions present, just commented out (template default).
+     `btnR` pin definitions present, just commented out (template default). Still open.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
-- **Status**: open. USB-HID here is a pure XDC pin swap (no clock-divider work needed,
-  unlike Kick/Tron). Controls need the same dedicated-button wiring added to
+- **Status**: USB-HID pin swap done, hardware-confirmed 2026-09-25.
+  Controls still open -- needs the same dedicated-button wiring added to
   `contrib/basys3/code/time_pilot_basys3.vhd` as Galaga/Popeye above.
 
 ### Xevious-by-Dar: keyboard not on USB-HID; down movement not reachable from JA
 - **Reported**: 2026-09-23
 - **Symptom**: two separate gaps.
-  1. **USB-HID**: keyboard is still wired to the legacy JB1/JB3 Pmod header
-     (`Basys-3-Master.xdc`'s `##Pmod Header JB` block active, `##USB HID (PS/2)` C17/B17
-     block commented out). Like Phoenix/Time-Pilot, this is a pure XDC pin swap: the
-     keyboard is already clocked on a dedicated `clock_11` (11 MHz, direct MMCM output,
-     the file's own comment already calls it "synchronous clock with USB HID path") --
-     no clock-divider work needed.
+  1. **USB-HID**: keyboard was wired to the legacy JB1/JB3 Pmod header. Like
+     Phoenix/Time-Pilot, this was a pure XDC pin swap: the keyboard is already clocked
+     on a dedicated `clock_11` (independently re-verified 2026-09-23 at exactly
+     11.000 MHz, direct MMCM output, the file's own comment already calls it
+     "synchronous clock with USB HID path") -- no clock-divider work needed. Fixed
+     2026-09-23: `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented out,
+     `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
+     `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make
+     setup && make create_prj && make clk_wiz && make patch`: no errors, copied
+     project XDC confirmed to carry the swap. Not yet hardware-confirmed.
   2. **Down movement**: the core has a real `down` input (wired at
      `down => joyBCPPFRLDU(1)` in the core's port map), but it's currently reachable
      only from the keyboard (`joyBCPPFRLDU(1) <= kbd_joy(1);` -- no JA source). This
@@ -127,11 +186,13 @@ Entry format:
      down is keyboard-only)" -- that "no down control" claim is itself inaccurate,
      since the core input clearly exists). Requested fix: OR `not JA(2)` into the
      `down` signal alongside the existing bomb wiring, so the JA3/bomb button does
-     double duty as down-movement + second fire, matching what's asked here.
+     double duty as down-movement + second fire, matching what's asked here. Still
+     open.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention/request, not hardware
   faults.
-- **Status**: open. USB-HID is a pure XDC pin swap. Down/fire needs a one-line change
-  in `contrib/basys3/code/xevious_basys3.vhd`: `joyBCPPFRLDU(1) <= kbd_joy(1) or not
+- **Status**: USB-HID pin swap done (staged/verified, not yet hardware-confirmed).
+  Down/fire remap still open -- needs a one-line change in
+  `contrib/basys3/code/xevious_basys3.vhd`: `joyBCPPFRLDU(1) <= kbd_joy(1) or not
   JA(2);` (alongside the existing `joyBCPPFRLDU(8) <= kbd_joy(8) or not JA(2);` bomb
   wiring, unchanged).
 
@@ -151,8 +212,43 @@ Entry format:
   first (same pattern as `vhdl_congo_bongo/contrib/basys3/PORTING_SPEC.md` §5's fix).
   Identical situation to Kick-Midway-MCR-by-Dar/Tron-by-Dar above.
 - **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
-- **Status**: open. One of the 5 machines already identified needing this class of fix
-  (see the tabled USB-HID keyboard-conversion workstream); not yet applied here.
+
+  Fix applied 2026-09-25 (same pattern as Kick-Midway-MCR): added a new, independent
+  `clock_div_kbd` counter (2-bit, mod-3) dedicated to `clock_kbd` only (`clock_40` / 6
+  = 6.667 MHz); the pre-existing `clock_div` counter is unchanged and still solely
+  gates the PWM accumulator. `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented
+  out, `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
+  `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make
+  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
+  `check_syntax` (one pre-existing, unrelated critical warning on the `clk_wiz_0`
+  instantiation's unmapped `reset` port -- confirmed via source inspection to predate
+  this change; no warnings on the new divider logic itself). `make patch` regenerates
+  the provenance patch idempotently.
+
+  Hardware-confirmed 2026-09-25: USB-HID keyboard, `btnU`/`btnL`, and JA all working.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
+
+### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Reported as resembling a pattern seen on some other machines, though none of those are
+  currently documented in this file -- not otherwise corroborated in this repo.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("ignoring it for now") -- not
+  being actively pursued.
+
+### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
+- **Reported**: 2026-09-24
+- **Symptom**: not a defect -- pending investigation. Compare each machine's total
+  synthesis `duration_s` (in `build-metrics.csv`) against the phase logged between
+  "Start Cross Boundary and Area Optimization" and "Finished Cross Boundary and
+  Area Optimization" in `<machine>/../runs/synth_1/runme.log`, plus the DSP Report /
+  DSP48 counts from the same log and `*_utilization_synth.rpt`.
+  Outliers on record: Tron 00:22:09 opt phase (2 DSP48E1, `plusOp`/`snd_1_reg`/
+  `snd_2_reg`), Burnin-Rubber 4 DSP48E1 with DRC `DPIP-1`/`DPOP` pipelining
+  warnings, Defender 00:03:31 opt, Zaxxon 00:02:14 opt.
+- **Tried**: n/a -- pending investigation; timing data lives in `build-metrics.csv`.
+- **Status**: open
 
 ## Fixed
 

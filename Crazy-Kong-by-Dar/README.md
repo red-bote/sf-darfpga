@@ -1,7 +1,8 @@
 # Crazy-Kong-by-Dar (Basys 3 port)
 
-Crazy Kong (Irem M-52, 1981 bootleg of Donkey Kong; per Dar's `README.txt`
-the core plays Crazy Kong Part II / Falcon) by Dar (`darfpga@aol.fr`,
+Crazy Kong (Crazy-Climber-derived hardware, Kyoei/Falcon, 1981; per MAME's
+`cclimber.cpp` driver and Dar's `README.txt`, the core plays Crazy Kong
+Part II / Falcon) by Dar (`darfpga@aol.fr`,
 http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
 `README.txt` in the extracted source archive for the original Dar release
 notes.

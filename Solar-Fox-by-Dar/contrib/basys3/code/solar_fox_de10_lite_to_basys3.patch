@@ -1,7 +1,7 @@
 diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd
 --- a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd
 +++ b/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd
-@@ -1,387 +1,249 @@
+@@ -1,387 +1,276 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Solar Fox (Midway MCR) by Dar (darfpga@aol.fr) (19/10/2019)
 --- http://darfpga.blogspot.fr
@@ -420,6 +420,15 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 +--    keyboard-only, no dedicated Basys3 IO.
 +--  - sw14 = PmodAMP2 shutdown, sw15 = PmodAMP2 gain select. No dip switches
 +--    are exposed by the core.
++--  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
++--    project default since 2026-09 (root PORTING_SPEC.md §3). The original
++--    keyboard clock (clock_kbd, clock_40/10 via clock_div) was ~2 MHz and
++--    shared with the PWM audio gate (clock_div = "0000") -- below the
++--    onboard USB-HID port's >= 6 MHz floor, and retargeting clock_div's
++--    threshold would also change the audio rate. Added a new, independent
++--    clock_div_kbd counter (clock_40/6 = 6.667 MHz) dedicated to clock_kbd
++--    only; clock_div and the PWM gate it drives are unchanged (same fix as
++--    the sibling Kick-Midway-MCR port).
 +--  - btnC = reset.
 +--  - No led port: the pristine top's ledr assignment is dead code (commented
 +--    out, references an undefined signal, never actually driven), matching
@@ -472,6 +481,7 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 + signal reset     : std_logic;
 +
 + signal clock_div : std_logic_vector(3 downto 0);
++ signal clock_div_kbd : std_logic_vector(1 downto 0);
 +
 + signal r         : std_logic_vector(3 downto 0);
 + signal g         : std_logic_vector(3 downto 0);
@@ -581,19 +591,36 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 +vga_hs <= csync when tv15Khz_mode = '1' else hsync;
 +vga_vs <= '1'   when tv15Khz_mode = '1' else vsync;
 +
-+-- get scancode from keyboard
++-- clock_div: unchanged, still gates the PWM accumulator below (clock_div = "0000").
 +process (reset, clock_40)
 +begin
 +	if reset='1' then
 +		clock_div <= (others => '0');
-+		clock_kbd  <= '0';
 +	else
 +		if rising_edge(clock_40) then
 +			if clock_div = "1001" then
 +				clock_div <= (others => '0');
-+				clock_kbd  <= not clock_kbd;
 +			else
 +				clock_div <= clock_div + '1';
++			end if;
++		end if;
++	end if;
++end process;
++
++-- Independent keyboard clock divider (clock_40 / 6 = 6.667 MHz), dedicated
++-- to clock_kbd only -- see header comment above.
++process (reset, clock_40)
++begin
++	if reset='1' then
++		clock_div_kbd <= (others => '0');
++		clock_kbd     <= '0';
++	else
++		if rising_edge(clock_40) then
++			if clock_div_kbd = "10" then
++				clock_div_kbd <= (others => '0');
++				clock_kbd     <= not clock_kbd;
++			else
++				clock_div_kbd <= clock_div_kbd + '1';
 +			end if;
 +		end if;
 +	end if;

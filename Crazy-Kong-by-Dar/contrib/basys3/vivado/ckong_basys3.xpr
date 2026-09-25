@@ -3,8 +3,9 @@
 <!--                                                         -->
 <!-- Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.   -->
 
-<!-- Basys3 port of Dar's Crazy Kong (Irem M-52, 1981 bootleg of Donkey
-     Kong; per Dar's README the core plays Crazy Kong Part II / Falcon).
+<!-- Basys3 port of Dar's Crazy Kong (Crazy-Climber-derived hardware,
+     Kyoei/Falcon, 1981; per MAME's cclimber.cpp driver and Dar's README the
+     core plays Crazy Kong Part II / Falcon).
      Top entity: ckong_basys3. Non-nested project layout: this .xpr lives in
      basys3/ with the sources tree at basys3/ckong_basys3.srcs/.
      Video path: native progressive 31 kHz, the core instantiates its own

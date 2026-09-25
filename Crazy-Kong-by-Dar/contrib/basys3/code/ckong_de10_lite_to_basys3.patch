@@ -1,7 +1,7 @@
 diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd
 --- a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd
 +++ b/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd
-@@ -1,337 +1,219 @@
+@@ -1,337 +1,220 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level crazy_kong by Dar (darfpga@aol.fr) (09/05/2018)
 --- http://darfpga.blogspot.fr
@@ -340,8 +340,9 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Crazy Kong (Irem M-52, 1981 bootleg of Donkey Kong;
-+-- per Dar's README the core plays Crazy Kong Part II / Falcon) by Dar
++-- Basys3 Top level for Crazy Kong (Crazy-Climber-derived hardware,
++-- Kyoei/Falcon, 1981; per MAME's cclimber.cpp driver and Dar's README the
++-- core plays Crazy Kong Part II / Falcon) by Dar
 +-- (darfpga@aol.fr) (06/06/2018)
 +-- http://darfpga.blogspot.fr
 +--
