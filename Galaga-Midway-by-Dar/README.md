@@ -56,6 +56,10 @@ JA joystick (active-low, switch to GND):
   with credits available.
 - Keyboard can randomly stick to the right (and maybe left) — original core
   issue.
+- Several columns of video appear clipped on the user's Enoyo LCD monitor
+  (reported 2026-09-25). Same pattern reported on Solar-Fox-by-Dar,
+  Kick-Midway-MCR-by-Dar, and Tron-by-Dar. Not yet investigated; deferred at
+  the user's request. See root `KNOWN_ISSUES.md`.
 
 ## ROM set required
 

@@ -19,7 +19,15 @@ notes.
 - **Sound**: stereo L/R PWM audio path in the core; PmodAMP2 `AIN` is driven
   from the left channel. **F5** toggles separate (stereo) audio mode, **F7**
   toggles service mode.
-- **Controls**: PS/2 keyboard + JA joystick (OR-merged), btnC = reset.
+- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged),
+  btnC = reset. Hardware-confirmed 2026-09-25: USB-HID keyboard, btn, and JA
+  inputs all working (F8 needed to switch to VGA mode).
+  The keyboard runs on its own independent `clock_div_kbd` divider
+  (`clock_40` / 6 = 6.667 MHz), added 2026-09-25 to move onto the onboard
+  USB-HID convention -- the pre-existing `clock_div` counter (still used,
+  unchanged, to gate the PWM accumulator) was too slow (~2 MHz) for the
+  onboard host, and retargeting it directly would also have changed the
+  audio rate.
 
 | Input | Keyboard |
 |-------|----------|
@@ -48,7 +56,7 @@ JA joystick (active-low, switch to GND):
 | btnR | `btnR` | P2 start, OR-merged with keyboard F3 |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| JB1 / JB3 | `ps2_dat` / `ps2_clk` | PS/2 keyboard |
+| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (left channel; JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz |
@@ -81,3 +89,10 @@ references these generated files in place, so the build needs only the staged
 ROMs + the script.
 
 machine ROMs are copyrighted — never commit or redistribute them.
+
+## Known issues
+
+- Several columns of video appear clipped on the user's Enoyo LCD monitor
+  (reported 2026-09-25). Same pattern reported on Solar-Fox-by-Dar,
+  Galaga-Midway-by-Dar, and Tron-by-Dar. Not yet investigated; deferred at
+  the user's request. See root `KNOWN_ISSUES.md`.

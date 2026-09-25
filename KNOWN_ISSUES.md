@@ -61,11 +61,20 @@ Entry format:
   swap. Staged cleanly (fresh `make setup/create_prj/clk_wiz/patch`, no errors;
   `check_syntax` clean apart from one pre-existing, unrelated warning) but hardware
   testing found **no video and no sound** -- reverted in full (tracked files restored
-  to HEAD, build tree cleaned) before any further diagnosis. User is rebuilding the
-  pristine, unmodified port as a baseline to verify against first.
-- **Status**: open. Reverted to pristine; not yet re-attempted. Needs re-investigation
-  of the no-video/no-sound symptom before retrying -- do not just reapply the reverted
-  change unchanged.
+  to HEAD, build tree cleaned) before any further diagnosis.
+
+  Pristine baseline hardware-confirmed 2026-09-25: PS/2 keyboard, btn, and JA inputs
+  all working (F8 needed to switch to VGA mode -- expected, documented display-mode
+  toggle, not a defect). Root cause of the first attempt's no-video/no-sound symptom
+  was never found. Second fix attempt applied 2026-09-25 (identical design to the
+  first, and to the now-proven Solar-Fox/Tron pattern): new independent
+  `clock_div_kbd` counter + XDC pin swap. Staged cleanly again (fresh
+  `make setup/create_prj/clk_wiz/patch`, no errors; `check_syntax` clean apart from
+  the same one pre-existing, unrelated `clk_wiz_0` warning).
+
+  Hardware-confirmed 2026-09-25: USB-HID keyboard and other controls (btn, JA) all
+  working as expected, on the same second-attempt build.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
 
 ### Phoenix-by-Dar: no dedicated buttons/JA joystick; keyboard not on the standard USB-HID convention
 - **Reported**: 2026-09-22
@@ -135,7 +144,16 @@ Entry format:
   before hardware testing at the user's request ("not sure about tron, undo it") --
   same caution as the Kick-Midway-MCR revert. Tracked files restored to HEAD, build
   tree cleaned.
-- **Status**: open. Reverted to pristine; not yet re-attempted.
+
+  Re-attempted 2026-09-25 (identical design, same proven Kick/Solar-Fox pattern):
+  new independent `clock_div_kbd` counter + XDC pin swap. Staged and verified cleanly
+  again (fresh `make setup/create_prj/clk_wiz/patch`, no errors; `check_syntax` clean
+  apart from the same two pre-existing, unrelated warnings -- the `clk_wiz_0`
+  unmapped-`reset` pattern seen on the sibling machines, and one inside the untouched
+  pristine core's palette-RAM port map).
+
+  Hardware-confirmed 2026-09-25: USB-HID keyboard working.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
 
 ### Time-Pilot-by-Dar: keyboard not on USB-HID; controls don't follow the standard allocation
 - **Reported**: 2026-09-23
@@ -231,11 +249,39 @@ Entry format:
 ### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
 - **Reported**: 2026-09-25
 - **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
-  Reported as resembling a pattern seen on some other machines, though none of those are
-  currently documented in this file -- not otherwise corroborated in this repo.
+  Also observed on Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar, and Tron-by-Dar (see
+  their own entries below) -- a cross-machine pattern, not specific to this port.
 - **Tried**: n/a -- not yet investigated.
 - **Status**: open, deferred at the user's explicit request ("ignoring it for now") -- not
   being actively pursued.
+
+### Galaga-Midway-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Kick-Midway-MCR-by-Dar, and Tron-by-Dar
+  (see above/below) -- a cross-machine pattern, not specific to this port.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("we'll just note it for
+  now") -- not being actively pursued.
+
+### Kick-Midway-MCR-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, and Tron-by-Dar (see
+  above/below) -- a cross-machine pattern, not specific to this port.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("we'll just note it for
+  now") -- not being actively pursued.
+
+### Tron-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, and
+  Kick-Midway-MCR-by-Dar (see above) -- a cross-machine pattern, not specific to this
+  port.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("we'll just note it for
+  now") -- not being actively pursued.
 
 ### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
 - **Reported**: 2026-09-24
