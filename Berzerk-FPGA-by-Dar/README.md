@@ -16,8 +16,9 @@ archive for the original Dar release notes.
   into the core via `rtl_dar/line_doubler.vhd`), 1 = 15 kHz TV (native rate, composite sync on
   HS, VS held high; requires a 15 kHz RGB monitor or RGB-to-composite converter).
 - **Sound**: mono PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard + JA joystick (movement + fire, OR-merged), dedicated buttons for
-  coin/start, btnC = reset.
+- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (movement + fire,
+  OR-merged), dedicated buttons for coin/start, btnC = reset. Hardware-confirmed
+  2026-09-25: USB-HID keyboard working.
 
 | Input | Keyboard | Button |
 |-------|----------|--------|
@@ -45,7 +46,7 @@ JA joystick (active-low, switch to GND):
 | sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| JB1 / JB3 | `ps2_dat` / `ps2_clk` | PS/2 keyboard |
+| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low, movement + fire) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB, 31 kHz / 15 kHz |
@@ -121,4 +122,13 @@ Verify it took:
 ```
 grep -n "cpu_iorq_n, cpu_addr, reset" vhdl_berzerk_rev_0_1_2018_08_08/rtl_dar/berzerk.vhd
 ```
+
+## Known issues
+
+- Several columns of video appear clipped on the user's Enoyo LCD monitor
+  (reported 2026-09-25, on the hardware-confirmed USB-HID build). Same
+  pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
+  Bagman-FPGA-Dar. Not yet investigated; deferred at the user's request.
+  See root `KNOWN_ISSUES.md`.
 

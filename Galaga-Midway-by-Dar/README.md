@@ -17,7 +17,8 @@ notes.
   (`imports/mist/scandoubler.v`), sourced from
   <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>.
 - **Sound**: mono PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard + JA joystick (OR-merged), btnC = reset.
+- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged), btnC =
+  reset. Hardware-confirmed 2026-09-25: USB-HID keyboard working.
 
 | Input | Keyboard | Scancode |
 |-------|----------|----------|
@@ -42,7 +43,7 @@ JA joystick (active-low, switch to GND):
 | btnU/btnL/btnR/btnD | `btnU/L/R/D` | declared, unused (reserved) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| JB1 / JB3 | `ps2_dat` / `ps2_clk` | PS/2 keyboard |
+| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz |

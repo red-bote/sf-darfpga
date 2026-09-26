@@ -143,7 +143,11 @@ grep -n 'pix_clk_div' vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
 
 ## Known issues
 
-None currently open.
+- Several columns of video appear clipped on the user's Enoyo LCD monitor
+  (reported 2026-09-25, on the pre-conversion legacy JB1/JB3 PS/2 keyboard
+  build). Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, and Popeye-by-Dar. Not yet
+  investigated; deferred at the user's request. See root `KNOWN_ISSUES.md`.
 
 ## Build status
 

@@ -23,8 +23,9 @@ notes.
   stashed in `dloads/`; the stashed copy is reused for subsequent builds.
 - **Scan doubler wiring**: see `contrib/basys3/PORTING_SPEC.md`.
 - **Sound**: mono PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard + JA joystick (OR-merged); buttons btnU/btnD =
-  coin-in, btnL/btnR = start 1/2, btnC = reset.
+- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged); buttons
+  btnU/btnD = coin-in, btnL/btnR = start 1/2, btnC = reset. Hardware-confirmed
+  2026-09-25: USB-HID keyboard and controls working.
 
 | Input | Keyboard |
 |-------|----------|
@@ -54,23 +55,25 @@ Buttons (active-low, switch to GND):
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
 | sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
-| JB1 / JB3 | `ps2_dat` / `ps2_clk` | PS/2 keyboard |
+| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
 
 ## Known issues
 
-None currently open. Previously: bottommost horizontal scanlines were not
-visible on the VGA/scandoubler path -- fixed via
-`contrib/code/burnin_rubber_vsync_before_vblank.patch` (`video_vs` was
-asserting 8 lines before `vblank`, so the last 8 active-picture lines were
-lost to vsync on a real VGA monitor), applied alongside
-`contrib/code/burnin_rubber_vcnt_272_lines.patch` (vertical line count,
-261 -> 272 per the original Bump&Jump schematics -- an independently-correct
-but not load-bearing fix, kept for schematic accuracy). Both apply
-automatically via `make setup`; confirmed resolved on hardware 2026-09-23.
-See `KNOWN_ISSUES.md` for the full investigation.
+- **Missing bottom horizontal rows (regression, reopened 2026-09-25)**: previously
+  fixed 2026-09-23 via `contrib/code/burnin_rubber_vsync_before_vblank.patch`
+  (`video_vs` was asserting 8 lines before `vblank`, so the last 8 active-picture
+  lines were lost to vsync on a real VGA monitor), applied alongside
+  `contrib/code/burnin_rubber_vcnt_272_lines.patch` (vertical line count,
+  261 -> 272 per the original Bump&Jump schematics -- an independently-correct
+  but not load-bearing fix, kept for schematic accuracy). Both patches still apply
+  automatically via `make setup` and remain in place, but the symptom has recurred
+  on the 2026-09-25 USB-HID-converted hardware build. Not yet re-investigated; the
+  USB-HID change itself was XDC-only (no video/clocking code touched), so the
+  recurrence is currently unexplained. See root `KNOWN_ISSUES.md` for the full
+  investigation history.
 
 ## Scripted setup
 

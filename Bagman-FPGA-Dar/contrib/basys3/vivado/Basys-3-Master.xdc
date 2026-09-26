@@ -82,8 +82,8 @@ set_property -dict { PACKAGE_PIN H1   IOSTANDARD LVCMOS33  PULLUP true } [get_po
 #set_property -dict { PACKAGE_PIN G3   IOSTANDARD LVCMOS33 } [get_ports {JA[7]}];#Sch name = JA10
 
 ##Pmod Header JB
-set_property -dict { PACKAGE_PIN A14   IOSTANDARD LVCMOS33  PULLUP true } [get_ports ps2_dat];#Sch name = JB1
-set_property -dict { PACKAGE_PIN B15   IOSTANDARD LVCMOS33  PULLUP true } [get_ports ps2_clk];#Sch name = JB3
+#set_property -dict { PACKAGE_PIN A14   IOSTANDARD LVCMOS33  PULLUP true } [get_ports ps2_dat];#Sch name = JB1
+#set_property -dict { PACKAGE_PIN B15   IOSTANDARD LVCMOS33  PULLUP true } [get_ports ps2_clk];#Sch name = JB3
 #set_property -dict { PACKAGE_PIN A14   IOSTANDARD LVCMOS33 } [get_ports {JB[0]}];#Sch name = JB1
 #set_property -dict { PACKAGE_PIN A16   IOSTANDARD LVCMOS33 } [get_ports {JB[1]}];#Sch name = JB2
 #set_property -dict { PACKAGE_PIN B15   IOSTANDARD LVCMOS33 } [get_ports {JB[2]}];#Sch name = JB3
@@ -140,8 +140,8 @@ set_property -dict { PACKAGE_PIN R19   IOSTANDARD LVCMOS33 } [get_ports vga_vs]
 
 
 ##USB HID (PS/2)
-#set_property -dict { PACKAGE_PIN C17   IOSTANDARD LVCMOS33   PULLUP true } [get_ports PS2Clk]
-#set_property -dict { PACKAGE_PIN B17   IOSTANDARD LVCMOS33   PULLUP true } [get_ports PS2Data]
+set_property -dict { PACKAGE_PIN C17   IOSTANDARD LVCMOS33   PULLUP true } [get_ports ps2_clk]
+set_property -dict { PACKAGE_PIN B17   IOSTANDARD LVCMOS33   PULLUP true } [get_ports ps2_dat]
 
 
 ##Quad SPI Flash

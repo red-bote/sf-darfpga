@@ -26,7 +26,8 @@ extracted source archive for the original Dar release notes.
   design record.
 - **Sound**: mono PWM audio on PmodAMP2; `sw(14)` = AMP shutdown/enable,
   `sw(15)` = AMP gain.
-- **Controls**: JA joystick + PS/2 keyboard (onboard USB HID host), OR-merged. Xevious has an
+- **Controls**: JA joystick + PS/2 keyboard (onboard USB HID host), OR-merged.
+  Hardware-confirmed 2026-09-25: USB-HID keyboard working. Xevious has an
   "up" (move flight path up) control but no "down" control; "down" is
   keyboard-only. Dedicated buttons: btnU = coin, btnL = start1, btnR = start2.
 

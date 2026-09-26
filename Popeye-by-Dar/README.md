@@ -121,3 +121,11 @@ Verify it took:
 grep -n "busctrl_re, addr, reg, ioa_inreg" vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
 ```
 
+## Known issues
+
+- Several columns of video appear clipped on the user's Enoyo LCD monitor
+  (reported 2026-09-25, on the pre-conversion legacy JB1/JB3 PS/2 keyboard
+  build). Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, and Zaxxon-by-Dar. Not yet
+  investigated; deferred at the user's request. See root `KNOWN_ISSUES.md`.
+

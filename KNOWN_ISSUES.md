@@ -20,25 +20,52 @@ Entry format:
 
 ## Open
 
-### Galaga-Midway-by-Dar: controls don't follow the standard button/joystick allocation
+### Galaga-Midway-by-Dar: controls don't follow the standard allocation; keyboard not on USB-HID
 - **Reported**: 2026-09-22
-- **Symptom**: only `btnC` (reset) and JA (right/left/fire) are wired; coin and start
-  are reachable only via joystick fire+direction combos (fire+left = start1, fire+right
-  = start2, fire+up = coin) -- no dedicated `btnU`/`btnD`/`btnL`/`btnR` for coin-in/1P
-  start/2P start, unlike the standard mapping in root `PORTING_SPEC.md` §3.
-- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
-- **Status**: open, needs updated control wiring in `contrib/basys3/code/galaga_basys3.vhd`
-  to add the standard dedicated buttons.
+- **Symptom**: two separate gaps.
+  1. **Controls**: only `btnC` (reset) and JA (right/left/fire) are wired; coin and start
+     are reachable only via joystick fire+direction combos (fire+left = start1, fire+right
+     = start2, fire+up = coin) -- no dedicated `btnU`/`btnD`/`btnL`/`btnR` for coin-in/1P
+     start/2P start, unlike the standard mapping in root `PORTING_SPEC.md` §3.
+  2. **USB-HID**: keyboard is still wired to the legacy JB1/JB3 Pmod header (confirmed
+     2026-09-25 via direct XDC inspection, part of a repo-wide audit that found 9 machines
+     still on legacy JB, not just the 6 already tracked/fixed above). Keyboard clock
+     (`clock_9`) is a dedicated divider (`clock_36`/2/2, requested-nominal 36 MHz source,
+     no achieved-frequency data on disk) not shared with PWM (which uses `clock_18`
+     instead) -- pure XDC pin swap, no VHDL change needed. Fixed 2026-09-25:
+     `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented out, `##USB HID (PS/2)`
+     lines uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to
+     `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make setup && make create_prj
+     && make clk_wiz && make patch` (no errors) and Vivado `check_syntax` (no
+     errors/critical warnings). `make patch` re-run confirms idempotent provenance-patch
+     regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard working (video
+     columns clipping also observed on this build -- see the cross-machine clipping
+     entry below).
+- **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
+- **Status**: open. Controls need updated wiring in
+  `contrib/basys3/code/galaga_basys3.vhd` to add the standard dedicated buttons.
+  USB-HID pin swap fixed and hardware-confirmed 2026-09-25.
 
-### Popeye-by-Dar: controls don't follow the standard button/joystick allocation
+### Popeye-by-Dar: controls don't follow the standard allocation; keyboard not on USB-HID
 - **Reported**: 2026-09-22
-- **Symptom**: only `btnC` (reset) is wired; coin and start are reachable only via
-  keyboard function keys (F1/F2/F3) or joystick fire+direction combos (fire+up = coin,
-  fire+left = start1) -- no dedicated `btnU`/`btnD`/`btnL`/`btnR` for coin-in/1P
-  start/2P start, unlike the standard mapping in root `PORTING_SPEC.md` §3.
-- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
-- **Status**: open, needs updated control wiring in `contrib/basys3/code/popeye_basys3.vhd`
-  to add the standard dedicated buttons.
+- **Symptom**: two separate gaps.
+  1. **Controls**: only `btnC` (reset) is wired; coin and start are reachable only via
+     keyboard function keys (F1/F2/F3) or joystick fire+direction combos (fire+up = coin,
+     fire+left = start1) -- no dedicated `btnU`/`btnD`/`btnL`/`btnR` for coin-in/1P
+     start/2P start, unlike the standard mapping in root `PORTING_SPEC.md` §3.
+  2. **USB-HID**: keyboard is still wired to the legacy JB1/JB3 Pmod header (confirmed
+     2026-09-25, same repo-wide audit as Galaga above). Keyboard clock (`clock_kbd`,
+     `clock_40`/20 via `clock_div`) is ~2.016 MHz (requested-nominal 40.32 MHz source),
+     shared with the PWM audio gate (`clock_div = "0000"`) -- below the >= 6 MHz the
+     onboard USB-HID port needs, so the XDC pin swap alone won't be enough; needs an
+     independent keyboard-clock divider first (same pattern as Kick-Midway-MCR/Tron/
+     Solar-Fox above): new mod-3 counter off `clock_40` alone -> 6.72 MHz, leaving
+     `clock_div`/PWM untouched. Hardware-confirmed 2026-09-25: legacy JB1/JB3 PS/2
+     keyboard working (baseline, pre-USB-HID-conversion).
+- **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
+- **Status**: open. Controls need updated wiring in
+  `contrib/basys3/code/popeye_basys3.vhd` to add the standard dedicated buttons.
+  USB-HID needs a new independent divider first, not yet applied.
 
 ### Kick-Midway-MCR-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-22
@@ -194,7 +221,8 @@ Entry format:
      `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
      `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make
      setup && make create_prj && make clk_wiz && make patch`: no errors, copied
-     project XDC confirmed to carry the swap. Not yet hardware-confirmed.
+     project XDC confirmed to carry the swap. Hardware-confirmed 2026-09-25: USB-HID
+     keyboard working.
   2. **Down movement**: the core has a real `down` input (wired at
      `down => joyBCPPFRLDU(1)` in the core's port map), but it's currently reachable
      only from the keyboard (`joyBCPPFRLDU(1) <= kbd_joy(1);` -- no JA source). This
@@ -208,7 +236,7 @@ Entry format:
      open.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention/request, not hardware
   faults.
-- **Status**: USB-HID pin swap done (staged/verified, not yet hardware-confirmed).
+- **Status**: USB-HID pin swap done, hardware-confirmed 2026-09-25.
   Down/fire remap still open -- needs a one-line change in
   `contrib/basys3/code/xevious_basys3.vhd`: `joyBCPPFRLDU(1) <= kbd_joy(1) or not
   JA(2);` (alongside the existing `joyBCPPFRLDU(8) <= kbd_joy(8) or not JA(2);` bomb
@@ -246,60 +274,74 @@ Entry format:
   Hardware-confirmed 2026-09-25: USB-HID keyboard, `btnU`/`btnL`, and JA all working.
 - **Status**: fixed and hardware-confirmed 2026-09-25.
 
-### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
+### Bagman-FPGA-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
-  Also observed on Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar, and Tron-by-Dar (see
-  their own entries below) -- a cross-machine pattern, not specific to this port.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("ignoring it for now") -- not
-  being actively pursued.
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header. Found via a
+  repo-wide XDC audit (2026-09-25) that turned up 9 machines never previously tracked in
+  this file's USB-HID workstream. Keyboard clock (`clock_12`) is the core's own
+  undivided master clock (requested-nominal 12 MHz, direct `clk_wiz_0` output, no
+  fabric division) -- already >= 6 MHz; also used for the core and the PWM accumulator,
+  but as the master clock, not a dedicated/retunable divider, so sharing is not a
+  concern here. Fixed 2026-09-25: `Basys-3-Master.xdc`'s `##Pmod Header JB` lines
+  commented out, `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
+  `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make
+  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
+  `check_syntax` (6 pre-existing critical warnings, `[HDL 9-3240]`, confirmed via source
+  inspection to be inside untouched pristine core files `rtl_dar/bagman_speech.vhd` and
+  `rtl_dar/bagman.vhd`, unrelated to this XDC-only change; no new warnings). `make
+  patch` re-run confirms idempotent provenance-patch regeneration. Hardware-confirmed
+  2026-09-25: USB-HID keyboard working.
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
 
-### Galaga-Midway-by-Dar: video columns clipping on Enoyo LCD
+### Berzerk-FPGA-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Kick-Midway-MCR-by-Dar, and Tron-by-Dar
-  (see above/below) -- a cross-machine pattern, not specific to this port.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("we'll just note it for
-  now") -- not being actively pursued.
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
+  repo-wide audit as Bagman above). Keyboard clock (`clock_10`) is the core's own
+  undivided master clock (requested-nominal 10 MHz) -- already >= 6 MHz; also used for
+  the PWM accumulator as the master clock, same non-concern as Bagman. Fixed 2026-09-25:
+  `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented out, `##USB HID (PS/2)`
+  lines uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to
+  `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make setup && make create_prj
+  && make clk_wiz && make patch` (no errors) and Vivado `check_syntax` (no
+  errors/critical warnings). `make patch` re-run confirms idempotent provenance-patch
+  regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard working.
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
 
-### Kick-Midway-MCR-by-Dar: video columns clipping on Enoyo LCD
+### Burger-Time-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, and Tron-by-Dar (see
-  above/below) -- a cross-machine pattern, not specific to this port.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("we'll just note it for
-  now") -- not being actively pursued.
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
+  repo-wide audit as Bagman above). Keyboard clock (`clock_12`) is the core's own
+  undivided master clock (requested-nominal 12 MHz) -- already >= 6 MHz; also used for
+  the core `clk_sys` and PWM accumulator as the master clock, same non-concern as
+  Bagman. Fixed 2026-09-25: `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented
+  out, `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
+  `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make
+  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
+  `check_syntax` (no errors/critical warnings). `make patch` re-run confirms idempotent
+  provenance-patch regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard
+  working, display OK (no video defects observed).
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
 
-### Tron-by-Dar: video columns clipping on Enoyo LCD
+### Burnin-Rubber-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, and
-  Kick-Midway-MCR-by-Dar (see above) -- a cross-machine pattern, not specific to this
-  port.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("we'll just note it for
-  now") -- not being actively pursued.
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
+  repo-wide audit as Bagman above). Keyboard clock (`clock_12`) is the core's own
+  undivided master clock (requested-nominal 12 MHz) -- already >= 6 MHz; same
+  master-clock/PWM structure as Burger-Time, same non-concern. Fixed 2026-09-25:
+  `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented out, `##USB HID (PS/2)`
+  lines uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to
+  `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make setup && make create_prj
+  && make clk_wiz && make patch` (no errors) and Vivado `check_syntax` (no
+  errors/critical warnings). `make patch` re-run confirms idempotent provenance-patch
+  regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard and controls working.
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
 
-### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
-- **Reported**: 2026-09-24
-- **Symptom**: not a defect -- pending investigation. Compare each machine's total
-  synthesis `duration_s` (in `build-metrics.csv`) against the phase logged between
-  "Start Cross Boundary and Area Optimization" and "Finished Cross Boundary and
-  Area Optimization" in `<machine>/../runs/synth_1/runme.log`, plus the DSP Report /
-  DSP48 counts from the same log and `*_utilization_synth.rpt`.
-  Outliers on record: Tron 00:22:09 opt phase (2 DSP48E1, `plusOp`/`snd_1_reg`/
-  `snd_2_reg`), Burnin-Rubber 4 DSP48E1 with DRC `DPIP-1`/`DPOP` pipelining
-  warnings, Defender 00:03:31 opt, Zaxxon 00:02:14 opt.
-- **Tried**: n/a -- pending investigation; timing data lives in `build-metrics.csv`.
-- **Status**: open
-
-## Fixed
-
-### Burnin-Rubber-by-Dar: missing bottom horizontal rows
-- **Reported**: 2026-09-22
+### Burnin-Rubber-by-Dar: missing bottom horizontal rows (regression)
+- **Reported**: 2026-09-22; regression reported 2026-09-25
 - **Symptom**: video output is missing several horizontal rows at the bottom of the
   picture. Already noted in this port's own `README.md` "Known issues" ("Bottommost
   horizontal scanline is not visible") pre-dating this entry.
@@ -367,9 +409,199 @@ Entry format:
   lines) but is kept: it independently corrects a real schematic-documented discrepancy
   (frame refresh rate ~59.8 Hz -> ~57.44 Hz, matching Bump&Jump schematics) and is
   verified compatible with the vsync fix.
-- **Status**: fixed. Root cause: `video_vs` asserted 8 lines before `vblank`, causing a
-  VGA/scandoubler-connected monitor to discard the last 8 active-picture lines during its
-  own vertical retrace. Fixed via `contrib/code/burnin_rubber_vsync_before_vblank.patch`
-  (`vsync_cnt` reset moved from `vcnt = 240` to `vcnt = 248`), applied alongside
-  `contrib/code/burnin_rubber_vcnt_272_lines.patch` (an independently-correct but
-  not-load-bearing schematic-accuracy fix, kept for correctness).
+
+  **Regression reported 2026-09-25**: on the fresh USB-HID-converted build (XDC-only
+  change, both video patches still applied and unmodified), video clipping was observed
+  again on hardware. Not yet re-investigated -- both fix patches are confirmed still in
+  place (no code regression from the USB-HID change itself, which touched only
+  `Basys-3-Master.xdc`), so the recurrence is unexplained. Needs fresh hardware
+  investigation.
+- **Status**: reopened 2026-09-25 (regression). Previously fixed 2026-09-23 (root cause:
+  `video_vs` asserted 8 lines before `vblank`, causing a VGA/scandoubler-connected
+  monitor to discard the last 8 active-picture lines during its own vertical retrace;
+  fixed via `contrib/code/burnin_rubber_vsync_before_vblank.patch` and
+  `contrib/code/burnin_rubber_vcnt_272_lines.patch`) -- symptom has recurred on the
+  2026-09-25 USB-HID-converted build with both patches still in place. Root cause of
+  the recurrence not yet determined.
+
+### Defender-by-Dar: keyboard not on the standard onboard USB-HID convention
+- **Reported**: 2026-09-25
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
+  repo-wide audit as Bagman above). Keyboard clock (`clock_12`) is the core's own
+  undivided master clock (requested-nominal 12 MHz) -- already >= 6 MHz. PWM audio
+  uses a separate `clock_3p58` chain (not the kbd clock), so no sharing concern at all
+  here. Fixed 2026-09-25: `Basys-3-Master.xdc`'s `##Pmod Header JB` lines commented
+  out, `##USB HID (PS/2)` lines uncommented and retargeted from placeholder
+  `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make
+  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
+  `check_syntax` (no errors/critical warnings). `make patch` re-run confirms idempotent
+  provenance-patch regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard and
+  controls working.
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
+
+### Pooyan-by-Dar: keyboard not on the standard onboard USB-HID convention
+- **Reported**: 2026-09-25
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
+  repo-wide audit as Bagman above; this machine's XDC is at the non-standard path
+  `contrib/basys3/vivado/pooyan_basys3.xdc`, not the usual `Basys-3-Master.xdc`).
+  Keyboard clock (`clock_6`) is a dedicated toggle-FF divider off `clock_12`
+  (requested-nominal 12.288 MHz source) -- net 6.144 MHz, already >= 6 MHz and matching
+  this repo's own confirmed-working USB-HID reference rate (root `PORTING_SPEC.md` §3).
+  Shared with the scandoubler's `clkvideo`, not PWM -- no sharing concern since no
+  change is needed at this rate. Fixed 2026-09-25: `contrib/basys3/vivado/
+  pooyan_basys3.xdc`'s `##Pmod Header JB` lines commented out, `##USB HID (PS/2)` lines
+  uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to
+  `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make setup && make create_prj
+  && make clk_wiz && make patch` (no errors) and Vivado `check_syntax` (one
+  pre-existing, unrelated critical warning on the `clk_wiz_0` instantiation's unmapped
+  `reset` port -- same pattern already confirmed benign on Kick/Tron/Solar-Fox; no
+  warnings on the XDC change itself). `make patch` re-run confirms idempotent
+  provenance-patch regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard
+  working.
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: fixed and hardware-confirmed 2026-09-25.
+
+### Pooyan-by-Dar: scandoubler intermittently fails to sync
+- **Reported**: 2026-09-25
+- **Symptom**: the double-scanner (`vga_scandoubler.v`, the canonical DECA
+  cleanroom import) doesn't always sync up on real hardware -- an intermittent
+  clocking issue, not yet characterized. Observed alongside the hardware
+  confirmation of the USB-HID keyboard fix (unrelated: the USB-HID change was
+  XDC-only, no clocking touched).
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, todo -- needs further hardware investigation to characterize
+  the intermittency (e.g. cold-start vs. warm reset, sw(13) 31 kHz/15 kHz mode
+  correlation, `clock_12`/`clock_6`/`clock_14` MMCM lock timing).
+
+### Zaxxon-by-Dar: keyboard not on the standard onboard USB-HID convention
+- **Reported**: 2026-09-25
+- **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
+  repo-wide audit as Bagman above). Keyboard clock (`clock_kbd`, `clock_24`/6 via
+  `clock_div`, the file's own header comment confirms this divider is "reused verbatim
+  from the pristine top") is ~4 MHz (requested-nominal 24 MHz source), shared with the
+  PWM audio gate (`clock_div = "0000"`) -- below the >= 6 MHz the onboard USB-HID port
+  needs, so the XDC pin swap alone won't be enough; needs an independent
+  keyboard-clock divider first. Note: a *different*, unrelated `other/` tree port
+  (`Arcade_Zaxxon`, not this `Zaxxon-by-Dar` sf-darfpga port) independently hit and
+  fixed the identical symptom by dividing by 4 instead of 6 (documented in
+  `vhdl_congo_bongo/contrib/basys3/PORTING_SPEC.md` §5) -- that fix was never applied
+  to this port. New mod-2 counter off `clock_24` alone -> 6 MHz exactly, leaving
+  `clock_div`/PWM untouched, mirrors that known-working ratio. Hardware-confirmed
+  2026-09-25: legacy JB1/JB3 PS/2 keyboard working (baseline, pre-USB-HID-conversion).
+- **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
+- **Status**: open. Pure XDC pin swap is insufficient alone; needs a new independent
+  divider first, not yet applied.
+
+### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Also observed on Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar, Tron-by-Dar,
+  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see their own
+  entries below) -- a cross-machine pattern, not specific to this port.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
+  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("ignoring it for now") -- not
+  being actively pursued.
+
+### Galaga-Midway-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Kick-Midway-MCR-by-Dar, Tron-by-Dar,
+  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
+  above/below) -- a cross-machine pattern, not specific to this port.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
+  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("we'll just note it for
+  now") -- not being actively pursued.
+
+### Kick-Midway-MCR-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, Tron-by-Dar,
+  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
+  above/below) -- a cross-machine pattern, not specific to this port.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
+  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("we'll just note it for
+  now") -- not being actively pursued.
+
+### Tron-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar,
+  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
+  above/below) -- a cross-machine pattern, not specific to this port.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
+  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request ("we'll just note it for
+  now") -- not being actively pursued.
+
+### Zaxxon-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and
+  Berzerk-FPGA-by-Dar (see above/below) -- a cross-machine pattern, not specific to
+  this port. Observed on the pre-conversion legacy JB1/JB3 PS/2 keyboard build
+  (USB-HID conversion not yet applied to this machine, see the USB-HID entry above)
+  -- not caused by or specific to the USB-HID work.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request -- not being actively
+  pursued.
+
+### Popeye-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Bagman-FPGA-Dar, and
+  Berzerk-FPGA-by-Dar (see above) -- a cross-machine pattern, not specific to this
+  port. Observed on the pre-conversion legacy JB1/JB3 PS/2 keyboard build (USB-HID
+  conversion not yet applied to this machine, see the USB-HID entry above) -- not
+  caused by or specific to the USB-HID work.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request -- not being actively
+  pursued.
+
+### Bagman-FPGA-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
+  Berzerk-FPGA-by-Dar (see above/below) -- a cross-machine pattern, not specific to
+  this port. Observed on the hardware-confirmed USB-HID build.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request -- not being actively
+  pursued.
+
+### Berzerk-FPGA-by-Dar: video columns clipping on Enoyo LCD
+- **Reported**: 2026-09-25
+- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
+  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
+  Bagman-FPGA-Dar (see above) -- a cross-machine pattern, not specific to this port.
+  Observed on the hardware-confirmed USB-HID build.
+- **Tried**: n/a -- not yet investigated.
+- **Status**: open, deferred at the user's explicit request -- not being actively
+  pursued.
+
+### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
+- **Reported**: 2026-09-24
+- **Symptom**: not a defect -- pending investigation. Compare each machine's total
+  synthesis `duration_s` (in `build-metrics.csv`) against the phase logged between
+  "Start Cross Boundary and Area Optimization" and "Finished Cross Boundary and
+  Area Optimization" in `<machine>/../runs/synth_1/runme.log`, plus the DSP Report /
+  DSP48 counts from the same log and `*_utilization_synth.rpt`.
+  Outliers on record: Tron 00:22:09 opt phase (2 DSP48E1, `plusOp`/`snd_1_reg`/
+  `snd_2_reg`), Burnin-Rubber 4 DSP48E1 with DRC `DPIP-1`/`DPOP` pipelining
+  warnings, Defender 00:03:31 opt, Zaxxon 00:02:14 opt.
+- **Tried**: n/a -- pending investigation; timing data lives in `build-metrics.csv`.
+- **Status**: open
+
+## Fixed
+
+None currently.

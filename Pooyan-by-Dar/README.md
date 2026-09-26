@@ -19,9 +19,10 @@ This file is the single source of truth for design and build. Operational rules 
 - Single-player: P2 controls are hardwired to P1 (`fire2/right2/left2/down2/up2` reuse the
   P1 signals), regardless of input source.
 - Mono PWM audio on PmodAMP2 (JC header).
-- PS/2 keyboard on JB (internal `PULLUP true` on `ps2_dat`/`ps2_clk` in the XDC), OR-merged with
-  the JA joystick; `btnC` = reset (active-high — pressed
-  asserts reset; the Basys3 button is active-high, unlike the DE10's active-low `key(0)`).
+- PS/2 keyboard on the onboard USB HID host (C17/B17, `ps2_clk`/`ps2_dat`, internal
+  `PULLUP true` in the XDC), OR-merged with the JA joystick; `btnC` = reset (active-high —
+  pressed asserts reset; the Basys3 button is active-high, unlike the DE10's active-low
+  `key(0)`). Hardware-confirmed 2026-09-25: USB-HID keyboard working.
 - 31 kHz VGA on the Basys3 VGA connector (4-bit per color RGB + HS/VS).
 - PmodAMP2 sound-enable on `sw14` (down = enable, up = disable); gain-select on `sw15`
   (up = enable gain, down = disable gain).
@@ -194,5 +195,8 @@ authors the new `pooyan_basys3.vhd` top level and emits
 ## TODO
 
 - Dip switches 1–8 confirmed working on hardware.
+- Scandoubler (`vga_scandoubler.v`) intermittently fails to sync on real hardware
+  (reported 2026-09-25); not yet characterized or root-caused. See root
+  `KNOWN_ISSUES.md`.
 - 15 kHz display is not connected; needs a switch wired to enable/disable TV mode.
 
