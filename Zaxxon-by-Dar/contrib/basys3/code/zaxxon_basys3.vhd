@@ -32,9 +32,19 @@
 --    dedicated Basys3 IO, matching every other machine's convention.
 --    left_c/right_c/up_c/down_c/fire_c mirror player 1, matching the
 --    pristine top (this core has no genuine second control set).
---  - The keyboard clock divider (clock_div/clock_kbd) and the PWM
---    accumulator's clock_div-gated update are reused verbatim from the
---    pristine top (see PORTING_SPEC.md).
+--  - The PWM accumulator's clock_div-gated update is reused verbatim from
+--    the pristine top (see PORTING_SPEC.md). ps2_dat/ps2_clk are wired to
+--    the onboard USB-HID host (C17/B17), the project default since 2026-09
+--    (root PORTING_SPEC.md §3). The original keyboard clock (clock_kbd,
+--    clock_24/6 via clock_div, reused verbatim from the pristine top) was
+--    ~4 MHz and shared with the PWM audio gate (clock_div = "0000") --
+--    below the onboard USB-HID port's >= 6 MHz floor, and retargeting
+--    clock_div's threshold would also change the audio rate. Added a new,
+--    independent clock_div_kbd counter (clock_24/4 = 6 MHz) dedicated to
+--    clock_kbd only; clock_div and the PWM gate it drives are unchanged
+--    (same fix as the sibling Kick-Midway-MCR/Solar-Fox/Popeye ports). An
+--    initial plain XDC pin swap without this divider (2026-09-26) was
+--    confirmed non-functional on hardware (2026-09-28).
 --  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr, cpu address
 --    trace) is not ported; the core's debug output is left open.
 --  - No led port: the pristine top's ledr assignment is dead code (never
@@ -140,6 +150,7 @@ architecture struct of zaxxon_basys3 is
 
  signal clock_div : unsigned(3 downto 0);
  signal clock_kbd : std_logic;
+ signal clock_div_kbd : unsigned(0 downto 0);
 
  signal kbd_intr      : std_logic;
  signal kbd_scancode  : std_logic_vector(7 downto 0);
@@ -206,19 +217,35 @@ begin
   dbg_cpu_addr => open
  );
 
- -- keyboard clock divider (reused verbatim from the pristine top): divides
- -- clock_24 down for io_ps2_keyboard and gates the PWM accumulator update.
+ -- clock_div (reused verbatim from the pristine top): unchanged, still
+ -- gates the PWM accumulator update below. No longer drives clock_kbd --
+ -- see below.
  process (reset, clock_24)
  begin
    if reset = '1' then
      clock_div <= (others => '0');
-     clock_kbd <= '0';
    elsif rising_edge(clock_24) then
      if clock_div = "0010" then
        clock_div <= (others => '0');
-       clock_kbd <= not clock_kbd;
      else
        clock_div <= clock_div + 1;
+     end if;
+   end if;
+ end process;
+
+ -- Independent keyboard clock divider (clock_24 / 4 = 6 MHz), dedicated to
+ -- clock_kbd only -- see header comment above.
+ process (reset, clock_24)
+ begin
+   if reset = '1' then
+     clock_div_kbd <= (others => '0');
+     clock_kbd <= '0';
+   elsif rising_edge(clock_24) then
+     if clock_div_kbd = "1" then
+       clock_div_kbd <= (others => '0');
+       clock_kbd <= not clock_kbd;
+     else
+       clock_div_kbd <= clock_div_kbd + 1;
      end if;
    end if;
  end process;
@@ -231,7 +258,7 @@ begin
  -- get scancode from keyboard
  keyboard : entity work.io_ps2_keyboard
  port map (
-   clk       => clock_kbd, -- synchronous with core (pristine divider)
+   clk       => clock_kbd, -- independent USB-HID-rate divider, see above
    kbd_clk   => ps2_clk,
    kbd_dat   => ps2_dat,
    interrupt => kbd_intr,

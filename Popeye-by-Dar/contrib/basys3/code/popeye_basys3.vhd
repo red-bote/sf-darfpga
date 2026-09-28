@@ -12,6 +12,17 @@
 --    1 = 15 kHz TV (native rate, composite sync on HS, VS high)
 --  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
 --  - No LEDs / 7-segment: the shared Basys-3-Master.xdc leaves them commented.
+--  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
+--    project default since 2026-09 (root PORTING_SPEC.md §3). The original
+--    keyboard clock (clock_kbd, clock_40/20 via clock_div) was ~2.016 MHz and
+--    shared with the PWM audio gate (clock_div = "0000") -- below the
+--    onboard USB-HID port's >= 6 MHz floor, and retargeting clock_div's
+--    threshold would also change the audio rate. Added a new, independent
+--    clock_div_kbd counter (clock_40/6 = 6.72 MHz) dedicated to clock_kbd
+--    only; clock_div and the PWM gate it drives are unchanged (same fix as
+--    the sibling Kick-Midway-MCR/Solar-Fox ports). An initial plain XDC pin
+--    swap without this divider (2026-09-26) was confirmed non-functional on
+--    hardware (2026-09-28).
 ---------------------------------------------------------------------------------
 -- Educational use only
 -- Do not redistribute synthetized file with roms
@@ -73,6 +84,7 @@ architecture struct of popeye_basys3 is
 
  signal clock_kbd  : std_logic;
  signal clock_div  : std_logic_vector(3 downto 0);
+ signal clock_div_kbd : std_logic_vector(1 downto 0);
 
  signal joy_up        : std_logic;
  signal joy_down      : std_logic;
@@ -152,20 +164,37 @@ begin
  vga_hs <= csync when sw(13) = '1' else hsync;
  vga_vs <= '1'   when sw(13) = '1' else vsync;
 
- -- divide 40.32 MHz down to a ~2 MHz clock for the PS/2 keyboard and
- -- scancode->joystick decoding (same scheme as the DE10 top).
+ -- clock_div: unchanged, still gates the PWM accumulator below
+ -- (clock_div = "0000"). No longer drives clock_kbd -- see below.
  process (reset, clock_40)
  begin
   if reset = '1' then
    clock_div <= (others => '0');
-   clock_kbd  <= '0';
   else
    if rising_edge(clock_40) then
     if clock_div = "1001" then
      clock_div <= (others => '0');
-     clock_kbd <= not clock_kbd;
     else
      clock_div <= clock_div + '1';
+    end if;
+   end if;
+  end if;
+ end process;
+
+ -- Independent keyboard clock divider (clock_40 / 6 = 6.72 MHz), dedicated
+ -- to clock_kbd only -- see header comment above.
+ process (reset, clock_40)
+ begin
+  if reset = '1' then
+   clock_div_kbd <= (others => '0');
+   clock_kbd  <= '0';
+  else
+   if rising_edge(clock_40) then
+    if clock_div_kbd = "10" then
+     clock_div_kbd <= (others => '0');
+     clock_kbd <= not clock_kbd;
+    else
+     clock_div_kbd <= clock_div_kbd + '1';
     end if;
    end if;
   end if;

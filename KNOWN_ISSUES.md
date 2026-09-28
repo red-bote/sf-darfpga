@@ -62,10 +62,37 @@ Entry format:
      Solar-Fox above): new mod-3 counter off `clock_40` alone -> 6.72 MHz, leaving
      `clock_div`/PWM untouched. Hardware-confirmed 2026-09-25: legacy JB1/JB3 PS/2
      keyboard working (baseline, pre-USB-HID-conversion).
+
+     **2026-09-26**: at the user's explicit direction, the divider fix above was not
+     applied; a plain XDC pin swap was done instead (same pattern as the other 9
+     machines), on the reasoning that the keyboard already works on the legacy
+     JB Pmod so the onboard USB-HID host should too. `Basys-3-Master.xdc`'s
+     `##Pmod Header JB` lines commented out, `##USB HID (PS/2)` lines uncommented and
+     retargeted from placeholder `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via
+     fresh `make clean && make setup && make create_prj && make clk_wiz && make patch`
+     (no errors) and Vivado `check_syntax` (no errors/critical warnings); `make patch`
+     re-run confirms idempotent provenance-patch regeneration. This does **not**
+     resolve the documented <6 MHz clock-rate concern above -- whether the ~2 MHz
+     `clock_kbd` is fast enough for the onboard USB-HID host is unverified and
+     untested on real hardware; if the keyboard doesn't respond, the divider fix
+     described above is the fallback.
+
+     **2026-09-28**: plain pin swap confirmed non-functional on hardware. Fallback
+     divider fix applied: `contrib/basys3/code/popeye_basys3.vhd`'s combined
+     `clock_div`/`clock_kbd` process split in two -- `clock_div` (4-bit, unchanged)
+     still free-runs and gates the PWM accumulator only; a new `clock_div_kbd`
+     (2-bit, mod-3) drives `clock_kbd` independently at `clock_40`/6 = 6.72 MHz,
+     matching the Kick-Midway-MCR/Solar-Fox precedent. `keyboard`/`joystick`
+     entities unchanged (still clocked from `clock_kbd`, now fast). Verified via
+     fresh `make clean && make setup && make create_prj && make clk_wiz && make
+     patch` (no errors), Vivado `check_syntax` (no errors/critical warnings), and
+     `make patch` re-run (idempotent provenance-patch regeneration).
+     Hardware-confirmed 2026-09-28: USB-HID keyboard working.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
 - **Status**: open. Controls need updated wiring in
   `contrib/basys3/code/popeye_basys3.vhd` to add the standard dedicated buttons.
-  USB-HID needs a new independent divider first, not yet applied.
+  USB-HID: plain pin swap (2026-09-26) failed; fallback divider fix fixed and
+  hardware-confirmed 2026-09-28.
 
 ### Kick-Midway-MCR-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-22
@@ -489,9 +516,36 @@ Entry format:
   to this port. New mod-2 counter off `clock_24` alone -> 6 MHz exactly, leaving
   `clock_div`/PWM untouched, mirrors that known-working ratio. Hardware-confirmed
   2026-09-25: legacy JB1/JB3 PS/2 keyboard working (baseline, pre-USB-HID-conversion).
+
+  **2026-09-26**: at the user's explicit direction, the divider fix above was not
+  applied; a plain XDC pin swap was done instead (same pattern as the other 9
+  machines), on the reasoning that the keyboard already works on the legacy JB Pmod
+  so the onboard USB-HID host should too. `Basys-3-Master.xdc`'s `##Pmod Header JB`
+  lines commented out, `##USB HID (PS/2)` lines uncommented and retargeted from
+  placeholder `PS2Clk`/`PS2Data` to `ps2_clk`/`ps2_dat`. Verified via fresh `make
+  clean && make setup && make create_prj && make clk_wiz && make patch` (no errors)
+  and Vivado `check_syntax` (no errors/critical warnings); `make patch` re-run
+  confirms idempotent provenance-patch regeneration. This does **not** resolve the
+  documented <6 MHz clock-rate concern above -- whether the ~4 MHz `clock_kbd` is
+  fast enough for the onboard USB-HID host is unverified and untested on real
+  hardware; if the keyboard doesn't respond, the divider fix described above is the
+  fallback.
+
+  **2026-09-28**: plain pin swap confirmed non-functional on hardware. Fallback
+  divider fix applied: `contrib/basys3/code/zaxxon_basys3.vhd`'s combined
+  `clock_div`/`clock_kbd` process split in two -- `clock_div` (4-bit, unchanged)
+  still free-runs and gates the PWM accumulator only; a new `clock_div_kbd`
+  (1-bit, mod-2) drives `clock_kbd` independently at `clock_24`/4 = 6 MHz exactly,
+  matching the Kick-Midway-MCR/Solar-Fox/Popeye precedent and the known-working
+  divide-by-4 ratio from the unrelated `Arcade_Zaxxon` `other/` port. `keyboard`/
+  `joystick` entities unchanged (still clocked from `clock_kbd`, now fast).
+  Verified via fresh `make clean && make setup && make create_prj && make clk_wiz
+  && make patch` (no errors), Vivado `check_syntax` (no errors/critical warnings),
+  and `make patch` re-run (idempotent provenance-patch regeneration).
+  Hardware-confirmed 2026-09-28: USB-HID keyboard working.
 - **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
-- **Status**: open. Pure XDC pin swap is insufficient alone; needs a new independent
-  divider first, not yet applied.
+- **Status**: plain pin swap (2026-09-26) failed; fallback divider fix fixed and
+  hardware-confirmed 2026-09-28.
 
 ### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
 - **Reported**: 2026-09-25
