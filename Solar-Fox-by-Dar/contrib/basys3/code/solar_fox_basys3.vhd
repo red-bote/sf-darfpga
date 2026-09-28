@@ -9,7 +9,9 @@
 --    (core + sound board), matching the sibling Kick-Midway-MCR port (same
 --    Midway-family DE10-lite generation, same solved MMCM values).
 --  - Core generates progressive 31 kHz video natively (tv15Khz_mode); no
---    external scandoubler is imported. F8 toggles 31 kHz VGA / 15 kHz TV.
+--    external scandoubler is imported. sw(13) selects 31 kHz VGA (0) /
+--    15 kHz TV (1); default-off feeds 31 kHz VGA at power-on, matching the
+--    other ports' sw(13) convention (no F8 toggle needed).
 --  - JA joystick (movement + fire), OR-merged with PS/2 keyboard (JB).
 --    coin1/fast1 are OR-merged from keyboard (F1/F2), the JA fire+up (coin)
 --    / fire+left (fast) combos, AND btnU/btnL -- the root PORTING_SPEC.md's
@@ -118,7 +120,7 @@ begin
 
 reset <= btnC;
 
-tv15Khz_mode <= not fn_toggle(7); -- F8
+tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 
 -- Clock 40MHz for Solar Fox core and sound board (from 100 MHz)
 clocks : entity work.clk_wiz_0

@@ -547,6 +547,24 @@ Entry format:
 - **Status**: plain pin swap (2026-09-26) failed; fallback divider fix fixed and
   hardware-confirmed 2026-09-28.
 
+### Solar-Fox-by-Dar: no sync on Sylvania SF150 at power-on (15 kHz TV-mode default)
+- **Reported**: 2026-09-28
+- **Symptom**: on the user's Sylvania SF150 (31 kHz+ multiscan, 1024x768 @ up to
+  85 Hz) Solar Fox shows no sync on reset until F8 is pressed.
+- **Cause**: Solar Fox's display mode was `tv15Khz_mode <= not fn_toggle(7)` (F8
+  toggle from the DE10-lite convention), and `fn_toggle` in `kbd_joystick.vhd`
+  has no reset/init -- the register powers up to 0, so the machine boots into
+  15 kHz interlaced TV mode (csync on HS, VS held high) every power-on. sw(13)
+  had no effect on this machine (unlike every other port). The core's 31 kHz
+  mode is textbook 634x525 @ 20 MHz (31.55 kHz / 60.1 Hz, 512x480) and locks
+  the SF150 immediately.
+- **Tried**: 2026-09-28 -- confirmed on the bench that F8 (31 kHz) syncs the
+  SF150; root-caused in RTL to the missing reset/init on the toggle flip-flop.
+- **Resolved**: 2026-09-28 -- mode moved to the other ports' convention,
+  `tv15Khz_mode <= sw(13)` (wrapper-only; `0` = 31 kHz VGA default, `1` =
+  15 kHz TV), so power-on with sw(13)=0 outputs 31 kHz without any key press.
+  `solar_fox_de10_lite_to_basys3.patch` regenerated; new bitstream built.
+
 ### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
 - **Reported**: 2026-09-25
 - **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
