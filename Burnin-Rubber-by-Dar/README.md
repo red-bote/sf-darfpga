@@ -62,18 +62,22 @@ Buttons (active-low, switch to GND):
 
 ## Known issues
 
-- **Missing bottom horizontal rows (regression, reopened 2026-09-25)**: previously
-  fixed 2026-09-23 via `contrib/code/burnin_rubber_vsync_before_vblank.patch`
-  (`video_vs` was asserting 8 lines before `vblank`, so the last 8 active-picture
-  lines were lost to vsync on a real VGA monitor), applied alongside
-  `contrib/code/burnin_rubber_vcnt_272_lines.patch` (vertical line count,
-  261 -> 272 per the original Bump&Jump schematics -- an independently-correct
-  but not load-bearing fix, kept for schematic accuracy). Both patches still apply
-  automatically via `make setup` and remain in place, but the symptom has recurred
-  on the 2026-09-25 USB-HID-converted hardware build. Not yet re-investigated; the
-  USB-HID change itself was XDC-only (no video/clocking code touched), so the
-  recurrence is currently unexplained. See root `KNOWN_ISSUES.md` for the full
-  investigation history.
+- **Missing bottom horizontal rows (resolved 2026-09-28)**: root cause was `video_vs`
+  asserting 8 lines before `vblank` onset, so a real VGA monitor discarded the last
+  8 active-picture lines during its own vertical retrace. Fixed by
+  `contrib/code/burnin_rubber_vsync_before_vblank.patch`, which moves the
+  `vsync_cnt` reset to `vcnt = 248` for zero overlap (matching the
+  Defender/Time-Pilot/Pooyan pattern).
+
+  A second patch, `burnin_rubber_vcnt_272_lines.patch` (vertical line count 261 ->
+  272 per the original Bump&Jump schematics), shipped alongside it on 2026-09-23
+  and is now proven to have *caused* the 2026-09-25 regression rather than being
+  harmless: it stretched the frame to 544 lines @ 57.44 Hz, a non-standard
+  envelope no sibling port in the family uses (Burger-Time, on the identical
+  horizontal path, emits 522 @ 59.86 Hz). A/B testing on hardware on 2026-09-28
+  isolated it -- the vsync fix alone (pristine 261-line frame) is clean, both
+  patches together clip the bottom rows. The vcnt-272 patch has been **retired**
+  (removed 2026-09-28); hardware-confirmed no clipping with the vsync fix alone.
 
 ## Scripted setup
 
@@ -81,7 +85,6 @@ Buttons (active-low, switch to GND):
 fetches the Dar archive into the gitignored `dloads/` cache (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_burnin_rubber_rev_0_0_2017_12_22/`, applies
-`contrib/code/burnin_rubber_vcnt_272_lines.patch` and
 `contrib/code/burnin_rubber_vsync_before_vblank.patch` (see Known issues
 above), then runs `contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
 `make_burnin_rubber_proms.bat`, stage the romset from `$ROMZIP` (default

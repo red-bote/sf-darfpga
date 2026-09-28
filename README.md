@@ -166,7 +166,7 @@ instead of `prep_roms.sh`.
 |---|---|---|---|---|
 | Berzerk (Stern 1980) | 10 MHz | `basys3/berzerk_basys3.xpr`, `berzerk_basys3` | `berzerk_reset_sensitivity.patch` | `berzerk.zip` |
 | Bagman (Stern 1982) | 12 MHz | `basys3/bagman_basys3.xpr`, `bagman_basys3` | `bagman_xor_width.patch` | `bagman.zip` |
-| Burnin' Rubber (Data East 1982) | 12 + 6 MHz | `basys3/burnin_rubber_basys3.xpr`, `burnin_rubber_basys3` | — | `brubber.zip` |
+| Burnin' Rubber (Data East 1982) | 12 + 6 MHz | `basys3/burnin_rubber_basys3.xpr`, `burnin_rubber_basys3` | `burnin_rubber_vsync_before_vblank.patch` | `brubber.zip` |
 | BurgerTime (Data East 1982) | 12 + 6 MHz | `basys3/burger_time_basys3.xpr`, `burger_time_basys3` | — | `btime.zip` |
 | Defender (Williams 1981) | 12 + 3.58 MHz | `basys3/defender_basys3.xpr`, `defender_basys3` | — | `defender.zip` |
 | Galaga (Namco/Midway 1981) | 36 MHz | `basys3/galaga_basys3.xpr`, `galaga_basys3` | `galaga_bgpalette_xor_length_fix.patch`, `galaga_credit_mode_fix.patch`, `galaga_vga_sync.patch` | `galaga.zip` + `galagamw.zip` |

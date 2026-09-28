@@ -398,9 +398,9 @@ Entry format:
   patch`'s provenance output byte-identical.
 
   Hardware re-tested 2026-09-23 with the fix in place: **symptom still present**.
-  Hypothesis #1 alone does not resolve it (the patch is left in place -- it corrects a
-  genuine schematic mismatch in the pristine core regardless -- but is confirmed
-  insufficient on its own).
+  Hypothesis #1 alone does not resolve it. (This patch was **retired** 2026-09-28 --
+  see the resolution below; the "leave it in place as a schematic correction" position
+  held here turned out to be what caused the 2026-09-25 regression.)
 
   15 kHz TV mode (sw(13)=1) is not available for A/B hardware testing on this setup, so
   hypothesis #2 could not be directly confirmed/ruled out that way. Instead, read
@@ -439,17 +439,39 @@ Entry format:
 
   **Regression reported 2026-09-25**: on the fresh USB-HID-converted build (XDC-only
   change, both video patches still applied and unmodified), video clipping was observed
-  again on hardware. Not yet re-investigated -- both fix patches are confirmed still in
-  place (no code regression from the USB-HID change itself, which touched only
-  `Basys-3-Master.xdc`), so the recurrence is unexplained. Needs fresh hardware
-  investigation.
-- **Status**: reopened 2026-09-25 (regression). Previously fixed 2026-09-23 (root cause:
-  `video_vs` asserted 8 lines before `vblank`, causing a VGA/scandoubler-connected
-  monitor to discard the last 8 active-picture lines during its own vertical retrace;
-  fixed via `contrib/code/burnin_rubber_vsync_before_vblank.patch` and
-  `contrib/code/burnin_rubber_vcnt_272_lines.patch`) -- symptom has recurred on the
-  2026-09-25 USB-HID-converted build with both patches still in place. Root cause of
-  the recurrence not yet determined.
+  again on hardware. The USB-HID change itself was XDC-only (no video/clocking code
+  touched), so the recurrence was in the video patches, not the keyboard conversion.
+
+  **Root-caused 2026-09-28** by A/B hardware testing plus a timing cross-check against
+  the sibling cores. The regression's cause is the `vcnt_272_lines` patch, not the
+  vsync fix:
+
+  - Timing cross-check: both Burnin-Rubber and Burger-Time share an identical
+    horizontal path (hcnt 0..383, `hcnt_base = 312`, hblank 267->13, 253 active
+    columns, 240 active lines, vblank onset `vcnt = 248`). Burger-Time -- a
+    video-defect-free sibling on that same path -- emits 522 lines @ 59.86 Hz
+    (`vcnt` 0..260, vsync reset 2 lines before vblank). Burnin-Rubber with the vcnt-272
+    patch emitted 544 lines @ 57.44 Hz (`vcnt` 0..271, vsync reset at 248, zero
+    overlap). The patched envelope matches no other port in the family.
+  - A/B on hardware 2026-09-28: two bitstreams were built, one with both patches and
+    one with the vsync fix alone (pristine `vcnt = 260` 261-line frame). The both-patches
+    build clipped the bottom rows; the **vsync-only build showed no clipping**
+    (hardware-confirmed by the user). This proves the vsync fix is the sole
+    load-bearing patch and the vcnt-272 patch was actively harmful.
+
+  **Resolved 2026-09-28**: `contrib/code/burnin_rubber_vcnt_272_lines.patch` **retired**
+  (deleted). `contrib/code/burnin_rubber_vsync_before_vblank.patch` retained as the
+  sole fix. Verified from a genuine fresh `make clean && make setup`: the remaining
+  vsync patch applies standalone with no conflict, the tree's `vcnt` wrap is back to the
+  pristine 260/261 lines, no 271/272 references remain, and `make patch`'s provenance
+  output is byte-identical (standard regression check). This is exactly the source state
+  of the hardware-confirmed-clean bitstream, so no rebuild was required.
+- **Status**: resolved 2026-09-28. Root cause of the original symptom: `video_vs`
+  asserted 8 lines before `vblank`, causing a VGA/scandoubler-connected monitor to
+  discard the last 8 active-picture lines during its own vertical retrace; fixed via
+  `contrib/code/burnin_rubber_vsync_before_vblank.patch`. The 2026-09-25 regression was
+  caused by the accompanying `vcnt_272_lines` patch, now retired. Hardware-confirmed
+  no clipping with the vsync fix alone.
 
 ### Defender-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-25
