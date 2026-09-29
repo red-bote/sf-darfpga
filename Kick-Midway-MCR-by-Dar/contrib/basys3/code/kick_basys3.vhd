@@ -8,7 +8,10 @@
 --  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single 40 MHz clock
 --    (core + sound board), matching the sibling Tron-by-Dar port
 --  - Core generates progressive 31 kHz video natively (tv15Khz_mode); no
---    external scandoubler is imported. F8 toggles 31 kHz VGA / 15 kHz TV.
+--    external scandoubler is imported. sw(13) selects 31 kHz VGA (0) /
+--    15 kHz TV (1) -- changed 2026-09-29 from the pristine core's F8
+--    keyboard toggle to match this repo's sw(13) convention used by
+--    Bagman/Berzerk/Defender/etc (no F8 toggle needed).
 --  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB) for
 --    kick/movement. Kick has no directional fire -- the player D pad is a
 --    spinner, so LEFT/RIGHT (and SPACE to go faster) drive the on-screen
@@ -117,7 +120,7 @@ begin
 
 reset <= btnC;
 
-tv15Khz_mode <= not fn_toggle(7); -- F8
+tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 
 -- Clock 40MHz for Kick core and sound board (from 100 MHz)
 clocks : entity work.clk_wiz_0

@@ -16,8 +16,9 @@ notes.
 
 - **Video**: native progressive 31 kHz (no scandoubler — the core drives the
   real `video_hs`/`video_vs` itself); display mode is selected by **sw(13)**
-  (0 = 31 kHz VGA, 1 = 15 kHz TV) and toggled by **F8** (USB-HID keyboard), so a
-  switch gives an out-of-the-box 31 kHz VGA image with no keyboard needed.
+  alone (0 = 31 kHz VGA, 1 = 15 kHz TV) -- changed 2026-09-29 to drop the F8
+  keyboard XOR, so a switch gives an out-of-the-box 31 kHz VGA image with no
+  keyboard needed.
 - **Sound**: mono PWM audio on PmodAMP2.
 - **Controls**: USB-HID keyboard + JA joystick (OR-merged), 4 pushbuttons.
 
@@ -31,7 +32,6 @@ notes.
 | Start 1 | F3 |
 | Start 2 | F4 |
 | Service | F7 |
-| Display mode (31 kHz / 15 kHz) | F8 |
 
 Pushbuttons (convenience for coin/start): btnU = Coin 1, btnD = Coin 2,
 btnL = Start 1, btnR = Start 2.
@@ -57,7 +57,7 @@ JA joystick (active-low, switch to GND):
 | btnL / btnR | `btnL` / `btnR` | start1 / start2 |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| sw(13) | — | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV (XOR F8 toggle) |
+| sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
 | Onboard USB HID host C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard — always on the onboard USB-HID connector (not JB) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |

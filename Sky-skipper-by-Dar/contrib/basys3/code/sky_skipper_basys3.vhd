@@ -13,9 +13,9 @@
 --    (active high, ORed with !mmcm_locked).
 --  - Video path reproduced from the pristine top: the core drives the real
 --    video_hs/video_vs and selects the timing natively (no line_doubler, no
---    external scandoubler). Display mode is selected by sw(13) (0 = 31 kHz
---    progressive VGA, 1 = 15 kHz interlaced TV) and toggled by F8
---    (fn_toggle(7) XORed with sw(13)); default (sw(13)=0) is 31 kHz VGA:
+--    external scandoubler). Display mode is selected by sw(13) alone (0 = 31
+--    kHz progressive VGA, 1 = 15 kHz interlaced TV) -- changed 2026-09-29 to
+--    drop the F8 keyboard XOR and match this repo's plain sw(13) convention:
 --      0 = 31 kHz progressive VGA (pixel data on a 20 MHz clock)
 --      1 = 15 kHz interlaced TV (native composite sync on HS, VS held high)
 --    HS/VS are muxed exactly as the pristine assignments. RGB is padded
@@ -37,7 +37,7 @@
 --  - Function keys (kbd_joystick):
 --      F1 (fn_pulse 0) = coin1      F2 (fn_pulse 1) = coin2
 --      F3 (fn_pulse 2) = start1     F4 (fn_pulse 3) = start2
---      F7 (fn_toggle 6) = service1  F8 (fn_toggle 7) = tv15Khz_mode toggle
+--      F7 (fn_toggle 6) = service1
 --  - JA joystick OR-merged with the keyboard (JA is active-low; a press is
 --    inverted to active-high like the keyboard path):
 --      JA1 = right  JA2 = left  JA3 = down  JA4 = up  JA7 = fire
@@ -143,11 +143,10 @@ begin
     locked   => mmcm_locked
   );
 
-  -- display mode: sw(13) selects the base mode (0 = 31 kHz VGA, 1 = 15 kHz TV),
-  -- XOR the F8 keyboard toggle (fn_toggle(7)) so F8 inverts it in either switch
-  -- position. Default (sw(13)=0, F8 not pressed) = 31 kHz progressive VGA.
+  -- display mode: sw(13) alone selects the mode (0 = 31 kHz VGA, 1 = 15 kHz
+  -- TV) -- changed 2026-09-29 to drop the F8 keyboard XOR.
   -- (pristine: tv15Khz_mode <= not fn_toggle(7), which defaulted to 15 kHz)
-  tv15Khz_mode <= sw(13) xor fn_toggle(7);
+  tv15Khz_mode <= sw(13);
 
   -- Sky Skipper
   sky_skipper_inst : entity work.sky_skipper
@@ -249,8 +248,7 @@ begin
   vga_g <= g & '0'  when blankn = '1' else "0000";
   vga_b <= b & "00" when blankn = '1' else "0000";
 
-  -- Display mode select: sw(13) = 0 -> 31 kHz VGA, sw(13) = 1 -> 15 kHz TV,
-  -- XORed with the F8 keyboard toggle (fn_toggle(7)):
+  -- Display mode select: sw(13) = 0 -> 31 kHz VGA, sw(13) = 1 -> 15 kHz TV:
   --   0 = 31 kHz VGA (real hsync/vsync)
   --   1 = 15 kHz TV  (native rate, composite sync on HS, VS held high)
   vga_hs <= csync when tv15Khz_mode = '1' else hsync;

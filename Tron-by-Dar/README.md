@@ -13,7 +13,9 @@ notes.
 ## Features supported
 
 - **Video**: dual-mode — 31 kHz progressive VGA *or* 15 kHz TV, generated **natively by the
-  core** (no external scandoubler, unlike Pooyan/Time-Pilot). **F8** toggles between them.
+  core** (no external scandoubler, unlike Pooyan/Time-Pilot). **sw(13)** selects the mode
+  (0 = 31 kHz VGA, 1 = 15 kHz TV) -- changed 2026-09-29 from the pristine core's F8
+  keyboard toggle to match this repo's sw(13) convention.
 - **Sound**: stereo PWM audio in the core; PmodAMP2 is mono, so only the left channel is
   output (same choice as the sibling Kick port). **F5** toggles separate (stereo) audio mode.
 - **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged) for
@@ -36,7 +38,6 @@ notes.
 | Start 2 | F3 |
 | Service mode | F5 |
 | Continue after game over | F6 |
-| Video mode (31 kHz VGA / 15 kHz TV) | F8 |
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
@@ -54,7 +55,8 @@ JA joystick (active-low, switch to GND):
 | btnC | `btnC` | reset (active-high) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| sw(13:0) | — | unused (the core exposes no dip switches) |
+| sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
+| sw(12:0) | — | unused (the core exposes no dip switches) |
 | C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (left channel; JC1=AIN, JC2=GAIN, JC4=SHUTD) |
@@ -110,7 +112,7 @@ top entity, part, and source list) end-to-end from the tracked assets alone, and
 
 ## Known issues
 
-- Several columns of video appear clipped on the user's Enoyo LCD monitor
+- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
   (reported 2026-09-25). Same pattern reported on Solar-Fox-by-Dar,
   Galaga-Midway-by-Dar, and Kick-Midway-MCR-by-Dar. Not yet investigated;
   deferred at the user's request. See root `KNOWN_ISSUES.md`.
