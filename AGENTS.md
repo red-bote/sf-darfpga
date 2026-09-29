@@ -111,5 +111,4 @@ Vivado synthesis/timing (status in root `README.md`).
   current record of each machine's verified state.
 - Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
   drift; the root `Makefile` `PORTS` list and the present machine dirs are the
-  live record (the root `README.md` Status can lag a dir removal, e.g. it
-  still lists Crazy-Climber after `Crazy-Climber-by-Dar/` was deleted).
+  live record (the root `README.md` Status can lag a dir removal).

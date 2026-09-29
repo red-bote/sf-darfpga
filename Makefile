@@ -14,10 +14,6 @@
 # drift from the targets. Every machine under the list supports the same full
 # step set: setup create-prj clk-wiz patch synth bitstream all clean.
 #
-# Crazy-Climber-by-Dar is aspirational (documented in the root README but no
-# directory yet), so it is deliberately not in PORTS and has no delegation
-# targets until the directory exists.
-
 # PORTS := <token>:<directory>  (one entry per present machine dir)
 PORTS := \
   bagman:Bagman-FPGA-Dar \

@@ -92,7 +92,7 @@ machine ROMs are copyrighted — never commit or redistribute them.
 
 ## Known issues
 
-- Several columns of video appear clipped on the user's Enoyo LCD monitor
+- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
   (reported 2026-09-25). Same pattern reported on Galaga-Midway-by-Dar,
   Kick-Midway-MCR-by-Dar, and Tron-by-Dar. Not yet investigated; deferred at
   the user's request. See root `KNOWN_ISSUES.md`.

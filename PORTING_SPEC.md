@@ -205,8 +205,7 @@ level is a provenance record only; it documents the transformation below, it doe
 - **Non-nested project layout**: the `.xpr` lives directly in `basys3/` as
   `basys3/<machine>_basys3.xpr`, with the sources tree at `basys3/<machine>_basys3.srcs/`.
 - **Vivado build scripts run from `/tmp`** so `vivado.log` / `vivado.jou` stay out of the repo.
-- **Tool/path resolution** is `ENV_VAR → project default → interactive prompt`:
-  - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-  - roms: `ROMZIP` → `~/roms/`
+- **Tool/path resolution**: see `AGENTS.md` §"Tool / path resolution"
+  (`ENV_VAR → project default → interactive prompt`).
 - **Roms and generated PROM VHDL are copyrighted content** — never commit or
   distribute them. The `*.patch` files are the tracked record of changes to pristine Dar sources.

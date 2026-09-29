@@ -17,7 +17,6 @@ Berzerk-FPGA-by-Dar
 Burger-Time-by-Dar
 Burnin-Rubber-by-Dar
 Computer-Space-by-Dar
-Crazy-Climber-by-Dar
 Crazy-Kong-by-Dar
 Defender-by-Dar
 Galaga-Midway-by-Dar
@@ -39,116 +38,49 @@ dedicated controls (JA fire / pushbutton start) and rocket-missile fire fix.
 
 Phoenix-by-Dar is fully scripted, synthesized, and bitstream-built
 (0 critical warnings/errors through implementation). Hardware bring-up has
-confirmed PS/2 keyboard, sound, and VGA display all working. Its core
-otherwise exposed only composite sync and only a PS/2 keyboard input,
-unlike every other machine in this project; `contrib/code/phoenix_expose_hsync_vsync.patch`
-(a two-file patch) exposes real hsync/vsync from the core for the imported
-MiST scandoubler, replacing an earlier wrapper-only composite-sync
-separator that hardware-tested with no display. A separate patch adding
-external control ports (JA joystick / dedicated buttons) has been tried
-twice and hardware-tested both times, reverted both times: no input
-registered at all on the first attempt; on the second (2026-09-25), physical
-pin toggling and the core-side netlist wiring were exhaustively re-verified
-correct end-to-end, yet it still produced no in-game effect -- an unresolved
-contradiction. Keyboard moved to the onboard USB-HID host (C17/B17)
-2026-09-23, a pin-only XDC change, hardware-confirmed. Reset also
-hardware-confirmed. See `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` and
-root `KNOWN_ISSUES.md` for the full design record.
+confirmed PS/2 keyboard, sound, and VGA display all working; keyboard is on
+the onboard USB-HID host (C17/B17), hardware-confirmed. A separate patch
+adding external control ports (JA joystick / dedicated buttons) has been
+tried and hardware-tested twice, reverted both times -- still no in-game
+effect despite verified-correct wiring, an unresolved contradiction. See
+`Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` and root `KNOWN_ISSUES.md`
+for the full design record.
 
-Xevious-by-Dar is fully scripted and documented (assets authored end to end
-from the Galaga/Phoenix reference; same imported `mist/scandoubler.v`
-core-family wiring with `xevious_expose_hsync_vsync.patch`, which is
-apply-verified on the pristine CRLF tree). It has not yet been synthesized or
-hardware-verified: `make setup create_prj clk_wiz patch` are the next
-exercisable steps before `make synth` / `make bitstream`.
+Xevious-by-Dar is fully scripted, documented, and hardware-verified on the
+Basys 3 (assets authored end to end from the Galaga/Phoenix reference; same
+imported `mist/scandoubler.v` core-family wiring with
+`xevious_expose_hsync_vsync.patch`, apply-verified on the pristine CRLF
+tree).
 
-Traverse-USA-by-Dar is fully scripted and documented (assets authored end to
-end from the Galaga/Zaxxon/Computer-Space references; same imported
-`mist/scandoubler.v` wiring with `traverse_usa_expose_video_timing.patch` and
-the `traverse_usa_de10_lite_to_basys3.patch` wrapper rewrite, both
-apply-verified on the pristine CRLF tree). Unlike the DE10 original (keyboard
-only), the Basys3 port adds a JA joystick OR-merged with the keyboard and
-dedicated coin/start buttons; the core has no genuine fire input, so up and
-fire both accelerate (`traverse_usa.vhd:129`). It synthesizes cleanly and has
-been hardware-brought up on the Basys 3; the keyboard is **always on the
-onboard USB-HID connector (C17/B17), not JB**, driven at ~6.14 MHz (the
-pristine ~3 MHz keyboard clock is too slow for the onboard USB-HID host —
-same fix as Congo Bongo/Arcade_Zaxxon/Pooyan). See the machine
-`README.md` for the keyboard-connector/clock note.
+Traverse-USA-by-Dar is fully scripted, documented, and hardware-brought-up
+on the Basys 3. Unlike the DE10 original (keyboard only), the Basys3 port
+adds a JA joystick OR-merged with the keyboard and dedicated coin/start
+buttons; keyboard is on the onboard USB-HID connector, hardware-confirmed.
+See the machine `README.md`/`PORTING_SPEC.md` for the scandoubler wiring,
+patch, and clock-rate detail.
 
 Crazy-Kong-by-Dar is hardware-verified on the Basys 3 (bitstream 2026-09-07;
 0 critical warnings/errors through implementation; post-route
 WNS = 36.461 ns — a single 12 MHz core clock leaves huge timing margin).
-Single-clock design, native 31 kHz progressive video: the core's internal
-`line_doubler` drives real `video_hs`/`video_vs`, so the port needs no
-imported scandoubler and no expose patch. The one pristine-tree change is the
-synthesis-width fix `ckong_xor_width.patch` (`ckong.vhd:405-408` 13-bit vs
-5-bit `xor`, the same video-addressing bug `bagman_xor_width.patch` fixes,
-constants zero-padded to 13 bits — no behavior change). The keyboard is
-**always on the onboard USB-HID connector (C17/B17), not JB**, already clocked
-at `clock_12` = 12 MHz (no divider needed). See the machine `README.md` for
-controls and the keyboard note.
+Native 31 kHz progressive video (no external scandoubler); keyboard is on
+the onboard USB-HID connector, hardware-confirmed. See the machine
+`README.md`/`PORTING_SPEC.md` for the synthesis-fix patch and design detail.
 
-Crazy-Climber-by-Dar is fully scripted and documented (assets authored end to
-end from the Crazy Kong reference: same single-12-MHz-clock, native-31-kHz
-progressive video family — the core's internal `line_doubler` drives real
-`video_hs`/`video_vs`, so no imported scandoubler or expose patch; and the
-`xor`-width operand is already parenthesized, so no synthesis-fix patch either,
-unlike Crazy Kong/Bagman). It is a **two-joystick** machine (`l_*`/`r_*` stick
-ports per player): the Basys3 wrapper maps the keyboard arrows to the left
-stick by default and the right stick while Space (or JA7) is held, OR-merged
-with a JA joystick, with dedicated btnU/btnD coin and btnL/btnR start. The
-keyboard is **always on the onboard USB-HID connector (C17/B17), not JB**,
-already clocked at `clock_12` = 12 MHz (no divider needed). The full
-authoring/verification ladder (SHA-verified archive, patch dry-run, PROM-width
- audit, and a Vivado read-only source-closure smoke test) passed with 0 missing
- files and TOP `crazy_climber_basys3`. It has **not yet been synthesized or
- hardware-verified**: `make setup create_prj clk_wiz patch` are run and the
- read-only smoke test passes; `make synth` / `make bitstream` / `make load`
- are the next exercisable steps, pending explicit go-ahead.
+Sky-Skipper-by-Dar is fully scripted, documented, synthesized, and
+bitstream-built (0 critical warnings/errors through implementation;
+post-route WNS = 21.853 ns; 1906 LUTs / 815 FFs / 18.5 BRAM tiles, no black
+boxes). One closure bug surfaced at implementation -- an initially-incomplete
+source list left the modular T80 CPU as a black box (`[DRC INBB-3]`); fixed
+by listing all 25 sources (see `PORTING_SPEC.md`). Hardware-verified
+(31 kHz VGA + USB-HID keyboard + JA joystick + PWM audio) with the default
+`sw(13)=0` bitstream; `sw(13)` alone is the display-mode control. See the
+machine `README.md`/`PORTING_SPEC.md` for controls and design detail.
 
-Sky-Skipper-by-Dar is fully scripted and documented (assets authored end to
-end from the Solar Fox/Kick references: same 40 MHz single-clock,
-native-progressive audio/video family — the core drives real
-`video_hs`/`video_vs` itself on a 20 MHz pixel clock, F8 toggles
-progressive/interlaced, so no imported scandoubler or expose patch; and every
-XOR is full-expression-width with `std_logic_unsigned` padding the constant
-to the full width, so no synthesis-fix patch either, unlike Crazy
-Kong/Bagman). The keyboard is **on the Basys3 onboard USB-HID connector
-(c17/B17)**, clocked directly on `clock_40` (40 MHz, ≥ 6 MHz needed by the
-onboard USB-HID host); the pristine 2 MHz `clock_kbd` divider was dropped from
-the keyboard path and is retained only as the `clock_div` gate for the PWM
-audio accumulator — it is **not** retargeted (the USB-HID host needs an
-independent fast clock, per the shared-divider warning below); JA1-4 + JA7
-fire are OR-merged with the keyboard
-and btnU/btnD/btnL/btnR give coin1/coin2/start1/start2. `sw1`/`sw2` keep the
-pristine hard-coded constant dips. The full authoring/verification ladder
-(SHA-verified archive, patch dry-run + idempotency, ROM-set pre/post-flight,
-PROM-width audit, and formatter-clean wrapper) passes. The port is
-synthesized and bitstream-built (0 critical warnings/errors through
-implementation; post-route WNS = 21.853 ns on the 40 MHz core clock;
-1906 LUTs / 815 FFs / 18.5 BRAM tiles, no black boxes — the modular T80
-CPU is fully implemented). One closure bug surfaced at implementation: the
-initial 21-file project carried only `T80_Pack.vhd` + `T80se.vhd`, but
-`T80se.vhd` is a thin wrapper around the modular `T80`
-(`T80.vhd` instantiates `T80_MCode`/`T80_ALU`/`T80_Reg`), so `T80` was a
-black box and `opt_design` failed `[DRC INBB-3]`; the `.xpr` now lists all
-25 sources. Hardware-verified (31 kHz VGA + USB-HID keyboard + JA joystick +
-PWM audio) with the default `sw(13)=0` bitstream; the display mode selector
-(`sw(13)` = 31 kHz VGA / 15 kHz TV, XORed with the F8 keyboard toggle) is the
-single user-facing display control.
-
-Satans-Hollow-by-Dar is a fully scripted, documented port of Dar's Bally Midway
-MCR core (native progressive 31 kHz video — no scandoubler; single 40 MHz clock
-via `clk_wiz_0`; USB-HID keyboard on the onboard connector, JA1=Left/JA2=Right/
-JA7=Fire joystick, mono left-channel PWM audio on PmodAMP2, `sw(13)`⊕F8 display
-mode). The source archive fetch, SHA-256 integrity, `.bat` conversion and the
-single-romset pre/post-flight (`~/roms/shollow.zip`, including the midssio
-`82s123.12d` PROM renamed to `midssio_82s123.12d`) all pass, and all 6 PROM
-VHDLs are generated; the wrapper rewrite is formatter-clean and its
-`satan_hollow_de10_lite_to_basys3.patch` is generated. `make setup` / `make
-patch` are exercised; `make synth` + `make bitstream` + hardware bring-up are
-still pending.
+Satans-Hollow-by-Dar is fully scripted, documented, synthesized,
+bitstream-built, and hardware-verified on the Basys 3 (native progressive
+31 kHz video — no scandoubler; USB-HID keyboard on the onboard connector;
+mono left-channel PWM audio). See the machine `README.md`/`PORTING_SPEC.md`
+for the romset/PROM and controls detail.
 
 Every machine directory now carries a scripted setup: `contrib/tools/setup_<game>.sh`
 (fetches the Dar archive into a gitignored `dloads/` cache with an embedded
@@ -184,7 +116,6 @@ instead of `prep_roms.sh`.
 | Zaxxon (Gremlin/Sega 1980) | 24 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
 | Computer Space (Nutting Associates 1971) | 6 + 50 MHz | `basys3/computer_space_basys3.xpr`, `computer_space_basys3` | `computer_space_de10_lite_to_basys3.patch`, `computer_space_motion_q_assoc.patch`, `computer_space_rocket_timer_synth_fix.patch` | — (discrete-game core, no romset) |
 | Crazy Kong (Kyoei/Falcon 1981) | 12 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
-| Crazy Climber (Nichibutsu 1980) | 12 MHz | `basys3/crazy_climber_basys3.xpr`, `crazy_climber_basys3` | `crazy_climber_de10_lite_to_basys3.patch` | `cclimber.zip` |
 
 Directory naming is not uniform: `Bagman-FPGA-Dar` and `Berzerk-FPGA-by-Dar`
 differ from the `-by-Dar` convention; `Sky-skipper-by-Dar` uses a lowercase `s`.
@@ -225,9 +156,8 @@ The manual equivalents, if needed:
    100 MHz Basys 3 oscillator, then **run synthesis/implementation from `/tmp`**
    so `vivado.log`/`vivado.jou` stay outside the repository.
 
-Tool/path resolution is `ENV_VAR → project default → interactive prompt`:
-Vivado `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`; roms `ROMZIP` →
-`~/roms/`.
+Tool/path resolution follows the standard `ENV_VAR → project default →
+interactive prompt` convention — see `AGENTS.md` §"Tool / path resolution".
 
 Each machine Makefile prints a display-mode reminder via its `make help` target and
 at the end of `make all` / `make bitstream`: if nothing appears on the display after
@@ -244,11 +174,10 @@ port map): USB-HID keyboard on the onboard connector (`ps2_clk` = C17, `ps2_dat`
 = B17), JA joystick (active-low, switch to GND)
 OR-merged with it, mono (or left-channel) PWM audio on PmodAMP2 at JC, 4-4-4 RGB
 VGA, and `btnC` = reset (active-high). `sw14` = sound enable, `sw15` = AMP gain.
-Newer ports (Traverse USA, Crazy Kong, Crazy Climber, Sky Skipper) put the
-keyboard on the onboard USB-HID connector; a few older ports still use the JB
-PS/2 header with a slow pristine keyboard divider — the USB-HID convention
-requires the `io_ps2_keyboard` clock to be independently ≥ 6 MHz (see the
-shared-divider warning in `PORTING_SPEC.md`), so check each machine README.
+All 20 machines are on the onboard USB-HID connector (none remain on the
+legacy JB PS/2 header) as of 2026-09-29. Several needed a new, independent
+keyboard-clock divider to meet the onboard host's ≥ 6 MHz `io_ps2_keyboard`
+floor — see each machine README for the specific divider used.
 Video is 31 kHz progressive VGA; scan doubling is either built into the core or
 added via an imported scandoubler. Per machine: Galaga, Burnin' Rubber,
 Phoenix, Computer Space, Xevious, Traverse-USA, and Zaxxon import
@@ -262,24 +191,14 @@ import `vga_scandoubler.v` (DECA); Bagman and Berzerk instantiate Dar's
 `line_doubler` inside the core; Kick, Popeye, Sky Skipper, Solar Fox, Crazy
 Kong, and Satans/Hollow generate progressive 31 kHz natively in the core
 (`tv15Khz_mode = '0'`).
-Of these, Sky Skipper's and Satans/Hollow's mode is selectable by `sw(13)`
-(0 = 31 kHz VGA default,
-1 = 15 kHz TV) XOR F8; the others are F8-toggled only.
+Of these, all six (Kick, Popeye, Sky Skipper, Solar Fox, Crazy Kong, and
+Satans/Hollow) select the mode via `sw(13)` alone (0 = 31 kHz VGA default,
+1 = 15 kHz TV) — changed 2026-09-29 from a mix of F8-only and `sw(13)`-XOR-F8
+toggles to a single consistent convention.
 
 ## Backlog
 
-- Catalog, per machine, the resulting core/pixel clock frequencies actually
-  achieved by each `clk_wiz_0` MMCM configuration, the resultant VGA output
-  frequency (31 kHz progressive vs. 15 kHz TV path), and the original arcade
-  hardware's real crystal frequency where it can be determined from
-  schematics/documentation. Done — see `CLOCK_CRYSTAL_CATALOG.md`.
-  Crazy-Kong-by-Dar's hardware-family attribution (previously described
-  repo-wide as "Irem M-52 bootleg of Donkey Kong") was corrected to
-  Crazy-Climber-derived hardware (Kyoei/Falcon), per MAME's `cclimber.cpp`
-  driver and Wikipedia — the crystal figure itself was unaffected. See that
-  file's Crazy-Kong section for a still-open, unresolved discrepancy between
-  MAME's generic raster size and this repo's own core/Dar's README.txt video
-  timing description.
+None currently.
 
 ## Shared tools
 

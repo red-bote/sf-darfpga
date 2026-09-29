@@ -128,7 +128,21 @@ Entry format:
 
   Hardware-confirmed 2026-09-25: USB-HID keyboard and other controls (btn, JA) all
   working as expected, on the same second-attempt build.
-- **Status**: fixed and hardware-confirmed 2026-09-25.
+
+  **2026-09-29**: the F8-based display-mode toggle noted above (line 121) shared the
+  exact same latent defect subsequently found and fixed on Solar-Fox (see "Solar-Fox-by-Dar:
+  no sync on Sylvania SF150 at power-on" above): `tv15Khz_mode <= not fn_toggle(7)`, and
+  `fn_toggle` in `kbd_joystick.vhd` has no reset/init, so the machine could boot into 15 kHz
+  TV mode on some monitors until F8 was pressed once. Changed to `tv15Khz_mode <= sw(13)`
+  (`contrib/basys3/code/kick_basys3.vhd`), matching the Solar-Fox/Satans-Hollow/Sky-skipper/
+  Tron convention -- also requested independently by the user as part of standardizing all
+  machines onto `sw(13)`. Not yet hardware-confirmed on this specific monitor-sync symptom
+  (no report of it occurring on Kick), but the code path is identical to Solar-Fox's
+  confirmed, resolved defect. Staged/verified via fresh `make clean && make setup && make
+  create_prj && make clk_wiz && make patch` (no errors), Vivado `check_syntax` (only
+  pre-existing, unrelated warnings), and `make patch` re-run (idempotent).
+- **Status**: fixed and hardware-confirmed 2026-09-25 (USB-HID). Display-mode toggle changed
+  to sw(13) 2026-09-29, staged/verified, not yet hardware-confirmed on this specific build.
 
 ### Phoenix-by-Dar: no dedicated buttons/JA joystick; keyboard not on the standard USB-HID convention
 - **Reported**: 2026-09-22
@@ -207,7 +221,23 @@ Entry format:
   pristine core's palette-RAM port map).
 
   Hardware-confirmed 2026-09-25: USB-HID keyboard working.
-- **Status**: fixed and hardware-confirmed 2026-09-25.
+
+  **2026-09-29**: this port's F8-based display-mode toggle (`tv15Khz_mode <= not
+  fn_toggle(7)`) shared the same latent defect found and fixed on Solar-Fox (see
+  "Solar-Fox-by-Dar: no sync on Sylvania SF150 at power-on" above) -- `fn_toggle` has no
+  reset/init in `kbd_joystick.vhd`, so the machine could boot into 15 kHz TV mode on some
+  monitors until F8 was pressed once. Changed to `tv15Khz_mode <= sw(13)`
+  (`contrib/basys3/code/tron_basys3.vhd`), matching the Solar-Fox/Satans-Hollow/
+  Sky-skipper/Kick convention -- also requested independently by the user as part of
+  standardizing all machines onto `sw(13)`. Not yet hardware-confirmed on this specific
+  monitor-sync symptom (no report of it occurring on Tron), but the code path is
+  identical to Solar-Fox's confirmed, resolved defect. Staged/verified via fresh `make
+  clean && make setup && make create_prj && make clk_wiz && make patch` (no errors),
+  Vivado `check_syntax` (only pre-existing, unrelated warnings), and `make patch`
+  re-run (idempotent).
+- **Status**: fixed and hardware-confirmed 2026-09-25 (USB-HID). Display-mode toggle
+  changed to sw(13) 2026-09-29, staged/verified, not yet hardware-confirmed on this
+  specific build.
 
 ### Time-Pilot-by-Dar: keyboard not on USB-HID; controls don't follow the standard allocation
 - **Reported**: 2026-09-23
@@ -587,57 +617,65 @@ Entry format:
   15 kHz TV), so power-on with sw(13)=0 outputs 31 kHz without any key press.
   `solar_fox_de10_lite_to_basys3.patch` regenerated; new bitstream built.
 
-### Solar-Fox-by-Dar: video columns clipping on Enoyo LCD
+### Solar-Fox-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Also observed on Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar, Tron-by-Dar,
   Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see their own
   entries below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
-  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
+  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
+  inconclusive: none of the three has gameplay graphics near the horizontal screen
+  edges that would reveal the symptom either way on the Eyoyo EM08F.
 - **Tried**: n/a -- not yet investigated.
 - **Status**: open, deferred at the user's explicit request ("ignoring it for now") -- not
   being actively pursued.
 
-### Galaga-Midway-by-Dar: video columns clipping on Enoyo LCD
+### Galaga-Midway-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Kick-Midway-MCR-by-Dar, Tron-by-Dar,
   Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
   above/below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
-  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
+  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
+  inconclusive: none of the three has gameplay graphics near the horizontal screen
+  edges that would reveal the symptom either way on the Eyoyo EM08F.
 - **Tried**: n/a -- not yet investigated.
 - **Status**: open, deferred at the user's explicit request ("we'll just note it for
   now") -- not being actively pursued.
 
-### Kick-Midway-MCR-by-Dar: video columns clipping on Enoyo LCD
+### Kick-Midway-MCR-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, Tron-by-Dar,
   Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
   above/below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
-  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
+  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
+  inconclusive: none of the three has gameplay graphics near the horizontal screen
+  edges that would reveal the symptom either way on the Eyoyo EM08F.
 - **Tried**: n/a -- not yet investigated.
 - **Status**: open, deferred at the user's explicit request ("we'll just note it for
   now") -- not being actively pursued.
 
-### Tron-by-Dar: video columns clipping on Enoyo LCD
+### Tron-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar,
   Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
   above/below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar checked 2026-09-25
-  (hardware-confirmed USB-HID builds) and do not exhibit this symptom.
+  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
+  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
+  inconclusive: none of the three has gameplay graphics near the horizontal screen
+  edges that would reveal the symptom either way on the Eyoyo EM08F.
 - **Tried**: n/a -- not yet investigated.
 - **Status**: open, deferred at the user's explicit request ("we'll just note it for
   now") -- not being actively pursued.
 
-### Zaxxon-by-Dar: video columns clipping on Enoyo LCD
+### Zaxxon-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
   Kick-Midway-MCR-by-Dar, Tron-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and
   Berzerk-FPGA-by-Dar (see above/below) -- a cross-machine pattern, not specific to
@@ -648,9 +686,9 @@ Entry format:
 - **Status**: open, deferred at the user's explicit request -- not being actively
   pursued.
 
-### Popeye-by-Dar: video columns clipping on Enoyo LCD
+### Popeye-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
   Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Bagman-FPGA-Dar, and
   Berzerk-FPGA-by-Dar (see above) -- a cross-machine pattern, not specific to this
@@ -661,9 +699,9 @@ Entry format:
 - **Status**: open, deferred at the user's explicit request -- not being actively
   pursued.
 
-### Bagman-FPGA-Dar: video columns clipping on Enoyo LCD
+### Bagman-FPGA-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
   Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
   Berzerk-FPGA-by-Dar (see above/below) -- a cross-machine pattern, not specific to
@@ -672,9 +710,9 @@ Entry format:
 - **Status**: open, deferred at the user's explicit request -- not being actively
   pursued.
 
-### Berzerk-FPGA-by-Dar: video columns clipping on Enoyo LCD
+### Berzerk-FPGA-by-Dar: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Enoyo LCD monitor.
+- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
   Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
   Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
   Bagman-FPGA-Dar (see above) -- a cross-machine pattern, not specific to this port.

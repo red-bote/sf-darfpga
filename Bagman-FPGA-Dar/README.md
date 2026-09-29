@@ -109,7 +109,7 @@ grep -n 'xor "0000000000000"' vhdl_bagman_rev_0_1_2018_06_05/rtl_dar/bagman.vhd
 
 ## Known issues
 
-- Several columns of video appear clipped on the user's Enoyo LCD monitor
+- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
   (reported 2026-09-25, on the hardware-confirmed USB-HID build). Same
   pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
   Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
