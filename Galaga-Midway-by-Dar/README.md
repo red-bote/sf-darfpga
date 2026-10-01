@@ -6,10 +6,15 @@ http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
 notes.
 
 - Vivado 2020.2 project: `basys3/galaga_basys3.xpr` (top entity `galaga_basys3`)
-- Core clock: 36 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 36.000 MHz;
-  reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=5`,
-  `CLKFBOUT_MULT_F=49.5`, `CLKOUT0_DIVIDE_F=27.5`.
+- Core clock: 36.863711 MHz (2 x 18.432 MHz crystal; core `clock_18` =
+  18.432 MHz, CPUs 3.072 MHz, pixel 6.144 MHz as the original; from the
+  100 MHz Basys 3 oscillator via `clk_wiz_0`; see `../CLOCKING_SPEC.md`)
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 36.863711 MHz.
+  MMCM reset on btnC, core reset `btnC or not mmcm_locked` (2026-10-01; see
+  `../CLOCKING_SPEC.md` section 6). Solved MMCM (forced by `make_clk_wiz_0.sh`, Vivado's own solve
+  puts VGA H above 32.0 kHz): `DIVCLK_DIVIDE=6`, `CLKFBOUT_MULT_F=56.125`,
+  `CLKOUT0_DIVIDE_F=25.375`. VGA 31.9998 kHz / 60.61 Hz (was 36.000 MHz:
+  31.25 kHz / 59.19 Hz, -2.34% speed).
 
 ## Features supported
 

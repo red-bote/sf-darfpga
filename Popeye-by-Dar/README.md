@@ -10,6 +10,12 @@ archive for the original Dar release notes.
   reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=5`,
   `CLKFBOUT_MULT_F=31.5`, `CLKOUT0_DIVIDE_F=15.625`.
 
+- **CPU/AY rate fix** (`contrib/code/popeye_clock_cnt2_width.patch`, 2026-10-01): the pristine 4-bit
+  `clock_cnt2` is compared with `"10011"` (19), so the reload never fired and
+  the counter wrapped mod 16: CPU averaged f/8 (5.04 MHz) and the AY f/16, about
+  25% fast (sound about 4 semitones sharp). The patch widens it to 5 bits,
+  restoring f/10 = 4.032 MHz CPU and f/20 AY. See `../CLOCKING_SPEC.md` 5.6.
+
 ## Features supported
 
 - **Video**: 31 kHz progressive VGA (scan doubling built into the core).

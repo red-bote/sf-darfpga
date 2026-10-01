@@ -44,6 +44,8 @@ The Basys3 provides a 100 MHz oscillator. A Vivado MMCM (`clk_wiz_0`) derives th
 (video board core) and 14.318 MHz (sound board) clocks. The top level instantiates `clk_wiz_0`; its IP
 files must be (re)generated and placed under `sources_1/imports/clk_wiz_0/`. The wizard solves
 to `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`, `CLKOUT1_DIVIDE=56`.
+Since 2026-10-01 the MMCM reset is `btnC` and the core reset is `btnC or not mmcm_locked`
+(`../CLOCKING_SPEC.md` section 6; previously `locked` was left open).
 
 ## VGA
 

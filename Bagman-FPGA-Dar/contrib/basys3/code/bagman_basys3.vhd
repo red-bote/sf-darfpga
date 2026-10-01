@@ -5,7 +5,8 @@
 -- Basys3 port by Red~Bote.
 --
 -- Ported from bagman_de10_lite.vhd (DE10-lite rev 04/06/2018):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz
+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12.288 MHz (signal
+--    clock_12; sf-darfpga/CLOCKING_SPEC.md)
 --  - Joystick on JA, OR-merged with PS/2 keyboard (JB)
 --  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
 --  - Display mode via sw(13): 0 = 31 kHz progressive VGA (internal line

@@ -7,10 +7,13 @@ notes.
 
 - Vivado 2020.2 project: `basys3/zaxxon_basys3.xpr` (top entity
   `zaxxon_basys3`)
-- Core clock: 24 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 24.000 MHz;
-  reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=5`,
-  `CLKFBOUT_MULT_F=50.250`, `CLKOUT0_DIVIDE_F=41.875`.
+- Core clock: 24.329 MHz (48.66 MHz crystal / 2; CPU 3.041 MHz, pixel
+  6.082 MHz as the original; from the 100 MHz Basys 3 oscillator via
+  `clk_wiz_0`; see `../CLOCKING_SPEC.md`)
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 24.32900 MHz;
+  reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=3`,
+  `CLKFBOUT_MULT_F=35.125`, `CLKOUT0_DIVIDE_F=48.125`. VGA 31.678 kHz /
+  60.00 Hz (was 24.000 MHz: 31.25 kHz / 59.19 Hz, -1.36% speed).
 
 ## Features supported
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 40.000 MHz core/sound clock) for
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 40.32 MHz core/sound clock) for
 # the Basys3 port and place its Verilog wrappers where sky_skipper_basys3.xpr
 # expects them.
 #
@@ -13,6 +13,11 @@
 #
 # Requires the basys3/ project tree to already exist (run `make create_prj`
 # first).
+
+# 40.32 MHz as Popeye (same TNX-1 board; sf-darfpga/CLOCKING_SPEC.md 5.6):
+# video 31.500 kHz / 59.89 Hz; with sky_skipper_clock_cnt2_width.patch the
+# CPU runs at f/10 = 4.032 MHz (+0.8%) and the AY at f/20. Expected solve:
+# DIVCLK 5 / MULT_F 31.5 / CLKOUT0_DIVIDE_F 15.625.
 
 set -euo pipefail
 
@@ -41,7 +46,7 @@ set_property -dict [list \
     CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {40.000} \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {40.32} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
 ] [get_ips clk_wiz_0]
 

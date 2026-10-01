@@ -12,6 +12,7 @@
 ## 2. Clocking
 
 - Single core clock: **24 MHz** (`clock_24`), derived on DE10-lite from
+  [Clock revision 2026-10-01, `../../CLOCKING_SPEC.md` section 4: retargeted to 24.329 MHz (Vivado solve DIVCLK 3 / MULT_F 35.125 / CLKOUT0_DIVIDE_F 48.125) = 48.66 MHz crystal / 2, CPU 3.041 MHz as the original (was -1.36%); 24 MHz figures below scale by 1.0137.]
   50 MHz by `max10_pll_24M`. On Basys 3, `clk_wiz_0` derives it from the
   100 MHz board oscillator instead — single MMCM output, no second clock
   needed (unlike Burnin-Rubber/BurgerTime's 12+6 MHz pairs).

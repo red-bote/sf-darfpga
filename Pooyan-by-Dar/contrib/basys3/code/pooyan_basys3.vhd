@@ -51,6 +51,7 @@ architecture struct of pooyan_basys3 is
  signal clock_12  : std_logic;
  signal clock_14  : std_logic;
  signal reset     : std_logic;
+ signal mmcm_locked : std_logic;
  signal clock_6   : std_logic;
 
  signal r         : std_logic_vector(2 downto 0);
@@ -86,7 +87,7 @@ architecture struct of pooyan_basys3 is
 
 begin
 
-reset <= btnC;
+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 
 -- Clock 12.288MHz for pooyan core, 14.318MHz for sound_board (from 100 MHz)
 clocks : entity work.clk_wiz_0
@@ -94,7 +95,8 @@ port map(
  clk_in1  => clk,
  clk_out1 => clock_12,
  clk_out2 => clock_14,
- locked   => open
+ reset    => btnC,
+ locked   => mmcm_locked
 );
 
 -- Pooyan

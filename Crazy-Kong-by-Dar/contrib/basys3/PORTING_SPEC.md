@@ -22,6 +22,7 @@
   `max10_pll_12M` (50 MHz in); on Basys 3 the `clk_wiz_0` MMCM derives it
   from the 100 MHz board oscillator (DIVCLK_DIVIDE=5, CLKFBOUT_MULT_F=49.875,
   CLKOUT0_DIVIDE_F=83.125 → VCO 997.5 MHz → 12.0 MHz; clk_out1).
+  - Clock revision 2026-10-01 (`../../CLOCKING_SPEC.md` section 4): retargeted to 12.288 MHz (DIVCLK 5 / MULT_F 48 / CLKOUT0_DIVIDE_F 78.125) so the CPU runs at the original 3.072 MHz (was -2.34%); the 12.0 MHz solve above is superseded. Frequencies quoted elsewhere in this spec for derived clocks scale by the same ratio.
 - Everything runs on `clock_12`: the `ckong` core, `ckong_sound`/`ym2149`,
   the PWM audio accumulator, and the PRMSG keyboard chain — mirroring the
   pristine DE10 top exactly.

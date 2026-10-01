@@ -5,10 +5,13 @@ Basys 3 (Artix-7) port by Red~Bote. See `README.txt` in the extracted source
 archive for the original Dar release notes.
 
 - Vivado 2020.2 project: `basys3/bagman_basys3.xpr` (top entity `bagman_basys3`)
-- Core clock: 12 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.000 MHz;
+- Core clock: 12.288 MHz (18.432 MHz crystal x 2/3; CPU 3.072 MHz, pixel
+  6.144 MHz as the original; from the 100 MHz Basys 3 oscillator via `clk_wiz_0`;
+  see `../CLOCKING_SPEC.md`)
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.288 MHz;
   reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=5`,
-  `CLKFBOUT_MULT_F=49.875`, `CLKOUT0_DIVIDE_F=83.125`.
+  `CLKFBOUT_MULT_F=48.000`, `CLKOUT0_DIVIDE_F=78.125`. VGA 32.000 kHz /
+  60.61 Hz (was 12.000 MHz: 31.25 kHz / 59.19 Hz, -2.34% speed).
 
 ## Features supported
 

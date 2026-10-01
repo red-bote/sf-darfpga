@@ -1,0 +1,11 @@
+--- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye.vhd
++++ b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye.vhd
+@@ -376,7 +376,7 @@
+  signal clock_vid : std_logic;
+  signal clock_vidn: std_logic;
+  signal clock_cnt1: std_logic_vector(3 downto 0) := "0000";
+- signal clock_cnt2: std_logic_vector(3 downto 0) := "0000";
++ signal clock_cnt2: std_logic_vector(4 downto 0) := "00000"; -- Basys3 port: was 4 bits, so the "10011" (19) reload never fired (mod 16: CPU f/8, AY f/16)
+ 
+  signal hcnt    : std_logic_vector(9 downto 0) := (others=>'0'); -- horizontal counter
+  signal hflip   : std_logic_vector(9 downto 0) := (others=>'0'); -- horizontal counter flip

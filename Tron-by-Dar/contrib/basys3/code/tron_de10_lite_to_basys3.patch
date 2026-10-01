@@ -1,7 +1,7 @@
 diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd
 --- a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd
 +++ b/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd
-@@ -1,424 +1,288 @@
+@@ -1,424 +1,290 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Tron (Midway MCR) by Dar (darfpga@aol.fr) (19/10/2019)
 --- http://darfpga.blogspot.fr
@@ -499,6 +499,7 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 + signal clock_40  : std_logic;
 + signal clock_kbd : std_logic;
 + signal reset     : std_logic;
++ signal mmcm_locked : std_logic;
 +
 + signal clock_div : std_logic_vector(3 downto 0);
 + signal clock_div_kbd : std_logic_vector(1 downto 0);
@@ -532,7 +533,7 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +
 +begin
 +
-+reset <= btnC;
++reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 +
 +tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 +
@@ -541,7 +542,8 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +port map(
 + clk_in1  => clk,
 + clk_out1 => clock_40,
-+ locked   => open
++ reset    => btnC,
++ locked   => mmcm_locked
 +);
 +
 +-- Tron

@@ -35,7 +35,7 @@ notes.
 | Move | Arrow keys |
 | Fire | Space |
 | Coin | F1 |
-| Fast | F2 |
+| Fast | Left Ctrl (decoded in the wrapper; was F2, moved 2026-10-01) |
 | Separate audio (stereo/mono) | F5 |
 | Service | F7 |
 
@@ -50,7 +50,7 @@ JA joystick (active-low, switch to GND):
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
 | btnU | `btnU` | coin-in (coin1), OR-merged with keyboard F1 / JA fire+up |
-| btnL | `btnL` | start/fast (fast1), OR-merged with keyboard F2 / JA fire+left |
+| btnL | `btnL` | start/fast (fast1), OR-merged with keyboard Left Ctrl / JA fire+left |
 | btnD / btnR | `btnD` / `btnR` | declared, unused (reserved — core has no 2nd coin/start) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |

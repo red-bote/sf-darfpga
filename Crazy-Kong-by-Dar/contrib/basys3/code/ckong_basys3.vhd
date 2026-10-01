@@ -9,9 +9,9 @@
 --
 -- Ported from ckong_de10_lite.vhd (DE10-lite rev 06/06/2018):
 --  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single clock_12
---    (12 MHz) used for everything: the core, the sound, the PWM audio
---    accumulator and the keyboard -- exactly as the pristine top's
---    max10_pll_12M (50 -> 12 MHz) did on the DE10-lite.
+--    (12.288 MHz, CPU 3.072 MHz as the original; sf-darfpga/CLOCKING_SPEC.md)
+--    used for everything: the core, the sound, the PWM audio accumulator
+--    and the keyboard (pristine DE10-lite max10_pll_12M gave 12 MHz).
 --  - Joystick on JA (four directions + fire/jump), OR-merged with the
 --    PS/2/USB keyboard and, for coin/start, dedicated buttons (btnU/btnD =
 --    coin, btnL = P1 start, btnR = P2 start). Core inputs are active-high;
@@ -157,7 +157,7 @@ begin
  -- get scancode from keyboard
  keyboard : entity work.io_ps2_keyboard
  port map (
-  clk       => clock_12, -- 12 MHz: >= 6 MHz required by the onboard USB-HID host
+  clk       => clock_12, -- 12.288 MHz: >= 6 MHz required by the onboard USB-HID host
   kbd_clk   => ps2_clk,
   kbd_dat   => ps2_dat,
   interrupt => kbd_intr,

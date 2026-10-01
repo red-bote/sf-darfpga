@@ -8,11 +8,14 @@ http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
 notes.
 
 - Vivado 2020.2 project: `basys3/ckong_basys3.xpr` (top entity `ckong_basys3`)
-- Core clock: 12 MHz, from the 100 MHz Basys 3 oscillator via `clk_wiz_0`
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12 MHz
+- Core clock: 12.288 MHz (18.432 MHz crystal x 2/3; CPU 3.072 MHz as the
+  original), from the 100 MHz Basys 3 oscillator via `clk_wiz_0`; see
+  `../CLOCKING_SPEC.md`
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.288 MHz
   (`clock_12`), used for everything (core, sound, PWM audio, keyboard).
-  Reset active-high (btnC), `locked` used. MMCM settles at VCO 997.5 MHz /
-  output divide 83.125.
+  Reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=5`,
+  `CLKFBOUT_MULT_F=48.000`, `CLKOUT0_DIVIDE_F=78.125` (VCO 960 MHz). VGA
+  32.000 kHz / 60.61 Hz (was 12.000 MHz: 31.25 kHz / 59.19 Hz, -2.34%).
 
 ## Features supported
 

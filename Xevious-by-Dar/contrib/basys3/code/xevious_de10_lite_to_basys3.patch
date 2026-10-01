@@ -396,7 +396,8 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +-- Basys3 port.
 +--
 +-- Ported from xevious_de10_lite.vhd (DE10-lite 2017/05/01):
-+--  - 100 MHz board oscillator; clk_wiz_0 MMCM derives 18 MHz core + 11 MHz PS/2
++--  - 100 MHz board oscillator; clk_wiz_0 MMCM derives the 18.432 MHz core
++--    clock (signal clock_18), also used by the PS/2 keyboard
 +--  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
 +--  - Mono PWM audio on PmodAMP2 (JC); sw(14) = shutdown, sw(15) = gain select
 +--  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
@@ -444,9 +445,8 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +architecture struct of xevious_basys3 is
 +
 + signal clock_18 : std_logic;
-+ signal clock_11 : std_logic;
 + signal reset    : std_logic;
-+ signal mmcm_reset : std_logic := '0';
++ signal mmcm_locked : std_logic;
 +
 + signal r         : std_logic_vector(3 downto 0);
 + signal g         : std_logic_vector(3 downto 0);
@@ -500,17 +500,17 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +
 +begin
 +
-+reset <= btnC;
++reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 +
-+-- Clock 18MHz for the xevious core and the scandoubler's clock chain,
-+-- 11MHz for the PS/2 keyboard decoder.
++-- Clock 18.432 MHz (signal name clock_18 kept) for the xevious core, the
++-- scandoubler's clock chain and the PS/2 keyboard decoder (single domain,
++-- sf-darfpga/CLOCKING_SPEC.md section 5.2).
 +clocks : entity work.clk_wiz_0
 +port map(
 + clk_in1  => clk,
 + clk_out1 => clock_18,
-+ clk_out2 => clock_11,
-+ reset    => mmcm_reset,  -- MMCM reset unused (btnC resets the core only)
-+ locked   => open
++ reset    => btnC,
++ locked   => mmcm_locked
 +);
 +
 +-- Xevious core + character/graphics ROM.
@@ -561,7 +561,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +vga_b_i <= b & b(3 downto 2) when blankn = '1' else "000000";
 +
 +-- Derive the scandoubler enable signals. The core's pixel clock is 6 MHz
-+-- (ena_vidgen). From the 18 MHz clk_sys a mod-3 counter yields:
++-- (ena_vidgen). From the 18.432 MHz clk_sys a mod-3 counter yields:
 +--   cycle 0: ce_x1='1' (capture pixel) and ce_x2='1' (output 1st copy)
 +--   cycle 1: ce_x2='1' (output 2nd copy)
 +--   cycle 2: both '0'
@@ -623,7 +623,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +-- get scancode from keyboard
 +keyboard : entity work.io_ps2_keyboard
 +port map (
-+  clk       => clock_11, -- synchronous clock with USB HID path
++  clk       => clock_18, -- core clock (18.432 MHz), single domain
 +  kbd_clk   => ps2_clk,
 +  kbd_dat   => ps2_dat,
 +  interrupt => kbd_intr,
@@ -633,7 +633,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +-- translate scancode to joystick
 +joystick : entity work.kbd_joystick
 +port map (
-+  clk           => clock_11, -- synchronous clock with USB HID path
++  clk           => clock_18, -- core clock (18.432 MHz), single domain
 +  kbdint        => kbd_intr,
 +  kbdscancode   => kbd_scancode,
 +  joyBCPPFRLDU  => kbd_joy

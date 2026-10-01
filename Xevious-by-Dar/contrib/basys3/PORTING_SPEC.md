@@ -4,7 +4,7 @@ Upstream: `vhdl_xevious_de2_de10_lite_2017_05_01.zip` (darfpga@aol.fr,
 <http://darfpga.blogspot.fr>), which has an internal top-level folder
 (`vhdl_xevious_de2_de10_lite_2017_05_01/`, extracted as `SRC_DIR` per
 `setup_xevious.sh`). Project/top entity: `xevious_basys3`. Core clock:
-18 MHz (pixel clock 6 MHz = `ena_vidgen`); PS/2 decoder on 11 MHz. Video
+18.432 MHz (pixel clock 6.144 MHz = `ena_vidgen`); PS/2 decoder on the same clock (revised 2026-10-01, see Clocking). Video
 path: composite-sync core with genuine separate hsync/vsync exposed by patch —
 see "Video path" below.
 
@@ -13,14 +13,17 @@ Port status is tracked in the root `README.md` §Status, not here (per
 
 ## Clocking (`clk_wiz_0`, scripted in `make_clk_wiz_0.sh`)
 
-Single MMCM from the 100 MHz Basys 3 oscillator: `clk_out1` ~18 MHz (core:
-`clock_18` into the `xevious` entity), `clk_out2` ~11 MHz (PS/2 keyboard:
-`clock_11` into `io_ps2_keyboard`/`kbd_joystick`). Exact integer division of
-one VCO for both is impossible (lcm(18,11)=198); e.g. a 1100 MHz VCO gives
-18.03 MHz via /61 and 11.0 MHz via /100. `make_clk_wiz_0.sh` requests
-`CLKOUT1=18`, `CLKOUT2=11` and records the actual frequencies from the
-generated wrapper rather than baking in an M/D guess. `clk_wiz_0` `reset` is
-tied to a static `'0'` (`mmcm_reset`); `btnC` resets the core only.
+Revised 2026-10-01 (`../../CLOCKING_SPEC.md` sections 4 and 5.2): single
+MMCM output `clk_out1` = 18.43196 MHz (the original 18.432 MHz crystal;
+Vivado solve DIVCLK 7 / MULT_F 61.125 / CLKOUT0_DIVIDE_F 47.375), signal
+`clock_18`, driving the `xevious` entity, the scandoubler clock chain and
+`io_ps2_keyboard`/`kbd_joystick` (single clock domain; >= 6 MHz keyboard
+requirement met). Pixel 6.144 MHz, CPUs 3.072 MHz (was 18.000 MHz,
+-2.34%). The former `clk_out2` = 11 MHz keyboard clock is removed; the
+earlier note that exact 18/11 MHz division was impossible was also wrong
+(Vivado solved both exactly at VCO 990 MHz). `clk_wiz_0` `reset` is
+on `btnC` and the core reset is `btnC or not mmcm_locked` (2026-10-01,
+`../../CLOCKING_SPEC.md` section 6; previously tied to a static `'0'`).
 
 ## Video path
 

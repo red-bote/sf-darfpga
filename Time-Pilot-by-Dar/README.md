@@ -12,7 +12,12 @@ notes.
 - `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.288 MHz +
   `clk_out2` = 14.318 MHz; reset active-high (btnC), `locked` used. Solved
   MMCM: `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`,
-  `CLKOUT1_DIVIDE=56`.
+  `CLKOUT1_DIVIDE=56`. MMCM reset on btnC, core reset `btnC or not
+  mmcm_locked` (2026-10-01; previously `locked` was left open).
+- Frame: 263 lines, 60.84 Hz (`contrib/code/time_pilot_vcnt_263_lines.patch`,
+  2026-10-01): pristine reload `0x0FC` gave 260 lines / 61.54 Hz, outside the
+  VGA window; 263 lines (`0x0F9`) is the choice Dar made in his later Pooyan
+  core for the same hardware family. See `../CLOCKING_SPEC.md` 5.7.
 
 ## Features supported
 

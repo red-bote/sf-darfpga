@@ -174,4 +174,24 @@ names).
 2. End-to-end `make setup` with real romsets; confirm generated PROM VHDLs.
 3. Tamper test: corrupt the cached zip, rerun, expect re-download + pass.
 4. `make -n <targets>` dry runs for Makefile wiring.
-5. Vivado runs: see `vivado-batch-build`.
+5. Timing-equivalence audit, before the first synth, wherever a fix patch
+   or the wrapper replaces a RAM, ROM or primitive in Dar's clock-enable
+   designs (fast `clk` plus enables). Record results in the machine's
+   `PORTING_SPEC.md`.
+   - RAM/ROM port table: per port, clock, enable, write enable, read
+     latency (async / every `clk` / on enable), read-during-write.
+     Compare against the original primitive (often left as a comment)
+     and any sibling port of the same core. A dropped read enable shifts
+     a pipeline by one pixel and shows only on hardware (precedent: the
+     root repo's `pinballwiz/TangNano9K-Pacman` sprite line buffer,
+     vertical bar on sprite right edges).
+   - Registers that ignore the clock enable: classify each as harmless
+     (address stable for the whole enable period) or a defect, with the
+     reason.
+   - Sibling diff: diff each module against a working port of the same
+     core before the first build.
+   - Literals into Verilog modules instantiated from VHDL without a
+     component declaration: route through typed signals (`Synth 8-2398`
+     "N visible types match"). Vivado `check_syntax` is parse-only and
+     does not catch this.
+6. Vivado runs: see `vivado-batch-build`.

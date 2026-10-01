@@ -1,14 +1,13 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 18 MHz core + 11 MHz PS/2) for
-# the Basys3 port and place its Verilog wrappers where xevious_basys3.xpr
-# expects them.
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 18.432 MHz core) for the Basys3
+# port and place its Verilog wrappers where xevious_basys3.xpr expects them.
 #
-# The Xevious core runs on 18 MHz (pixel clock = 6 MHz, ena_vidgen) and the
-# PS/2 keyboard decoder on 11 MHz, both derived from the 100 MHz board
-# oscillator. Exact integer division for both from one MMCM is impossible
-# (lcm(18,11)=198; e.g. a 1100 MHz VCO gives 18.03 MHz via /61 and 11.0 MHz via
-# /100). We request CLKOUT1=18 and CLKOUT2=11 and record the actual frequencies
-# from the generated wrapper (see PORTING_SPEC.md).
+# Single output: 18.432 MHz = the original 18.432 MHz crystal, so pixel
+# (f/3) = 6.144 MHz and the three CPUs (f/6) = 3.072 MHz. The PS/2 keyboard
+# also runs on this clock (former 11 MHz CLKOUT2 removed; single clock
+# domain, sf-darfpga/CLOCKING_SPEC.md sections 4 and 5.2). Vivado solve
+# (2026-10-01): DIVCLK 7 / MULT_F 61.125 / CLKOUT0_DIVIDE_F 47.375
+# (18.43196 MHz, -1 ppm).
 #
 # The main project's .xpr references two imported files (xevious_basys3.xpr):
 #   sources_1/imports/clk_wiz_0/clk_wiz_0.v
@@ -44,9 +43,7 @@ set_property -dict [list \
     CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {18} \
-    CONFIG.CLKOUT2_USED {true} \
-    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {11} \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {18.432} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
 ] [get_ips clk_wiz_0]
 

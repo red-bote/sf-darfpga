@@ -83,6 +83,7 @@ architecture struct of kick_basys3 is
  signal clock_40  : std_logic;
  signal clock_kbd : std_logic;
  signal reset     : std_logic;
+ signal mmcm_locked : std_logic;
  signal coin2_in  : std_logic;
 
  signal clock_div : std_logic_vector(3 downto 0);
@@ -118,7 +119,7 @@ architecture struct of kick_basys3 is
 
 begin
 
-reset <= btnC;
+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 
 tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 
@@ -127,7 +128,8 @@ clocks : entity work.clk_wiz_0
 port map(
  clk_in1  => clk,
  clk_out1 => clock_40,
- locked   => open
+ reset    => btnC,
+ locked   => mmcm_locked
 );
 
 -- Kick

@@ -1,7 +1,7 @@
 diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd b/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
 --- a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
 +++ b/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
-@@ -1,410 +1,273 @@
+@@ -1,410 +1,289 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Sky skipper by Dar (darfpga@aol.fr) (26/12/2019)
 --- http://darfpga.blogspot.fr
@@ -444,10 +444,11 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +--    PWM audio accumulator.
 +--  - Keyboard map (kbd_joystick -> joy_BBBBFRLDU, 9 bits):
 +--      bit0 = Up arrow (0x75)      -> up          bit4 = Space (0x29) -> fire10
-+--      bit1 = Down arrow (0x72)    -> down        bit5 = F (0x2B)     -> fire11
++--      bit1 = Down arrow (0x72)    -> down        bit5 = F (0x2B)     -> unused
 +--      bit2 = Left arrow (0x6B)    -> left        bit6 = G (0x34)     -> unused
 +--      bit3 = Right arrow (0x74)   -> right       bit7 = T (0x2C)     -> unused
 +--                                                bit8 = V (0x2A)     -> unused
++--      Left Ctrl (0x14, decoded in this wrapper) -> fire11 / fire21 (fire B)
 +--  - Function keys (kbd_joystick):
 +--      F1 (fn_pulse 0) = coin1      F2 (fn_pulse 1) = coin2
 +--      F3 (fn_pulse 2) = start1     F4 (fn_pulse 3) = start2
@@ -536,6 +537,8 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  signal kbd_intr     : std_logic;
 +  signal kbd_scancode : std_logic_vector(7 downto 0);
 +  signal joy_BBBBFRLDU: std_logic_vector(8 downto 0);
++  signal kbd_released : std_logic := '0';
++  signal kbd_lctrl    : std_logic := '0';  -- Left Ctrl held: fire B
 +  signal fn_pulse     : std_logic_vector(7 downto 0);
 +  signal fn_toggle    : std_logic_vector(7 downto 0);
 +
@@ -589,14 +592,14 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +    up1            => joy_BBBBFRLDU(0) or ja_up,
 +    down1          => joy_BBBBFRLDU(1) or ja_down,
 +    fire10         => joy_BBBBFRLDU(4) or ja_fire,
-+    fire11         => joy_BBBBFRLDU(5) or ja_fire,
++    fire11         => kbd_lctrl or ja_fire,
 +
 +    right2         => joy_BBBBFRLDU(3) or ja_right,
 +    left2          => joy_BBBBFRLDU(2) or ja_left,
 +    up2            => joy_BBBBFRLDU(0) or ja_up,
 +    down2          => joy_BBBBFRLDU(1) or ja_down,
 +    fire20         => joy_BBBBFRLDU(4) or ja_fire,
-+    fire21         => joy_BBBBFRLDU(5) or ja_fire,
++    fire21         => kbd_lctrl or ja_fire,
 +
 +  --      ...DCBA
 +    sw1            => "0000000",  --  n.u.(3b hard wired)  / coinage(DCBA)
@@ -646,6 +649,19 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +    fn_pulse       => fn_pulse,
 +    fn_toggle      => fn_toggle
 +  );
++
++  -- Fire B (fire11/fire21) on Left Ctrl (0x14) instead of Dar's F key.
++  -- Decoded here so the core's kbd_joystick stays unpatched. Make/break
++  -- handling as in kbd_joystick (F0 marks the next code as a release).
++  process (clock_40)
++  begin
++    if rising_edge(clock_40) then
++      if kbd_intr = '1' then
++        if kbd_scancode = x"F0" then kbd_released <= '1'; else kbd_released <= '0'; end if;
++        if kbd_scancode = x"14" then kbd_lctrl <= not kbd_released; end if;
++      end if;
++    end if;
++  end process;
 +
 +  -- JA physical map: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire. JA is
 +  -- active-low (pressed shorts to ground); invert so a press reads active-high,

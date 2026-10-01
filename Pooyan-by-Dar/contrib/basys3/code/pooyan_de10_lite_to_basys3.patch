@@ -1,7 +1,7 @@
 diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 --- a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 +++ b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
-@@ -1,354 +1,231 @@
+@@ -1,354 +1,233 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Pooyan by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
@@ -409,6 +409,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + signal clock_12  : std_logic;
 + signal clock_14  : std_logic;
 + signal reset     : std_logic;
++ signal mmcm_locked : std_logic;
 + signal clock_6   : std_logic;
 +
 + signal r         : std_logic_vector(2 downto 0);
@@ -444,7 +445,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +
 +begin
 +
-+reset <= btnC;
++reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 +
 +-- Clock 12.288MHz for pooyan core, 14.318MHz for sound_board (from 100 MHz)
 +clocks : entity work.clk_wiz_0
@@ -452,7 +453,8 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + clk_in1  => clk,
 + clk_out1 => clock_12,
 + clk_out2 => clock_14,
-+ locked   => open
++ reset    => btnC,
++ locked   => mmcm_locked
 +);
 +
 +-- Pooyan

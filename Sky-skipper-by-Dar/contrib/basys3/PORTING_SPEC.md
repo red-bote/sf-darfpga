@@ -11,9 +11,9 @@
 
 ## 2. Clocking
 
-- Single core clock: **40 MHz**, derived from the 100 MHz Basys 3 oscillator by `clk_wiz_0`.
-- Solved MMCM (per machine `README.md`): `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.0`,
-  `CLKOUT0_DIVIDE_F=25.0`. Reset active-high (`btnC`), `locked` used.
+- Single core clock: **40.32 MHz** (revised 2026-10-01 from 40 MHz, as Popeye; `../../CLOCKING_SPEC.md` 5.6), derived from the 100 MHz Basys 3 oscillator by `clk_wiz_0`.
+- Solved MMCM: `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=31.5`,
+  `CLKOUT0_DIVIDE_F=15.625`. Core patch `contrib/code/sky_skipper_clock_cnt2_width.patch` restores the CPU f/10 / AY f/20 dividers (pristine 4-bit counter ran mod 16). Reset active-high (`btnC`), `locked` used.
 
 ## 3. Reset polarity
 

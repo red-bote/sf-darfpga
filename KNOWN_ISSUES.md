@@ -20,6 +20,63 @@ Entry format:
 
 ## Open
 
+### Time-Pilot-by-Dar, Pooyan-by-Dar: intermittent sync failure after reset (~50%)
+- **Reported**: 2026-10-01 (user, hardware; builds of 2026-10-01 with the `locked`
+  reset convention, Time-Pilot also with the 263-line patch)
+- **Symptom**: press btnC, watch for sync; the display fails to sync on about half of
+  the resets (Time-Pilot: 4 of 5 in one count). Same behavior on both machines. Extends the existing Pooyan entry below.
+- **Tried**: n/a.
+- **Candidate cause** (by inspection, not confirmed): the wrapper and the core each
+  toggle their own `clock_6` from `clock_12` with no common reset, so the DECA
+  scandoubler (`clkvideo` = wrapper copy) and the core (core copy) start in phase or
+  180 degrees apart depending on reset timing. A coin-flip per reset matches the ~50%
+  rate. `CLOCKING_SPEC.md` section 5.1 (proposed fix: drive the doubler from the
+  core's own `clock_6`).
+- **Status**: open, deferred (user, 2026-10-01).
+
+### Tron-by-Dar: bottom horizontal line shows flickering junk
+- **Reported**: 2026-10-01 (user, hardware)
+- **Symptom**: the bottom scan line of the picture shows flickering garbage.
+- **Tried**: n/a.
+- **Status**: open, deferred (user, 2026-10-01). Native progressive timing (634 x 525,
+  `vcnt` wrap 524); compare vblank/vsync thresholds with the active window first.
+
+### (cross-machine): control input inconsistencies
+- **Reported**: 2026-10-01 (user, hardware sweep of the 2026-10-01 builds). USB-HID
+  keyboard and btnC = reset confirmed working on all machines below.
+- **Symptom** (per machine, vs root `PORTING_SPEC.md` section 3):
+
+  | Machine | Gaps |
+  |---|---|
+  | Bagman-FPGA-Dar | no JA fire; no btnU/D/L/R |
+  | Crazy-Kong-by-Dar | no JA fire |
+  | Galaga-Midway-by-Dar | no JA fire; no btnU/D/L/R |
+  | Xevious-by-Dar | no JA fire; JA down = bomb only (entry below) |
+  | Zaxxon-by-Dar | no JA fire |
+  | Popeye-by-Dar | no JA fire |
+  | Sky-skipper-by-Dar | no JA fire, left, right; Fire B was on F (moved, entry below) |
+  | Time-Pilot-by-Dar | no JA fire; no btnU/D/L/R; sync failures (entry above) |
+  | Kick-Midway-MCR-by-Dar | no JA fire |
+  | Pooyan-by-Dar | no JA fire; sync failures (entry above) |
+  | Solar-Fox-by-Dar | no JA fire (Fire2 speed-up moved from F2 to Left Ctrl, see Fixed) |
+  | Tron-by-Dar | no JA fire; no btnU/D/L/R; bottom line garbage (entry above) |
+
+  "No JA fire" is common to all twelve: check the JA7 (`JA(4)`, H1) path in the XDC
+  and wrappers first, since several wrappers do OR JA fire into the core.
+- **Tried**: n/a.
+- **Status**: open, deferred (user, 2026-10-01).
+
+### Xevious-by-Dar: JA down triggers bomb but not down movement
+- **Reported**: 2026-10-01 (user, hardware)
+- **Symptom**: pushing the JA stick down fires the bomb (Fire2) as intended, but does
+  not also move down. Code: the core uses `down` (`rtl_dar/xevious.vhd:1218`,
+  `buttons <= left & down & right & up`), but the wrapper drives it from the keyboard
+  only (`xevious_basys3.vhd:259`) while JA3 goes to `bomb` (`:266`). README.md:32,40,58
+  ("no down control") is incorrect.
+- **Fix** (wrapper-only): `joyBCPPFRLDU(1) <= kbd_joy(1) or not JA(2);`, keeping JA3 on
+  bomb as well; correct the README table.
+- **Status**: open, deferred (user, 2026-10-01).
+
 ### Galaga-Midway-by-Dar: controls don't follow the standard allocation; keyboard not on USB-HID
 - **Reported**: 2026-09-22
 - **Symptom**: two separate gaps.
@@ -736,4 +793,20 @@ Entry format:
 
 ## Fixed
 
-None currently.
+### Solar-Fox-by-Dar: Fast (speed-up) on F2; Left Ctrl preferred
+- **Reported**: 2026-10-01 (user)
+- **Symptom**: Fast (`fast1`) was on F2 (`fn_pulse(1)` from `kbd_joystick`).
+- **Fix** (2026-10-01, wrapper-only, no core patch): `solar_fox_basys3.vhd` decodes
+  Left Ctrl (0x14) make/break on `clock_kbd` into `kbd_lctrl`, which replaces F2 in
+  `fn_pulse(1)` (still OR JA fire+left and btnL). Same method as Sky-skipper below.
+- **Status**: fixed, hardware-confirmed 2026-10-01 (user).
+
+### Sky-skipper-by-Dar: second fire on the "F" key; Left Ctrl preferred
+- **Reported**: 2026-10-01 (user)
+- **Symptom**: Fire B (`fire11`/`fire21`) was on the letter F: the core's own
+  `rtl_dar/kbd_joystick.vhd:36` maps 0x2B to `joy_BBBBFRLDU(5)`.
+- **Fix** (2026-10-01, wrapper-only, no core patch): `sky_skipper_basys3.vhd` decodes
+  Left Ctrl (0x14) make/break from `kbd_intr`/`kbd_scancode` into `kbd_lctrl`, which
+  drives `fire11`/`fire21` (OR JA fire); F no longer fires. Wrapper placed, provenance
+  patch regenerated, `check_syntax` clean.
+- **Status**: fixed, hardware-confirmed 2026-10-01 (user).

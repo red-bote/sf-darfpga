@@ -6,14 +6,15 @@ extracted source archive for the original Dar release notes.
 
 - Vivado 2020.2 project: `basys3/xevious_basys3.xpr` (top entity
   `xevious_basys3`)
-- Core clock: 18 MHz (pixel clock 6 MHz, `ena_vidgen`); the PS/2 keyboard
-  decoder runs on 11 MHz — both from the 100 MHz Basys 3 oscillator via
-  `clk_wiz_0`
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): request `clk_out1` =
-  18 MHz + `clk_out2` = 11 MHz. Exact integer division for both from one MMCM
-  is impossible (lcm(18,11)=198); Vivado picks a VCO near 1100 MHz giving
-  ~18.03 MHz and ~11.00 MHz. Record the actual frequencies from the generated
-  wrapper. See `contrib/basys3/PORTING_SPEC.md`.
+- Core clock: 18.432 MHz (the original crystal; pixel 6.144 MHz,
+  `ena_vidgen`; CPUs 3.072 MHz); the PS/2 keyboard decoder runs on the same
+  clock (single domain) — from the 100 MHz Basys 3 oscillator via `clk_wiz_0`;
+  see `../CLOCKING_SPEC.md`
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): single output `clk_out1` =
+  18.43196 MHz (signal `clock_18`). Solved MMCM: `DIVCLK_DIVIDE=7`,
+  `CLKFBOUT_MULT_F=61.125`, `CLKOUT0_DIVIDE_F=47.375`. VGA 32.000 kHz /
+  60.61 Hz (was 18.000 MHz + 11.000 MHz keyboard output: 31.25 kHz /
+  59.19 Hz, -2.34% speed). See `contrib/basys3/PORTING_SPEC.md`.
 
 ## Features supported
 

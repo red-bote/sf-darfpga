@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12 MHz core) for the
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12.288 MHz core) for the
 # Basys3 port and place its Verilog wrappers where bagman_basys3.xpr expects them.
 #
 # The main project's .xpr references two imported files (bagman_basys3.xpr):
@@ -8,6 +8,10 @@
 # The IP is generated here in a throwaway Vivado project named mmcm_12m and
 # only those two .v files are copied into the repo. Per project rules this script
 # runs from /tmp so vivado.log / vivado.jou stay outside the repository.
+
+# 12.288 MHz = 18.432 MHz crystal x 2/3: pixel f/2 = 6.144 MHz, CPU f/4 =
+# 3.072 MHz, as the original board (sf-darfpga/CLOCKING_SPEC.md section 4).
+# Expected solve: DIVCLK 5 / MULT_F 48 / CLKOUT0_DIVIDE_F 78.125.
 
 set -euo pipefail
 
@@ -36,7 +40,7 @@ set_property -dict [list \
     CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12} \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12.288} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
 ] [get_ips clk_wiz_0]
 

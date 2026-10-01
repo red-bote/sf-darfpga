@@ -8,7 +8,8 @@ notes.
 - Core clock: 40 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`) — a single clock
   driving both the core and sound board, unlike the dual-clock Pooyan/Time-Pilot cores.
 - `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 40.000 MHz; solved MMCM:
-  `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.000`, `CLKOUT0_DIVIDE_F=25.000`.
+  `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.000`, `CLKOUT0_DIVIDE_F=25.000`. MMCM reset on btnC,
+  core reset `btnC or not mmcm_locked` (2026-10-01, `../CLOCKING_SPEC.md` section 6).
 
 ## Features supported
 

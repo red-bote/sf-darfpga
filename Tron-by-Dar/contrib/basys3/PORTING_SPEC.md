@@ -50,7 +50,8 @@ Confirmed against `tron_de10_lite.vhd` and the authored `tron_basys3.vhd`
   identical header comments carried into both Dar top levels).
 - Solved MMCM constants (generated and verified in this environment):
   `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.000`, `CLKOUT0_DIVIDE_F=25.000`; `clk_out1` =
-  40.000 MHz; `locked` left open (matches the DE10-lite top, which also leaves it open).
+  40.000 MHz. `locked` was left open (as the DE10-lite top); since 2026-10-01 the wrapper uses the
+  standard `reset <= btnC or not mmcm_locked` with MMCM reset = btnC (`../../CLOCKING_SPEC.md` section 6).
 
 ## 3. Reset polarity
 

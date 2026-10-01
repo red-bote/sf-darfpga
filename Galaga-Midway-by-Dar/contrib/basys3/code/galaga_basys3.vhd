@@ -5,7 +5,8 @@
 -- Basys3 port by Red~Bote.
 --
 -- Ported from galaga_de10_lite.vhd (DE10-lite rev 06/11/2017):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 36 MHz
+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 36.864 MHz (signal
+--    clock_36; sf-darfpga/CLOCKING_SPEC.md)
 --  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
 --  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
 --  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
@@ -55,7 +56,7 @@ architecture struct of galaga_basys3 is
  signal clock_12 : std_logic;
  signal slot     : std_logic_vector(2 downto 0);
  signal reset    : std_logic;
- signal mmcm_reset : std_logic := '0';
+ signal mmcm_locked : std_logic;
 
  signal r         : std_logic_vector(2 downto 0);
  signal g         : std_logic_vector(2 downto 0);
@@ -103,15 +104,16 @@ architecture struct of galaga_basys3 is
 
 begin
 
-reset <= btnC;
+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 
--- Clock 36MHz for the core clock chain and the scan doubler's clock divider.
+-- Clock 36.864 MHz (signal clock_36) for the core clock chain and the scan
+-- doubler's clock divider.
 clocks : entity work.clk_wiz_0
 port map(
  clk_in1  => clk,
  clk_out1 => clock_36,
- reset    => mmcm_reset,  -- MMCM reset unused (btnC resets the core only)
- locked   => open
+ reset    => btnC,
+ locked   => mmcm_locked
 );
 
 -- Halve clock_36 to clock_18 for the galaga core (36/2).

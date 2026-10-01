@@ -36,9 +36,10 @@ Confirmed against the pristine `rtl_dar/galaga_de10_lite.vhd` top:
 ## 2. Clocking
 
 - `clk_wiz_0` MMCM (100 MHz in) produces a single **36 MHz** `clk_out1` (verified, machine
+  - Clock revision 2026-10-01 (`../../CLOCKING_SPEC.md` section 4): retargeted to 36.863711 MHz (DIVCLK 6 / MULT_F 56.125 / CLKOUT0_DIVIDE_F 25.375, forced by `make_clk_wiz_0.sh` because Vivado's own solve gives VGA H 32.0017 kHz); `clock_18` = 18.432 MHz, CPUs 3.072 MHz (was -2.34%). The 36 MHz figures and derived 18/12/9/6 MHz below scale by 1.024.
   README; generated and confirmed via `make clk_wiz`). Solved MMCM constants:
   `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=49.5`, `CLKOUT0_DIVIDE_F=27.5`; reset active-high (btnC),
-  `locked` used.
+  `locked` used (wired 2026-10-01: `reset <= btnC or not mmcm_locked`, MMCM reset = btnC; previously `locked => open`, MMCM reset `'0'`).
 - The pristine DE10-lite top drives the `galaga` core from `clock_18` (18 MHz, from its own
   `max10_pll_18M_11M`), and derives a `clock_9` (18 MHz ÷ 2, toggle-on-`clock_18` pattern) to
   clock the PS/2 keyboard/joystick logic. On Basys 3, `clock_36` ÷ 2 supplies `clock_18` for the

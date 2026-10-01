@@ -40,7 +40,8 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
 - Solved MMCM constants (verified, machine README):
   `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`,
   `CLKOUT1_DIVIDE=56`; `clk_out1` = 12.288 MHz, `clk_out2` = 14.318 MHz; reset active-high
-  (btnC), `locked` used.
+  (btnC), `locked` used (wired 2026-10-01: `reset <= btnC or not mmcm_locked`, MMCM reset = btnC).
+- Core patch `contrib/code/time_pilot_vcnt_263_lines.patch` (2026-10-01): `vcnt` reload `0x0FC` -> `0x0F9`, 263 lines, V 60.84 Hz (was 61.54 Hz); same as Dar's later Pooyan core. `../../CLOCKING_SPEC.md` 5.7.
 
 ## 3. Reset polarity
 

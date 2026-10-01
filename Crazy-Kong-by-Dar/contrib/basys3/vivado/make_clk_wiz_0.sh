@@ -1,12 +1,13 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12 MHz core clock) for the
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12.288 MHz core clock) for the
 # Basys3 port and place its Verilog wrappers where ckong_basys3.xpr expects
 # them.
 #
 # Crazy Kong runs everything (core, sound, PWM, io_ps2_keyboard) from a single
-# 12 MHz clock, exactly as the pristine DE10-lite top's max10_pll_12M did
-# (50 MHz -> 12 MHz there; 100 MHz -> 12 MHz here). The MMCM computes the
-# valid 600 MHz VCO / 50 output-divide automatically.
+# clock. The pristine DE10-lite top's max10_pll_12M gave 12 MHz; this port
+# uses 12.288 MHz = 18.432 MHz crystal x 2/3, so the CPU (f/4) runs at the
+# original 3.072 MHz (sf-darfpga/CLOCKING_SPEC.md section 4). Expected
+# solve: DIVCLK 5 / MULT_F 48 / CLKOUT0_DIVIDE_F 78.125.
 #
 # The main project's .xpr references two imported files:
 #   sources_1/imports/clk_wiz_0/clk_wiz_0.v
@@ -42,7 +43,7 @@ set_property -dict [list \
     CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12} \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12.288} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
 ] [get_ips clk_wiz_0]
 

@@ -13,7 +13,7 @@
 --    15 kHz TV (1); default-off feeds 31 kHz VGA at power-on, matching the
 --    other ports' sw(13) convention (no F8 toggle needed).
 --  - JA joystick (movement + fire), OR-merged with PS/2 keyboard (JB).
---    coin1/fast1 are OR-merged from keyboard (F1/F2), the JA fire+up (coin)
+--    coin1/fast1 are OR-merged from keyboard (F1/Left Ctrl), the JA fire+up (coin)
 --    / fire+left (fast) combos, AND btnU/btnL -- the root PORTING_SPEC.md's
 --    generic default IO mapping (coin-in = btnU, 1P start = btnL) applies
 --    here since the core has real coin1/fast1 inputs for them to drive.
@@ -90,6 +90,7 @@ architecture struct of solar_fox_basys3 is
  signal clock_40  : std_logic;
  signal clock_kbd : std_logic;
  signal reset     : std_logic;
+ signal mmcm_locked : std_logic;
 
  signal clock_div : std_logic_vector(3 downto 0);
  signal clock_div_kbd : std_logic_vector(1 downto 0);
@@ -114,11 +115,13 @@ architecture struct of solar_fox_basys3 is
  signal joy_BBBBFRLDU  : std_logic_vector(8 downto 0);
  signal fn_pulse_kbd   : std_logic_vector(7 downto 0);
  signal fn_pulse       : std_logic_vector(7 downto 0);
+ signal kbd_released   : std_logic := '0';
+ signal kbd_lctrl      : std_logic := '0';  -- Left Ctrl held: fast
  signal fn_toggle      : std_logic_vector(7 downto 0);
 
 begin
 
-reset <= btnC;
+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 
 tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 
@@ -127,7 +130,8 @@ clocks : entity work.clk_wiz_0
 port map(
  clk_in1  => clk,
  clk_out1 => clock_40,
- locked   => open
+ reset    => btnC,
+ locked   => mmcm_locked
 );
 
 -- Solar Fox
@@ -151,7 +155,7 @@ port map(
 
  coin1          => fn_pulse(0), -- F1 or JA fire+up or btnU
  coin2          => '0',
- fast1          => fn_pulse(1), -- F2 or JA fire+left or btnL
+ fast1          => fn_pulse(1), -- Left Ctrl or JA fire+left or btnL
  fast2          => '0',
 
  fire1          => joy_BBBBFRLDU(4), -- space or JA7
@@ -175,7 +179,7 @@ port map(
 -- OR-merge the joystick on JA with the PS/2 keyboard joystick, and the JA
 -- fire+up (coin) / fire+left (fast) combos and btnU/btnL (root
 -- PORTING_SPEC.md's generic default: coin-in = btnU, 1P start = btnL) with
--- the keyboard's F1/F2. JA physical map: JA1=right, JA2=left, JA3=down,
+-- the keyboard's F1/Left Ctrl. JA physical map: JA1=right, JA2=left, JA3=down,
 -- JA4=up, JA7=fire, i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up,
 -- JA(4)=fire. JA is active-low (pressed shorts to ground); invert so a
 -- press reads active-high, matching the core's active-high input boundary
@@ -189,7 +193,7 @@ joy_BBBBFRLDU(4) <= kbd_joy(4) or not JA(4);  -- fire  (JA7)
 joy_BBBBFRLDU(8 downto 5) <= kbd_joy(8 downto 5);
 
 fn_pulse(0) <= fn_pulse_kbd(0) or (not JA(4) and not JA(3)) or btnU; -- coin = F1 or fire+up or btnU
-fn_pulse(1) <= fn_pulse_kbd(1) or (not JA(4) and not JA(1)) or btnL; -- fast = F2 or fire+left or btnL
+fn_pulse(1) <= kbd_lctrl or (not JA(4) and not JA(1)) or btnL; -- fast = Left Ctrl or fire+left or btnL
 fn_pulse(7 downto 2) <= fn_pulse_kbd(7 downto 2);
 
 -- adapt video to 4bits/color only and blank (core generates progressive
@@ -256,6 +260,19 @@ port map (
   fn_pulse      => fn_pulse_kbd,
   fn_toggle     => fn_toggle
 );
+
+-- Fast (fast1) on Left Ctrl (0x14) instead of F2. Decoded here so the
+-- core's kbd_joystick stays unpatched. Make/break handling as in
+-- kbd_joystick (F0 marks the next code as a release).
+process (clock_kbd)
+begin
+  if rising_edge(clock_kbd) then
+    if kbd_intr = '1' then
+      if kbd_scancode = x"F0" then kbd_released <= '1'; else kbd_released <= '0'; end if;
+      if kbd_scancode = x"14" then kbd_lctrl <= not kbd_released; end if;
+    end if;
+  end if;
+end process;
 
 -- pwm sound output (stereo in the core; PmodAMP2 is mono, so only the left
 -- channel is output -- same choice as the sibling Kick port)

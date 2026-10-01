@@ -399,7 +399,7 @@ diff --git a/vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon_de10_lite.vhd b/vhdl_
 +-- Basys3 port by Red~Bote.
 +--
 +-- Ported from zaxxon_de10_lite.vhd (DE10-lite rev 23/11/2019):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 24 MHz (clock_24) --
++--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 24.329 MHz (clock_24) --
 +--    the core's only clock domain (unlike Burnin-Rubber/BurgerTime's 12+6 MHz
 +--    pairs).
 +--  - Joystick on JA (movement + fire), OR-merged with PS/2 keyboard (JB) and,

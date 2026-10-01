@@ -15,8 +15,8 @@
 
 ## 3. Reset polarity
 
-- **Basys 3:** `reset <= btnC` with `clk_wiz_0` `locked => open` (Tron pattern, the confirmed
-  sibling MCR reference) — no MMCM-locked reset term.
+- **Basys 3:** `reset <= btnC or not mmcm_locked;` with MMCM reset = btnC (standard pattern,
+  2026-10-01, `../../CLOCKING_SPEC.md` section 6); previously `locked => open` (Tron pattern).
 
 ## 4. Video (31 kHz VGA / 15 kHz TV)
 

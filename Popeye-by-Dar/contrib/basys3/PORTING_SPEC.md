@@ -20,7 +20,8 @@
 
 ## 3. Reset polarity
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Berzerk/Bagman/Pooyan pattern), planned.
+- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Berzerk/Bagman/Pooyan pattern), implemented.
+- Core patch `contrib/code/popeye_clock_cnt2_width.patch` (2026-10-01): widens the 4-bit `clock_cnt2` to 5 bits so the `"10011"` reload fires (CPU f/10 = 4.032 MHz, AY f/20); the pristine counter ran mod 16 (CPU f/8, +26%). `../../CLOCKING_SPEC.md` 5.6.
 
 ## 4. Video (31 kHz VGA / 15 kHz TV, switch-selectable)
 

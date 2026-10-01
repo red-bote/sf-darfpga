@@ -15,7 +15,7 @@
 
 ## 3. Reset polarity
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Berzerk/Bagman/Pooyan pattern), planned.
+- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Berzerk/Bagman/Pooyan pattern), implemented 2026-10-01 (MMCM reset = btnC).
 
 ## 4. Video (31 kHz VGA / 15 kHz TV)
 
