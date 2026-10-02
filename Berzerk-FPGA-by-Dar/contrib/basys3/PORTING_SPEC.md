@@ -63,9 +63,9 @@ and `berzerk.vhd`'s `sw` input has no dip-switch function.
 - Single core clock: **10 MHz**, derived from the 100 MHz Basys 3 oscillator by `clk_wiz_0`.
   Unlike Pooyan/Time-Pilot there is no separate sound clock — `berzerk.vhd` runs the Z80, video,
   and PS/2 logic entirely from `clock_10`.
-- `clk_wiz_0` MMCM (100 MHz in), `CLKOUT1_REQUESTED_OUT_FREQ = 10`: expected solved constants
-  (per this port's README, to be confirmed against the generated IP): `DIVCLK_DIVIDE=2`,
-  `CLKFBOUT_MULT_F=15.625`, `CLKOUT0_DIVIDE_F=78.125`. Reset active-high (`btnC`), `locked` used.
+- `clk_wiz_0` MMCM (100 MHz in), `CLKOUT1_REQUESTED_OUT_FREQ = 10`: solved constants (confirmed
+  in the generated `clk_wiz_0_clk_wiz.v`): `DIVCLK_DIVIDE=2`, `CLKFBOUT_MULT_F=15.625`,
+  `CLKOUT0_DIVIDE_F=78.125`. Reset active-high (`btnC`), `locked` used.
 
 ## 3. Reset polarity
 
@@ -82,9 +82,9 @@ and `berzerk.vhd`'s `sw` input has no dip-switch function.
 - Entity confirmed (`rtl_dar/berzerk.vhd:72-110`): `video_r/g/b`, `video_hi` are **1-bit each**
   (not pre-expanded to 4 bits) — the 4-bit VGA expansion is done in the top level (§5), not
   inside the core.
-- **T80:** confirm at synthesis time whether Berzerk's `T80se` variant (`rtl_t80_304/`) needs an
-  equivalent to Pooyan's xor-width fix; no such fix is currently tracked for Berzerk (only
-  `berzerk_reset_sensitivity.patch`, already applied to `berzerk.vhd`).
+- **T80:** Berzerk's `T80se` variant (`rtl_t80_304/`) needs no equivalent of Pooyan's xor-width
+  fix: synthesis completes with no errors (`synth_1/runme.log`, 2026-10-01). Only
+  `berzerk_reset_sensitivity.patch` is tracked.
 
 ## 5. Video (31 kHz VGA / 15 kHz TV, switch-selectable)
 

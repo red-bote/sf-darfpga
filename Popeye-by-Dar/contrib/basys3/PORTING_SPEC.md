@@ -6,11 +6,9 @@
   repo-root `downloads.md`) → `vhdl_popeye_rev_0_3_2020_01_27/` at the machine root.
 - Top entity: `popeye_basys3` (target file `sources_1/new/popeye_basys3.vhd`).
 - Part: `xc7a35tcpg236-1`, VHDL target language.
-- Status: **not yet fully brought up** — `contrib/basys3/vivado/create_project.sh` is real and
-  machine-specific, but the `.xdc`/`.xpr`/top-level wrapper it stages don't exist yet (root
-  `README.md` Status section). This spec records the porting decisions already fixed by the
-  machine `README.md`; sections below are design intent for the not-yet-authored top level,
-  not a description of an existing build.
+- Status: built and hardware-verified (root `README.md` Status section). Sections below were
+  first written as design intent before the top level existed; where they differ,
+  `contrib/basys3/code/popeye_basys3.vhd` is authoritative.
 
 ## 2. Clocking
 
@@ -44,9 +42,8 @@
 
 ## 7. LEDs
 
-- `led(15:0)` present (per machine `README.md` IO table) — unlike Bagman/Berzerk/Pooyan/
-  Time-Pilot, this port does wire LEDs; exact source signal to be confirmed against the core
-  when the top level is authored.
+- No LEDs: the implemented `popeye_basys3` entity has no `led` port and the XDC constrains
+  none (the earlier design intent to wire `led(15:0)` was not implemented).
 
 ## 8. Synthesis-fix patch
 

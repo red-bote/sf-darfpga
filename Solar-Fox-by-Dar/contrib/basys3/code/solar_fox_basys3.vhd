@@ -13,8 +13,8 @@
 --    15 kHz TV (1); default-off feeds 31 kHz VGA at power-on, matching the
 --    other ports' sw(13) convention (no F8 toggle needed).
 --  - JA joystick (movement + fire), OR-merged with PS/2 keyboard (JB).
---    coin1/fast1 are OR-merged from keyboard (F1/Left Ctrl), the JA fire+up (coin)
---    / fire+left (fast) combos, AND btnU/btnL -- the root PORTING_SPEC.md's
+--    coin1/fast1 are OR-merged from keyboard (F1/Left Ctrl) AND btnU/btnL
+--    (JA fire+direction combos removed 2026-10-02) -- the root PORTING_SPEC.md's
 --    generic default IO mapping (coin-in = btnU, 1P start = btnL) applies
 --    here since the core has real coin1/fast1 inputs for them to drive.
 --  - btnD/btnR are declared on the entity but left unconnected (reserved):
@@ -153,9 +153,9 @@ port map(
  audio_out_l    => audio_l,
  audio_out_r    => audio_r,
 
- coin1          => fn_pulse(0), -- F1 or JA fire+up or btnU
+ coin1          => fn_pulse(0), -- F1 or btnU
  coin2          => '0',
- fast1          => fn_pulse(1), -- Left Ctrl or JA fire+left or btnL
+ fast1          => fn_pulse(1), -- Left Ctrl or btnL
  fast2          => '0',
 
  fire1          => joy_BBBBFRLDU(4), -- space or JA7
@@ -176,8 +176,7 @@ port map(
  dbg_cpu_addr => open
 );
 
--- OR-merge the joystick on JA with the PS/2 keyboard joystick, and the JA
--- fire+up (coin) / fire+left (fast) combos and btnU/btnL (root
+-- OR-merge the joystick on JA with the PS/2 keyboard joystick, and btnU/btnL (root
 -- PORTING_SPEC.md's generic default: coin-in = btnU, 1P start = btnL) with
 -- the keyboard's F1/Left Ctrl. JA physical map: JA1=right, JA2=left, JA3=down,
 -- JA4=up, JA7=fire, i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up,
@@ -192,8 +191,8 @@ joy_BBBBFRLDU(3) <= kbd_joy(3) or not JA(0);  -- right (JA1)
 joy_BBBBFRLDU(4) <= kbd_joy(4) or not JA(4);  -- fire  (JA7)
 joy_BBBBFRLDU(8 downto 5) <= kbd_joy(8 downto 5);
 
-fn_pulse(0) <= fn_pulse_kbd(0) or (not JA(4) and not JA(3)) or btnU; -- coin = F1 or fire+up or btnU
-fn_pulse(1) <= kbd_lctrl or (not JA(4) and not JA(1)) or btnL; -- fast = Left Ctrl or fire+left or btnL
+fn_pulse(0) <= fn_pulse_kbd(0) or btnU; -- coin = F1 or btnU
+fn_pulse(1) <= kbd_lctrl or btnL; -- fast = Left Ctrl or btnL
 fn_pulse(7 downto 2) <= fn_pulse_kbd(7 downto 2);
 
 -- adapt video to 4bits/color only and blank (core generates progressive

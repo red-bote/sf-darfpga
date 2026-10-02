@@ -27,9 +27,9 @@
 --    clock_cnt(1:0) bits pix_ena is built from) so this port wires clk_sys/
 --    ce_x1 straight from the core instead of re-deriving them locally.
 --  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
---  - Cocktail (F7), service (F5), and flip-screen (F4) stay keyboard-only,
---    decoded by the unmodified kbd_joystick fn_toggle outputs -- no
---    dedicated Basys3 IO, matching every other machine's convention.
+--  - Cocktail (F7) and service (F5) stay keyboard-only (kbd_joystick fn_toggle
+--    outputs). Flip-screen: F4 toggle XOR not sw(12) (sw(12) added and inverted 2026-10-02).
+--  - btnU/btnD/btnL/btnR are debounced (~10 ms) before use (2026-10-02).
 --    left_c/right_c/up_c/down_c/fire_c mirror player 1, matching the
 --    pristine top (this core has no genuine second control set).
 --  - The PWM accumulator's clock_div-gated update is reused verbatim from
@@ -161,6 +161,16 @@ architecture struct of zaxxon_basys3 is
  signal core_up, core_down, core_left, core_right, core_fire : std_logic;
  signal core_coin1, core_start1, core_start2                 : std_logic;
 
+ -- Button debounce (2026-10-02): 2-FF synchronizer, then the output follows
+ -- the input only after it has been stable for 2**18 clock_24 cycles
+ -- (24.33 MHz: 10.8 ms). Added because this core edge-detects coin on press,
+ -- so release bounce counted extra coins.
+ signal flip_sel : std_logic;  -- display flip: F4 toggle xor not sw(12)
+ signal btn_raw, btn_meta, btn_sync, btn_db : std_logic_vector(3 downto 0) := (others => '0');  -- U, D, L, R
+ type btn_cnt_t is array (0 to 3) of unsigned(17 downto 0);
+ signal btn_cnt : btn_cnt_t := (others => (others => '0'));
+ attribute ASYNC_REG : string;
+ attribute ASYNC_REG of btn_meta, btn_sync : signal is "TRUE";
 begin
 
  -- btnC is active-high: it resets the MMCM and, together with !locked,
@@ -212,7 +222,7 @@ begin
 
   cocktail     => fn_toggle(6), -- F7
   service      => fn_toggle(4), -- F5
-  flip_screen  => fn_toggle(3), -- F4
+  flip_screen  => flip_sel,     -- F4 toggle xor not sw(12)
 
   dbg_cpu_addr => open
  );
@@ -290,9 +300,30 @@ begin
  -- Coin/start: keyboard (F1/F2/F3) OR-merged with dedicated buttons.
  -- Buttons are active-high (Basys3 board pull-down, same convention as
  -- btnC). This core has a single coin input; btnU and btnD both trigger it.
- core_coin1  <= fn_pulse(0) or btnU or btnD;  -- coin   = F1 or btnU or btnD
- core_start1 <= fn_pulse(1) or btnL;          -- start1 = F2 or btnL
- core_start2 <= fn_pulse(2) or btnR;          -- start2 = F3 or btnR
+-- Button debounce (see declarations).
+flip_sel <= fn_toggle(3) xor not sw(12);  -- sw(12) polarity inverted 2026-10-02
+btn_raw <= btnU & btnD & btnL & btnR;
+process(clock_24)
+begin
+  if rising_edge(clock_24) then
+    btn_meta <= btn_raw;
+    btn_sync <= btn_meta;
+    for i in 0 to 3 loop
+      if btn_sync(i) = btn_db(i) then
+        btn_cnt(i) <= (others => '0');
+      elsif btn_cnt(i) = (btn_cnt(i)'range => '1') then
+        btn_db(i)  <= btn_sync(i);
+        btn_cnt(i) <= (others => '0');
+      else
+        btn_cnt(i) <= btn_cnt(i) + 1;
+      end if;
+    end loop;
+  end if;
+end process;
+
+ core_coin1  <= fn_pulse(0) or btn_db(3) or btn_db(2);  -- coin   = F1 or btnU or btnD
+ core_start1 <= fn_pulse(1) or btn_db(1);     -- start1 = F2 or btnL
+ core_start2 <= fn_pulse(2) or btn_db(0);     -- start2 = F3 or btnR
 
  -- Pad native 3/3/2-bit RGB to the scan doubler's 6-bit/channel input by
  -- MSB replication, forced to black while blanked.

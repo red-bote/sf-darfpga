@@ -1,0 +1,32 @@
+--- a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd
++++ b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd
+@@ -15,6 +15,9 @@
+  reset        : in std_logic;
+ -- tv15Khz_mode : in std_logic;
+  dip_switch   : in std_logic_vector(7 downto 0);
++ -- Basys3 port: external player inputs, active-high, JoyPCFRLDU bit order
++ -- (0 up/protection, 2 left, 3 right, 4 fire, 5 start1, 6 start2, 7 coin)
++ ext_joy      : in std_logic_vector(7 downto 0) := (others => '0');
+  ps2_clk      : in std_logic;
+  ps2_dat      : in std_logic;
+  video_r      : out std_logic_vector(1 downto 0);
+@@ -433,12 +436,12 @@
+ );
+ 
+ -- joystick to inputs
+-coin            <= not JoyPCFRLDU(7); -- F3 : Add coin
+-player_start(1) <= not JoyPCFRLDU(6); -- F2 : Start 2 Players
+-player_start(0) <= not JoyPCFRLDU(5); -- F1 : Start 1 Player
+-buttons(0)      <= not JoyPCFRLDU(4); -- SPACE : Fire
+-buttons(1)      <= not JoyPCFRLDU(3); -- RIGHT arrow : Right
+-buttons(2)      <= not JoyPCFRLDU(2); -- LEFT arrow  : Left
+-buttons(3)      <= not JoyPCFRLDU(0); -- UP arrow : Protection 
++coin            <= not (JoyPCFRLDU(7) or ext_joy(7)); -- F3 : Add coin
++player_start(1) <= not (JoyPCFRLDU(6) or ext_joy(6)); -- F2 : Start 2 Players
++player_start(0) <= not (JoyPCFRLDU(5) or ext_joy(5)); -- F1 : Start 1 Player
++buttons(0)      <= not (JoyPCFRLDU(4) or ext_joy(4)); -- SPACE : Fire
++buttons(1)      <= not (JoyPCFRLDU(3) or ext_joy(3)); -- RIGHT arrow : Right
++buttons(2)      <= not (JoyPCFRLDU(2) or ext_joy(2)); -- LEFT arrow  : Left
++buttons(3)      <= not (JoyPCFRLDU(0) or ext_joy(0)); -- UP arrow : Protection 
+ 
+ end struct;

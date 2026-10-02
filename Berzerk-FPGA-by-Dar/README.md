@@ -122,13 +122,3 @@ Verify it took:
 ```
 grep -n "cpu_iorq_n, cpu_addr, reset" vhdl_berzerk_rev_0_1_2018_08_08/rtl_dar/berzerk.vhd
 ```
-
-## Known issues
-
-- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
-  (reported 2026-09-25, on the hardware-confirmed USB-HID build). Same
-  pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
-  Bagman-FPGA-Dar. Not yet investigated; deferred at the user's request.
-  See root `KNOWN_ISSUES.md`.
-

@@ -58,6 +58,28 @@
   stage sources (`setup`, `create_prj`, `clk_wiz`, `patch`) are not covered
   by this rule.
 
+## Clocking (Basys3 ports)
+
+- Use one clock domain where practical: a single `clk_wiz_0` output from the
+  100 MHz oscillator. Derive the CPU, pixel, sound and keyboard rates as clock
+  enables, not as extra MMCM outputs or clocks toggled in logic.
+- Pick the MMCM frequency from the original hardware's crystal
+  (`CLOCK_CRYSTAL_CATALOG.md`, MAME `XTAL` values), so the main CPU rate is
+  exact or as close as practical.
+- Keep VGA output within H 31.0-32.0 kHz and V 56-61 Hz. Acceptance is sync on
+  the Sylvania SF150 and the LG Flatron L2000CP. Machine-native rates outside
+  the window (Phoenix 61.04 Hz, Computer-Space 61.6 Hz) are recorded
+  exceptions.
+- Record the requested and achieved MMCM solve (DIVCLK / MULT_F /
+  CLKOUT_DIVIDE) in the machine README. Force a solve in `make_clk_wiz_0.sh`
+  only when Vivado's own solve misses the window.
+- Pass asynchronous inputs (PS/2, JA, buttons) through 2-FF synchronizers on
+  the clock the consuming core logic uses. Add debounce only for observed
+  button problems.
+- Builds must meet timing: no negative WNS or WHS in the routed timing summary.
+- Where one clock can't meet both CPU accuracy and the VGA window, record the
+  trade-off in the machine's `PORTING_SPEC.md`.
+
 ## Documentation scope (machine README.md)
 
 - Each `<Machine>-by-Dar/README.md` is the single source of truth for that

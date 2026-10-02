@@ -7,14 +7,17 @@ notes.
 
 - Vivado 2020.2 project: `basys3/defender_basys3.xpr` (top entity
   `defender_basys3`)
-- Core clock: 12 MHz; sound-board clock: ~3.58 MHz (from the 100 MHz Basys 3
-  oscillator via `clk_wiz_0`)
+- Main CPU: 1 MHz E (original rate) via `contrib/code/defender_cpu_1mhz.patch`;
+  pristine core runs 2 MHz (2026-10-02; `contrib/basys3/PORTING_SPEC.md`
+  §"Main CPU rate").
+- Core clock: 12 MHz; sound-board clock: 3.5795454 MHz (from the 100 MHz
+  Basys 3 oscillator via `clk_wiz_0`)
 - `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.000 MHz
-  (core + scandoubler `clk_sys`) + `clk_out2` ≈ 7.16 MHz, **divided by 2 in
-  fabric** to ~3.58 MHz for the sound board and for the PWM audio accumulator.
-  An exact 3.58 MHz is unreachable from the MMCM directly (VCO floor ~600 MHz
-  vs max output divide 128), and the sample-based D/A sound logic tolerates the
-  few-% error.
+  (core + scandoubler `clk_sys`) + `clk_out2` = 7.159091 MHz (D 1 / M 7.875 /
+  O0 65.625 / O1 110, VCO 787.5 MHz), **divided by 2 in fabric** to
+  3.5795454 MHz for the sound board and the PWM audio accumulator. MMCM
+  outputs cannot go below VCO / 128, so the 3.58 MHz rate is made in fabric;
+  the result equals the 3.579545 MHz (315/88) colorburst crystal to rounding.
 
 ## Features supported
 
@@ -23,6 +26,10 @@ notes.
   The scandoubler's 6 MHz `ce_x1` (Defender's native pixel rate) is produced in
   fabric as `clk_out1 / 2`. sw(13) switches to 15 kHz TV mode (native RGB +
   composite sync on HS).
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Scan doubler wiring**: see `contrib/basys3/PORTING_SPEC.md` (same core
   family wiring as Burnin-Rubber / BurgerTime).
 - **Sound**: mono PWM audio on PmodAMP2 (8-bit core `audio_out`).

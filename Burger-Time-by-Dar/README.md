@@ -8,16 +8,24 @@ notes.
 - Vivado 2020.2 project: `basys3/burger_time_basys3.xpr` (top entity
   `burger_time_basys3`)
 - Core clock: 12 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.000 MHz +
-  `clk_out2` = 6.000 MHz; reset active-high (btnC), `locked` used. Solved
-  MMCM: `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=7.5`, `CLKOUT0_DIVIDE_F=62.5`,
-  `CLKOUT1_DIVIDE=125`.
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): single output `clk_out1` =
+  12.000 MHz; reset active-high (btnC), `locked` used. Solved MMCM:
+  `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=49.875`, `CLKOUT0_DIVIDE_F=83.125`. The
+  scandoubler `ce_x1` is a `clock_12` toggle enable in the wrapper (2026-10-02;
+  the former 6 MHz `clk_out2` failed hold timing; `../CLOCKING_SPEC.md` 5.2).
+- Main CPU: 1.5 MHz (MAME `btime` rate) via
+  `contrib/code/burger_time_cpu_1p5mhz.patch`; pristine core runs 750 kHz
+  (2026-10-02; `contrib/basys3/PORTING_SPEC.md` §"Main CPU rate").
 
 ## Features supported
 
 - **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
   (`imports/mist/scandoubler.v`, tracked under `contrib/code/scandoubler.v`).
   sw(13) switches to 15 kHz TV mode (native RGB + composite sync on HS).
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Scan doubler wiring**: see `contrib/basys3/PORTING_SPEC.md` (same core
   family and wiring as Burnin-Rubber).
 - **Sound**: mono PWM audio on PmodAMP2.
@@ -92,5 +100,5 @@ machine ROMs are copyrighted — never commit or redistribute them.
 
 The port is fully scripted (`make setup create_prj clk_wiz patch`; `make
 synth` / `make bitstream` for a Vivado run). Port assets are authored end to
-end from the Burnin-Rubber reference (same core family). Hardware bring-up
-(Vivado synthesis/bitstream) has not yet been run.
+end from the Burnin-Rubber reference (same core family). Built and
+hardware-verified on the Basys 3 (root `README.md` §Status).

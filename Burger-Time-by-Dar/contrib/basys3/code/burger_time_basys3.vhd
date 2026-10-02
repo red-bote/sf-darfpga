@@ -5,8 +5,8 @@
 -- Basys3 port by Red~Bote.
 --
 -- Ported from burger_time_de10_lite.vhd (DE10-lite rev 27/12/2017):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz (clock_12) and
---    6 MHz (clock_6)
+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz (clock_12); the
+--    6 MHz scandoubler ce_x1 (clock_6) is a clock_12 toggle enable
 --  - Joystick on JA (movement + pepper fire), OR-merged with PS/2 keyboard
 --    (JB) and dedicated buttons; Player 2 mirrors Player 1
 --  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
@@ -86,7 +86,7 @@ architecture struct of burger_time_basys3 is
  end component;
 
  signal clock_12    : std_logic;
- signal clock_6     : std_logic;
+ signal clock_6     : std_logic := '0';  -- ce_x1 enable (clock_12 / 2), not a clock
  signal mmcm_locked : std_logic;
  signal reset       : std_logic;
 
@@ -124,11 +124,20 @@ begin
  -- holds the core in reset until the clock is stable.
  reset <= btnC or not mmcm_locked;
 
+ -- Scandoubler ce_x1: 6 MHz pixel-rate enable made by toggling on clock_12
+ -- (single clock domain; was MMCM clk_out2, which failed hold timing as a
+ -- data enable in the clock_12 domain). Pattern as defender_basys3.vhd.
+ process(clock_12)
+ begin
+   if rising_edge(clock_12) then
+     clock_6 <= not clock_6;
+   end if;
+ end process;
+
  clocks : entity work.clk_wiz_0
  port map(
   clk_in1  => clk,
   clk_out1 => clock_12,
-  clk_out2 => clock_6,
   reset    => btnC,
   locked   => mmcm_locked
  );

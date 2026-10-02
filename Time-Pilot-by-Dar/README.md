@@ -38,7 +38,7 @@ notes.
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin = Fire + Up; Start 1 = Fire + Left; Start 2 = Fire + Right
+- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
 - Player 2 mirrors player 1 movement/fire inputs.
 
 ## IO mapping
@@ -47,9 +47,10 @@ JA joystick (active-low, switch to GND):
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
-| btnU/btnL/btnR/btnD | `btnU/L/R/D` | declared, unused (reserved) |
+| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / 1P start / 2P start (OR-merged with keyboard; added 2026-10-01) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
+| sw(13) | `enable_scandoubling` (inverted) | display: 0 = 31 kHz VGA, 1 = 15 kHz TV (csync on HS, VS high) |
 | sw(7:0) | `dip_switch_2` | Sound(8)/Difficulty(7-5)/Bonus(4)/Cocktail(3)/lives(2-1) |
 | C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
@@ -100,7 +101,7 @@ reference to the local import), `Basys-3-Master.xdc`, and `vga_scandoubler.v`. R
 The port is complete and hardware-verified: video, audio, PS/2 keyboard, JA joystick, and
 reset all confirmed working on a physical Basys 3. See `PORTING_SPEC.md`.
 
-## TODO
+## Notes
 
 - Dip switches 1–8 confirmed working on hardware.
-- 15 kHz display is not connected; needs a switch wired to enable/disable TV mode.
+- 15 kHz TV mode wired to `sw(13)` 2026-10-02 (hardware-confirmed).

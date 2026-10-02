@@ -7,11 +7,12 @@ notes.
 
 - Vivado 2020.2 project: `basys3/traverse_usa_basys3.xpr` (top entity
   `traverse_usa_basys3`)
-- Core clock: 36.86 MHz (core) + 3.58 MHz (sound board), from the 100 MHz
-  Basys 3 oscillator via `clk_wiz_0`
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 36.86 MHz
-  (`clock_36`), `clk_out2` = 3.58 MHz (`clock_3p58`); reset active-high
-  (btnC), `locked` used.
+- Core clock: 36.842105 MHz (core) + 3.5795454 MHz (sound board), from the
+  100 MHz Basys 3 oscillator via `clk_wiz_0`
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 36.842105 MHz
+  (`clock_36`), `clk_out2` = 7.159091 MHz (`clock_7p16`; D 1 / M 7.875 /
+  O0 21.375 / O1 110, VCO 787.5 MHz), divided by 2 in fabric to
+  3.5795454 MHz (`clock_3p58`); reset active-high (btnC), `locked` used.
 
 ## Features supported
 
@@ -22,6 +23,10 @@ notes.
   core's dormant `video_hs`/`video_vs` drivers (a real `hsync0` line pulse
   and a `vsync_cnt`-based `video_vs` pulse) — see
   `contrib/basys3/PORTING_SPEC.md` §4 for the full derivation.
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Sound**: mono (left-channel) PWM audio on PmodAMP2.
 - **Controls**: USB-HID keyboard + JA joystick (OR-merged); dedicated buttons
   for coin/start (btnU/btnD = coin, btnL = start 1, btnR = start 2), btnC =

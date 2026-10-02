@@ -39,10 +39,9 @@ dedicated controls (JA fire / pushbutton start) and rocket-missile fire fix.
 Phoenix-by-Dar is fully scripted, synthesized, and bitstream-built
 (0 critical warnings/errors through implementation). Hardware bring-up has
 confirmed PS/2 keyboard, sound, and VGA display all working; keyboard is on
-the onboard USB-HID host (C17/B17), hardware-confirmed. A separate patch
-adding external control ports (JA joystick / dedicated buttons) has been
-tried and hardware-tested twice, reverted both times -- still no in-game
-effect despite verified-correct wiring, an unresolved contradiction. See
+the onboard USB-HID host (C17/B17), hardware-confirmed. JA joystick and
+btnU/D/L/R are wired through `contrib/code/phoenix_external_inputs.patch`
+(core `ext_joy` port), hardware-confirmed 2026-10-02. See
 `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` and root `KNOWN_ISSUES.md`
 for the full design record.
 

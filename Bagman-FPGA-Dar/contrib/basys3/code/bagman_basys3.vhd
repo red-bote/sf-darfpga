@@ -30,6 +30,9 @@ port(
  clk            : in  std_logic;
  sw             : in  std_logic_vector(15 downto 0);
  btnC           : in  std_logic;
+ btnU           : in  std_logic;  -- coin
+ btnL           : in  std_logic;  -- 1P start
+ btnR           : in  std_logic;  -- 2P start
 
  JA             : in  std_logic_vector(4 downto 0);  -- joystick
  ps2_dat        : in  std_logic;
@@ -160,16 +163,16 @@ begin
  -- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
  -- JA is active-low (pressed shorts to ground); invert so a press reads
  -- active-high, matching the core's active-high input boundary and the
- -- keyboard path. Player 2 mirrors player 1 inputs. Coin/start reachable
- -- from the joystick via fire+direction combos.
+ -- keyboard path. Player 2 mirrors player 1 inputs. Coin/start come from the
+ -- keyboard and btnU/btnL/btnR (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
  joy_up     <= kbd_joy(0) or not JA(3);                        -- up    (JA4)
  joy_down   <= kbd_joy(1) or not JA(2);                        -- down  (JA3)
  joy_left   <= kbd_joy(2) or not JA(1);                        -- left  (JA2)
  joy_right  <= kbd_joy(3) or not JA(0);                        -- right (JA1)
  joy_fire   <= kbd_joy(4) or not JA(4);                        -- jump  (JA7)
- joy_start1 <= kbd_joy(5) or (not JA(4) and not JA(1));        -- start1 = fire+left
- joy_start2 <= kbd_joy(6);
- joy_coin   <= kbd_joy(7) or (not JA(4) and not JA(3));        -- coin   = fire+up
+ joy_start1 <= kbd_joy(5) or btnL; -- start1 = btnL
+ joy_start2 <= kbd_joy(6) or btnR;                             -- start2 = btnR
+ joy_coin   <= kbd_joy(7) or btnU; -- coin   = btnU
 
  -- pwm sound output
  process(clock_12)  -- same clock as the DE10 top drove the PWM accumulator

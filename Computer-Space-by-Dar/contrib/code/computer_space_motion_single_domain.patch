@@ -1,0 +1,88 @@
+diff --git a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd b/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
+--- a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
++++ b/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
+@@ -294,6 +294,7 @@
+ component v74161_16bit 
+ 	port(
+ 	clk 													: in std_logic;
++	ce  													: in std_logic;
+ 	clrn 													: in std_logic;
+ 	ldn 													: in std_logic;
+ 	enp 													: in std_logic;
+@@ -308,7 +309,7 @@
+ begin
+ 
+ -----------------------------------------------------------------------------
+--- clk is the game_clk																		--	
++-- clk is the game_clk enable (Basys3 48 MHz single domain)																		--	
+ -- replaces a6_8, a6_6, a6_4, a6_2														--	
+ -----------------------------------------------------------------------------
+ clk <= not MB_20;
+@@ -446,7 +447,8 @@
+ -----------------------------------------------------------------------------
+ missile_motion: v74161_16bit
+  port map(
+-			clk 	=> clk,
++			clk 	=> super_clk,
++			ce  	=> clk,
+ 			clrn  => e6_6,
+ 			ldn 	=> f4_8,
+ 			enp 	=> '1',
+@@ -741,9 +743,9 @@
+ --																									--
+ -- in VHDL implemented as a 16 bit counter instead of 4 x 4-bit counters	--
+ -----------------------------------------------------------------------------
+-process (clk)
++process (super_clk)
+ begin
+-if rising_edge(clk) then
++if rising_edge(super_clk) and clk = '1' then
+ 	if MB_C='1' then
+ 		if a_rocket_q < 65534 then
+ 			a_rocket_q <= a_rocket_q + 1;
+@@ -993,9 +995,9 @@
+ --																									--
+ -- Implemented as a 16 bit counter instead of 4 x 4 bit counters 				--
+ -----------------------------------------------------------------------------
+-process (clk)
++process (super_clk)
+ begin
+-if rising_edge(clk) then
++if rising_edge(super_clk) and clk = '1' then
+ 	if MB_C='1' then
+ 		if saucer_q < 65534 then
+ 			saucer_q <= saucer_q + 1;
+@@ -1140,9 +1142,9 @@
+ f1_7 	<= e3_12;
+ f1_6 	<= e3_13;
+ 
+-process (clk)
++process (super_clk)
+ begin
+-if rising_edge (clk) then
++if rising_edge (super_clk) and clk = '1' then
+ 	f1_13_old <= f1_13;
+ 	if (f1_13_old = '0') and (f1_13 = '1') then
+ 		f1_15 <=  f1_3;		-- vertical velocity or not	
+@@ -1361,9 +1363,9 @@
+ -- When missile is about to launch it is synchronized with current TV 		--
+ -- beam position, and consequently its relative position to the rocket.		--
+ -----------------------------------------------------------------------------	
+-process (clk)
++process (super_clk)
+ begin
+-if rising_edge (clk) then
++if rising_edge (super_clk) and clk = '1' then
+ 	a1_13_old <= a1_13;
+ 	if (a1_13_old = '1') and (a1_13 = '0') then
+ 		a1_15 <= a1_3;
+@@ -1430,7 +1432,8 @@
+ -----------------------------------------------------------------------------
+ saucer_missile: v74161_16bit
+ 	port map(
+-			clk => clk,
++			clk => super_clk,
++			ce  => clk,
+ 			clrn  => g1_3,
+ 			ldn => f4_2,
+ 			enp  => '1',

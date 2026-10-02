@@ -93,7 +93,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../../Arcade_Pooyan/deca/vga_scandoubler.v">
+      <File Path="$PSRCDIR/sources_1/imports/deca/vga_scandoubler.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>

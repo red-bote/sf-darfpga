@@ -7,20 +7,22 @@ notes.
 
 - Vivado 2020.2 project: `basys3/computer_space_basys3.xpr` (top entity
   `computer_space_basys3`)
-- Core clock: 6 MHz video pixel clock (`game_clk`), with a ~50 MHz
-  `clock_50` for timers/noise/sound, from the 100 MHz oscillator via
-  `clk_wiz_0`.
-- `clk_wiz_0` MMCM: VCO forced to 600 so `clk_sys` = exactly 2x `game_clk`
-  (`CLKFBOUT_MULT_F=6.0`, `CLKOUT0_DIVIDE_F=12`, `CLKOUT1_DIVIDE=100`,
-  `CLKOUT2_DIVIDE=50` -> 50.000 / 6.000 / 12.000 MHz). The MiST scandoubler
-  needs `clk_sys` = exactly 2x `ce_x1`; an auto VCO would otherwise give a
-  non-exact ratio and a black screen.
+- Clock: single 48 MHz domain (`clk_wiz_0` single output, D 5 / M 49.5 /
+  O0 20.625 from the 100 MHz oscillator). 6 MHz pixel and 12 MHz
+  scandoubler rates are clock enables; the core's 50 MHz-sized timer and
+  sound constants are rescaled by `contrib/code/computer_space_single_domain.patch`
+  and `computer_space_motion_single_domain.patch` (design:
+  `contrib/basys3/PORTING_SPEC.md` §Clocking).
 
 ## Features supported
 
 - **Video**: 31 kHz progressive VGA via the imported scandoubler
   (`mist/scandoubler.v`). sw(13) switches to 15 kHz TV mode
   (native RGB + composite sync on HS). White-on-black monochrome picture.
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Sound**: mono PWM audio on PmodAMP2.
 - **Controls**: PS/2 keyboard + JA joystick (OR-merged); pushbuttons
   btnU/btnD/btnL/btnR double as start; btnC = reset.
@@ -68,8 +70,9 @@ sources in place" pattern: the `.xpr` imports its own project-local copy
 (`sources_1/imports/rtl/motion_board.vhd`), and `make create_prj` copies it
 there fresh from `rtl/motion_board.vhd` and applies
 `computer_space_motion_q_assoc.patch` + `computer_space_rocket_timer_synth_fix.patch`
++ `computer_space_motion_single_domain.patch`
 to that copy only. The pristine `rtl/motion_board.vhd` is never modified —
-`make setup`'s patch loop explicitly excludes both patches for this reason.
+`make setup`'s patch loop explicitly excludes these three patches for this reason.
 
 ## Applying the rocket-missile fire fix
 

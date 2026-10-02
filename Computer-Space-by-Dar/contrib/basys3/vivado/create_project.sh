@@ -19,6 +19,7 @@
 #    from the .xpr source list so there is no entity-name clash.
 # 6. Copy motion_board.vhd into sources_1/imports/rtl/ and apply
 #    computer_space_motion_q_assoc.patch + computer_space_rocket_timer_synth_fix.patch
+#    + computer_space_motion_single_domain.patch (in that order)
 #    to that copy only -- the pristine rtl/motion_board.vhd is never
 #    modified. Matches the .xpr, which references this imported copy
 #    (sources_1/imports/rtl/motion_board.vhd), not the pristine file in
@@ -79,7 +80,8 @@ cp -f "$SRC_DIR/rtl/motion_board.vhd" "$RTL_IMPORT/motion_board.vhd"
 # strips trailing CRs from the patch and cannot match it. The pristine
 # rtl/motion_board.vhd is never modified -- only this imported copy.
 for p in "$ROOT/contrib/code/computer_space_motion_q_assoc.patch" \
-         "$ROOT/contrib/code/computer_space_rocket_timer_synth_fix.patch"; do
+         "$ROOT/contrib/code/computer_space_rocket_timer_synth_fix.patch" \
+         "$ROOT/contrib/code/computer_space_motion_single_domain.patch"; do
     if (cd "$PROJ_DIR" && patch --binary -p1 -R --dry-run --forward < "$p" > /dev/null 2>&1); then
         echo "==> already applied, skipping $(basename "$p")"
     else

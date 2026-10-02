@@ -1,6 +1,6 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12 MHz core + 6 MHz scandoubler
-# ce_x1) for the Basys3 port and place its Verilog wrappers where
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 12 MHz, single output) for the
+# Basys3 port and place its Verilog wrappers where
 # burger_time_basys3.xpr expects them.
 #
 # The main project's .xpr references two imported files (burger_time_basys3.xpr):
@@ -9,6 +9,11 @@
 # The IP is generated here in a throwaway Vivado project named mmcm_12m and
 # only those two .v files are copied into the repo. Per project rules this script
 # runs from /tmp so vivado.log / vivado.jou stay outside the repository.
+
+# Single output (2026-10-02): the former 6 MHz CLKOUT2, used only as the
+# scandoubler ce_x1 in the 12 MHz domain, failed hold timing (WHS -0.60 ns);
+# ce_x1 is now a clock_12 toggle enable in the wrapper
+# (sf-darfpga/CLOCKING_SPEC.md section 5.2).
 
 set -euo pipefail
 
@@ -38,8 +43,6 @@ set_property -dict [list \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
     CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {12} \
-    CONFIG.CLKOUT2_USED {true} \
-    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {6} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
 ] [get_ips clk_wiz_0]
 

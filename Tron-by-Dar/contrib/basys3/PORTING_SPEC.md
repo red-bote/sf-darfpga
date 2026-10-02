@@ -71,7 +71,7 @@ Confirmed against `tron_de10_lite.vhd` and the authored `tron_basys3.vhd`
   cocktail mode is explicitly unsupported per the archive's own header ("Cocktail mode: NO").
 - **T80:** Tron uses `rtl_t80_304`, a third distinct T80 revision (Pooyan uses `rtl_t80_350`,
   Time-Pilot uses `rtl_T80`). Whether this revision needs an equivalent to Pooyan's xor-width
-  fix is **unconfirmed** — resolve via live synthesis once the romset is available. Standalone
+  fix: **not needed** — synthesis completes with no errors (`synth_1/runme.log`, 2026-10-02). Standalone
   VHDL analysis (`xvhdl`) of the full RTL chain (T80-304, YM2149, CTC, cmos_ram/gen_ram,
   keyboard/joystick, `tron`, `tron_sound_board`, and the authored wrapper) against black-box
   PROM stubs completed with **zero errors** — a first signal the core and wrapper are

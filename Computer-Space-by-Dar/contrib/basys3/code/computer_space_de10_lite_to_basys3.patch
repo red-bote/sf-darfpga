@@ -1,7 +1,7 @@
 diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd
 --- a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd
 +++ b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd
-@@ -1,363 +1,308 @@
+@@ -1,363 +1,340 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for computer_space by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
@@ -373,48 +373,38 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +-- Basys3 port by Red~Bote.
 +--
 +-- Ported from computer_space_de10_lite.vhd (DE10-lite rev 22/11/2017 v1.1):
-+--  - 100 MHz board oscillator; clk_wiz_0 MMCM derives three clocks from
-+--    100 MHz (replaces the MAX10 PLL). The MMCM is forced to VCO 600 MHz
-+--    (via make_clk_wiz_0.sh's deterministic constant rewrite) so every output
-+--    is an exact integer divide:
-+--       clk_out1 = 50.000  MHz -> core clock_50 / super_clk (timers, noise,
-+--                                sound-ROM sample clock; MUST stay ~50 MHz,
-+--                                see below -- sound.vhd clocks its ROMs on
-+--                                clock_50)
-+--       clk_out2 = 6.000   MHz -> core game_clk (video pixel clock)
-+--       clk_out3 = 12.000  MHz -> scandoubler clk_sys = EXACTLY 2x game_clk
-+--  - The MMCM cannot derive 5.84 MHz from 100 MHz with a valid VCO
-+--    (Artix-7 MMCM VCO must be 600-1200 MHz), so game_clk = 6 MHz (2.7% above
-+--    Dar's 5.842 MHz). All game-timing counters run in the 50 MHz clock_50
-+--    domain and are exact; only the scan_counter video timing scales by
-+--    6/5.842 ~ 1.027 (within a 15 kHz RGB monitor's horizontal tolerance).
-+--  - Scandoubler wiring follows the proven Phoenix port (same MiST
-+--    scandoubler): ce_x1 = game_clk directly (a genuine clock, not a divided
-+--    strobe), ce_x2 = '1', clk_sys = 12 MHz = exactly 2x game_clk. The MiST
-+--    scandoubler REQUIRES clk_sys = exactly 2x the ce_x1 (pixel) rate for its
-+--    line-buffer read/write pointers to stay aligned; any other ratio shows a
-+--    black screen with only occasional misaligned flashes. With a non-exact 2x
-+--    the earlier build (clk_sys = 11.9048 MHz from auto VCO 750) produced
-+--    exactly that symptom on hardware.
++--  - Single clock domain (2026-10-02, PORTING_SPEC §Clocking): one MMCM
++--    output clk_out1 = 48.000 MHz (100 MHz in) clocks the core (clock_50 /
++--    super_clk nets, names kept from upstream), scandoubler clk_sys,
++--    keyboard and PWM. A 3-bit counter derives the clock enables:
++--       game_ce   (count = 7)       6 MHz, replaces rising_edge(game_clk)
++--       game_ce_n (count = 3)       6 MHz, replaces the star counter's
++--                                   rising_edge(not game_clk)
++--       ce_pix2   (count(1:0) = 3)  12 MHz scandoubler ce_x2
++--    The scandoubler's exactly-2x requirement holds as ce_x2 = 2x ce_x1.
++--    The core's 50 MHz-sized timer/sound constants are rescaled x0.96 by
++--    contrib/code/computer_space_single_domain.patch; game_clk-clocked
++--    logic uses game_ce via that patch and
++--    computer_space_motion_single_domain.patch. Replaces the former
++--    50 / 6 / 12 MHz three-output scheme, which failed setup and hold on
++--    its clock-domain crossings.
++--  - 6 MHz pixel rate (2.7% above Dar's 5.842 MHz): the MMCM cannot derive
++--    5.842 MHz from 100 MHz; video timing scales by 6/5.842 ~ 1.027.
 +--  - Keyboard input is the Basys 3's onboard USB-A "USB HID" host port
 +--    (C17/B17): the onboard PIC24 USB-HID host presents a plugged-in USB
 +--    keyboard to the FPGA fabric over the same PS/2 protocol/pins a direct
 +--    PS/2 device uses, so io_ps2_keyboard.vhd / kbd_joystick.vhd are
 +--    unchanged -- a pin remap in Basys-3-Master.xdc, not a logic change
 +--    (same approach as vhdl_congo_bongo and Arcade-Zaxxon).
-+--  - Keyboard clock = game_clk (6 MHz), the exact rate proven on
-+--    Congo Bongo / Zaxxon for the onboard USB HID host (the DE10 original
-+--    drove the keyboard with its 5.84 MHz game clock).
++--  - Keyboard clock = clk_core (48 MHz); ps2_clk/ps2_dat pass a 2-FF
++--    synchronizer first (was game_clk 6 MHz, unsynchronized).
 +--  - Mono (left-channel) PWM audio on PmodAMP2 (JC); sw14 = shutdown,
 +--    sw15 = gain select. audio_out/wav_out from the core are unused (the
 +--    sound ROMs and the computer_space_sound simulator both feed the same
 +--    internal audio bus; only `audio` is driven by the top).
 +--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
 +--    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS
-+--    high). Scandoubler clk_sys = clk_out3 (12.000 MHz), ce_x1 = game_clk
-+--    (6 MHz, wired directly), ce_x2 = '1' -- the proven Phoenix convention
-+--    for this scandoubler module (clk_sys = exactly 2x the ce_x1 pixel rate,
-+--    required for the line-buffer pointers to stay aligned).
++--    high). Scandoubler clk_sys = clk_core, ce_x1 = game_ce, ce_x2 = ce_pix2.
 +--  - Video: the core outputs 4-bit video[normal/inverse, objects, scores,
 +--    stars]; the DE10 top maps the 3 object bits through a normal/inverse
 +--    monochrome level lookup (video(3) picks normal vs reverse-video). This
@@ -500,9 +490,11 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +     );
 + end component;
 +
-+ signal clock_50    : std_logic;   -- ~50 MHz (super_clk / sound clock)
-+ signal game_clk    : std_logic;   -- 6 MHz   (video pixel clock, keyboard)
-+  signal clk_sys     : std_logic;   -- 12.000 MHz (scandoubler sampling clock, 2x game_clk)
++ signal clk_core    : std_logic;   -- 48.000 MHz, the only clock
++ signal ce_cnt      : unsigned(2 downto 0) := (others => '0');
++ signal game_ce     : std_logic := '0';  -- 6 MHz enable
++ signal game_ce_n   : std_logic := '0';  -- 6 MHz enable, half-pixel offset
++ signal ce_pix2     : std_logic := '0';  -- 12 MHz enable (scandoubler ce_x2)
 + signal mmcm_locked : std_logic;
 + signal reset       : std_logic;
 +
@@ -524,6 +516,14 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + signal audio_us     : unsigned(16 downto 0);
 + signal pwm_accumulator : std_logic_vector(16 downto 0);
 +
++ signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
++ -- JA(4 downto 0) & btnU/D/L/R, 2-FF synchronized (index 1 = output).
++ type sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
++ signal in_s : sync_t := (others => (others => '0'));
++ attribute ASYNC_REG : string;
++ attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
++ signal ctl_ccw, ctl_cw, ctl_thrust, ctl_fire, ctl_start : std_logic;
++
 + signal kbd_intr     : std_logic;
 + signal kbd_scancode : std_logic_vector(7 downto 0);
 + signal joyPCFRLDU   : std_logic_vector(7 downto 0);
@@ -533,24 +533,53 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + -- btnC is active-high: resets MMCM and, with !locked, holds core in reset.
 + reset <= btnC or not mmcm_locked;
 +
-+ -- 100 MHz -> 50 / 6 / 12 MHz, see header.
++ -- 100 MHz -> 48 MHz, see header.
 + clocks : entity work.clk_wiz_0
 + port map(
 +  clk_in1  => clk,
-+  clk_out1 => clock_50,
-+  clk_out2 => game_clk,
-+  clk_out3 => clk_sys,
++  clk_out1 => clk_core,
 +  reset    => btnC,
 +  locked   => mmcm_locked
 + );
 +
++ -- Clock enables: game_ce / game_ce_n 6 MHz (4 cycles apart), ce_pix2 12 MHz.
++ process(clk_core)
++ begin
++  if rising_edge(clk_core) then
++   ce_cnt    <= ce_cnt + 1;
++   game_ce   <= '0';
++   game_ce_n <= '0';
++   ce_pix2   <= '0';
++   if ce_cnt = 6 then game_ce   <= '1'; end if;
++   if ce_cnt = 2 then game_ce_n <= '1'; end if;
++   if ce_cnt(1 downto 0) = "10" then ce_pix2 <= '1'; end if;
++  end if;
++ end process;
++
++ -- PS/2 (USB HID), JA and pushbutton inputs: 2-FF synchronizer into clk_core.
++ process(clk_core)
++ begin
++  if rising_edge(clk_core) then
++   ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
++   ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
++   in_s(0)   <= btnR & btnL & btnD & btnU & JA;
++   in_s(1)   <= in_s(0);
++  end if;
++ end process;
++
++ -- Keyboard OR JA (active-low) OR buttons; in_s(1)(4 downto 0) = JA.
++ ctl_ccw    <= joyPCFRLDU(2) or not in_s(1)(1);  -- left arrow / JA2 = rotate CCW
++ ctl_cw     <= joyPCFRLDU(3) or not in_s(1)(0);  -- right arrow / JA1 = rotate CW
++ ctl_thrust <= joyPCFRLDU(0) or not in_s(1)(3);  -- up arrow / JA4 = thrust
++ ctl_fire   <= joyPCFRLDU(4) or not in_s(1)(4);  -- space / JA7 = fire
++ ctl_start  <= joyPCFRLDU(6) or in_s(1)(5) or in_s(1)(6) or in_s(1)(7) or in_s(1)(8); -- F2 or any pushbutton
++
 + -- get scancode from keyboard (USB HID -> PS/2 via onboard PIC24).
-+ -- Keyboard clock = game_clk (6 MHz, the proven USB-HID host rate).
 + keyboard : entity work.io_ps2_keyboard
 + port map (
-+  clk       => game_clk,
-+  kbd_clk   => ps2_clk,
-+  kbd_dat   => ps2_dat,
++  clk       => clk_core,
++  kbd_clk   => ps2_clk_s(1),
++  kbd_dat   => ps2_dat_s(1),
 +  interrupt => kbd_intr,
 +  scancode  => kbd_scancode
 + );
@@ -558,7 +587,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + -- translate scancode to joystick
 + joystick : entity work.kbd_joystick
 + port map (
-+  clk           => game_clk,
++  clk           => clk_core,
 +  kbdint        => kbd_intr,
 +  kbdscancode   => std_logic_vector(kbd_scancode),
 +  joyPCFRLDU    => joyPCFRLDU
@@ -570,14 +599,15 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + computer_space_top : entity work.computer_space_top
 + port map(
 +  reset         => reset,
-+  clock_50      => clock_50,     -- ~50 MHz (timers/noise/sound clock)
-+  game_clk      => game_clk,     -- 6 MHz video pixel clock
++  clock_50      => clk_core,     -- 48 MHz (constants rescaled by patch)
++  game_ce       => game_ce,      -- 6 MHz pixel enable
++  game_ce_n     => game_ce_n,    -- 6 MHz enable, half-pixel offset
 +
-+  signal_ccw    => joyPCFRLDU(2) or not JA(1), -- left arrow / JA2 = rotate CCW
-+  signal_cw     => joyPCFRLDU(3) or not JA(0), -- right arrow / JA1 = rotate CW
-+  signal_thrust => joyPCFRLDU(0) or not JA(3), -- up arrow / JA4 = thrust
-+  signal_fire   => joyPCFRLDU(4) or not JA(4), -- space / JA7 = fire
-+  signal_start  => joyPCFRLDU(6) or btnU or btnD or btnL or btnR, -- F2 or any pushbutton
++  signal_ccw    => ctl_ccw,
++  signal_cw     => ctl_cw,
++  signal_thrust => ctl_thrust,
++  signal_fire   => ctl_fire,
++  signal_start  => ctl_start,
 +
 +  hsync         => hsync,
 +  vsync         => vsync,
@@ -593,7 +623,8 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + -----------------------------------------------------------------------
 + composite_sync : entity work.composite_sync
 + port map(
-+  clk   => game_clk,
++  clk   => clk_core,
++  ce    => game_ce,
 +  hsync => hsync,
 +  vsync => vsync,
 +  csync => csync,
@@ -630,10 +661,10 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +
 + scandoubler_inst : scandoubler
 + port map (
-+  clk_sys   => clk_sys,
++  clk_sys   => clk_core,
 +  scanlines => "00",
-+  ce_x1     => game_clk,   -- 6 MHz pixel clock, wired directly (Phoenix convention)
-+  ce_x2     => '1',        -- enabled every clk_sys (12 MHz) edge
++  ce_x1     => game_ce,    -- 6 MHz pixel enable
++  ce_x2     => ce_pix2,    -- 12 MHz output enable (exactly 2x ce_x1)
 +  hs_in     => hsync,
 +  vs_in     => vsync,
 +  r_in      => vga_r_i,
@@ -661,9 +692,10 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + -----------------------------------------------------------------------
 + audio_us <= '0' & to_unsigned(audio + 32767, 16);
 +
-+ process(game_clk)
++ -- Accumulates at the 6 MHz enable rate (carrier unchanged).
++ process(clk_core)
 + begin
-+  if rising_edge(game_clk) then
++  if rising_edge(clk_core) and game_ce = '1' then
 +   pwm_accumulator <= std_logic_vector(unsigned('0' & pwm_accumulator(15 downto 0)) + audio_us);
 +  end if;
 + end process;

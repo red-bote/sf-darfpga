@@ -42,6 +42,9 @@ port(
  clk            : in  std_logic;
  sw             : in  std_logic_vector(15 downto 0);
  btnC           : in  std_logic;
+ btnU           : in  std_logic;  -- coin
+ btnL           : in  std_logic;  -- 1P start
+ btnR           : in  std_logic;  -- 2P start
 
  JA             : in  std_logic_vector(4 downto 0);  -- joystick
  ps2_dat        : in  std_logic;
@@ -226,16 +229,16 @@ begin
  -- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
  -- JA is active-low (pressed shorts to ground); invert so a press reads
  -- active-high, matching the core's active-high input boundary and the
- -- keyboard path. Player 2 mirrors player 1 inputs. Coin/start reachable
- -- from the joystick via fire+direction combos.
+ -- keyboard path. Player 2 mirrors player 1 inputs. Coin/start come from the
+ -- keyboard and btnU/btnL/btnR (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
  joy_up     <= kbd_joy(0) or not JA(3);    -- up    (JA4)
  joy_down   <= kbd_joy(1) or not JA(2);    -- down  (JA3)
  joy_left   <= kbd_joy(2) or not JA(1);    -- left  (JA2)
  joy_right  <= kbd_joy(3) or not JA(0);    -- right (JA1)
  joy_fire   <= kbd_joy(4) or not JA(4);    -- punch (JA7)
- joy_coin   <= fn_pulse(0) or (not JA(4) and not JA(3));   -- coin   = F1 / fire+up
- joy_start1 <= fn_pulse(1) or (not JA(4) and not JA(1));   -- start1 = F2 / fire+left
- joy_start2 <= fn_pulse(2);                                -- start2 = F3
+ joy_coin   <= fn_pulse(0) or btnU; -- coin   = F1 / btnU
+ joy_start1 <= fn_pulse(1) or btnL; -- start1 = F2 / btnL
+ joy_start2 <= fn_pulse(2) or btnR;                        -- start2 = F3 / btnR
  joy_service<= fn_toggle(6);                               -- service = F7 toggle
 
  -- pwm sound output (18-bit accumulator, updating once per clock_div cycle,

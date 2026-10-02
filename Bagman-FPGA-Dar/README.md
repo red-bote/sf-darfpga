@@ -32,7 +32,7 @@ archive for the original Dar release notes.
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Jump
-- Coin = Fire + Up together; Start 1 = Fire + Left together
+- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
 - Player 2 mirrors player 1 inputs.
 
 ## IO mapping
@@ -41,6 +41,7 @@ JA joystick (active-low, switch to GND):
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
+| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / 1P start / 2P start (OR-merged with keyboard; added 2026-10-01) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
 | sw(13) | — | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV (csync on HS) |
@@ -109,13 +110,3 @@ Verify it took:
 ```
 grep -n 'xor "0000000000000"' vhdl_bagman_rev_0_1_2018_06_05/rtl_dar/bagman.vhd
 ```
-
-## Known issues
-
-- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
-  (reported 2026-09-25, on the hardware-confirmed USB-HID build). Same
-  pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
-  Berzerk-FPGA-by-Dar. Not yet investigated; deferred at the user's request.
-  See root `KNOWN_ISSUES.md`.
-

@@ -67,8 +67,8 @@ port names differ.
 
 The imported `scandoubler.v` is the MiST scandoubler (`contrib/code/scandoubler.v`,
 cleanroom import, never modified in place), sourced the same way as every
-other importing machine: downloaded once and stashed in `dloads/`, reused for
-subsequent builds. Added to the Vivado project under `imports/mist/`.
+other importing machine: tracked as `contrib/code/scandoubler.v` and copied
+into the project by `create_project.sh`. Added to the Vivado project under `imports/mist/`.
 `contrib/code/scandoubler_fix.patch` (Vivado 2020.2 Verilog-2001 parser fix
 for the single-value unpacked array size) is applied only to the copied
 project instance by `create_project.sh`, never to the canonical import.

@@ -41,7 +41,7 @@ notes.
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin = Fire + Up together, or btnU; Fast = Fire + Left together, or btnL
+- Coin = btnU; Fast = btnL (JA fire+direction combos removed 2026-10-02)
 
 ## IO mapping
 
@@ -49,8 +49,8 @@ JA joystick (active-low, switch to GND):
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
-| btnU | `btnU` | coin-in (coin1), OR-merged with keyboard F1 / JA fire+up |
-| btnL | `btnL` | start/fast (fast1), OR-merged with keyboard Left Ctrl / JA fire+left |
+| btnU | `btnU` | coin-in (coin1), OR-merged with keyboard F1 |
+| btnL | `btnL` | start/fast (fast1), OR-merged with keyboard Left Ctrl |
 | btnD / btnR | `btnD` / `btnR` | declared, unused (reserved — core has no 2nd coin/start) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
@@ -89,10 +89,3 @@ Vivado project references these generated files in place, so the build needs
 only the staged ROMs + the script.
 
 machine ROMs are copyrighted — never commit or redistribute them.
-
-## Known issues
-
-- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
-  (reported 2026-09-25). Same pattern reported on Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, and Tron-by-Dar. Not yet investigated; deferred at
-  the user's request. See root `KNOWN_ISSUES.md`.

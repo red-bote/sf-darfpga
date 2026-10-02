@@ -8,19 +8,21 @@ notes.
 - Vivado 2020.2 project: `basys3/burnin_rubber_basys3.xpr` (top entity
   `burnin_rubber_basys3`)
 - Core clock: 12 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.000 MHz +
-  `clk_out2` = 6.000 MHz; reset active-high (btnC), `locked` used. Solved
-  MMCM: `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=7.5`, `CLKOUT0_DIVIDE_F=62.5`,
-  `CLKOUT1_DIVIDE=125`.
+- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): single output `clk_out1` =
+  12.000 MHz; reset active-high (btnC), `locked` used. Solved MMCM:
+  `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=49.875`, `CLKOUT0_DIVIDE_F=83.125`. The
+  scandoubler `ce_x1` is a `clock_12` toggle enable in the wrapper (2026-10-02;
+  the former 6 MHz `clk_out2` failed hold timing; `../CLOCKING_SPEC.md` 5.2).
 
 ## Features supported
 
 - **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
   (`imports/mist/scandoubler.v`). sw(13) switches to 15 kHz TV mode (native RGB
   + composite sync on HS).
-- **Scan doubler source**: downloaded the first build from
-  https://raw.githubusercontent.com/DECAfpga/Arcade_Galaga/main/mist/scandoubler.v and
-  stashed in `dloads/`; the stashed copy is reused for subsequent builds.
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Scan doubler wiring**: see `contrib/basys3/PORTING_SPEC.md`.
 - **Sound**: mono PWM audio on PmodAMP2.
 - **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged); buttons
@@ -37,7 +39,7 @@ notes.
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin = Fire + Up together; Start 1 = Fire + Left together
+- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
 - Player 2 mirrors player 1 inputs.
 
 Buttons (active-low, switch to GND):
@@ -89,8 +91,8 @@ tampered), extracts it as `vhdl_burnin_rubber_rev_0_0_2017_12_22/`, applies
 above), then runs `contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
 `make_burnin_rubber_proms.bat`, stage the romset from `$ROMZIP` (default
 `~/roms/brubber.zip`) and generate the PROM VHDL. Run it via `make setup`. The
-MiST `scandoubler.v` (see Features above) is likewise fetched on first build and
-stashed in `dloads/` for reuse.
+MiST `scandoubler.v` (see Features above) is tracked in `contrib/code/` and
+copied into the project by `create_project.sh`.
 
 ## ROM set required
 

@@ -42,7 +42,7 @@ notes.
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin = Fire + Up; Start 1 = Fire + Left; Start 2 = Fire + Right
+- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
 - No JA equivalent for the spinner (see `contrib/basys3/PORTING_SPEC.md` §7) — same limitation as the
   pristine DE10-lite top, not a porting regression.
 - No player-2/cocktail support — the core has no genuine second control set, only unused
@@ -54,6 +54,7 @@ JA joystick (active-low, switch to GND):
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
+| btnU / btnL / btnR / btnD | `btnU`/`btnL`/`btnR`/`btnD` | coin / 1P start / 2P start / coin 2 (added 2026-10-01) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
 | sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
@@ -110,10 +111,3 @@ top entity, part, and source list) end-to-end from the tracked assets alone, and
 
 - Consider a JA-driven approximation for the spinner control (currently keyboard-only,
   matching upstream).
-
-## Known issues
-
-- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
-  (reported 2026-09-25). Same pattern reported on Solar-Fox-by-Dar,
-  Galaga-Midway-by-Dar, and Kick-Midway-MCR-by-Dar. Not yet investigated;
-  deferred at the user's request. See root `KNOWN_ISSUES.md`.

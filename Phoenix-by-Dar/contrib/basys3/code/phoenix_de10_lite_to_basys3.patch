@@ -1,7 +1,7 @@
 diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd
 --- a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd
 +++ b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd
-@@ -1,209 +1,226 @@
+@@ -1,209 +1,266 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level Phoenix by Dar (darfpga@aol.fr) (30/01/2025)
 --- http://darfpga.blogspot.fr
@@ -240,36 +240,31 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 +--    straight onto vgaHsync, vgaVsync held high, native RGB passed through)
 +--    -- this branch exactly reproduces the pristine DE10-lite top's own
 +--    output path.
-+--  - The pristine phoenix entity accepts only a PS/2 keyboard scancode
-+--    stream (no coin/start/button ports exist on it at all). A patch
-+--    adding external coin/start/fire/direction ports (JA joystick +
-+--    dedicated buttons), OR-merged internally with the PS/2 path, has been
-+--    tried twice and hardware-tested both times: no input registered at all
-+--    on the first attempt (PS/2 keyboard, sound, and video were confirmed
-+--    working on the same build); on the second attempt (2026-09-25),
-+--    physical pin toggling and the core-side netlist wiring were both
-+--    exhaustively re-verified correct end-to-end (including adding a
-+--    debounce/pulse-stretch synchronizer, since raw quick taps were found to
-+--    sometimes be missed) -- yet JA/buttons still produced no in-game effect
-+--    at all, an unresolved contradiction between verified-correct digital
-+--    logic and observed behavior. Rolled back both times; this port is
-+--    PS/2-keyboard only. Full investigation record in root KNOWN_ISSUES.md.
++--  - JA joystick and btnU/btnD/btnL/btnR (2026-10-02, third attempt): the
++--    core gains an active-high ext_joy input (contrib/code/
++--    phoenix_external_inputs.patch) OR-merged with the keyboard's JoyPCFRLDU
++--    BEFORE the core's single inversion to the active-low CPU inputs, so the
++--    external path uses exactly the keyboard's bits. JA1 = right, JA2 = left,
++--    JA4 = up (protection), JA7 = fire; btnU/btnD = coin, btnL = 1P start,
++--    btnR = 2P start. JA is 2-FF synchronized, buttons synchronized and
++--    debounced (~12 ms) on clock_11. Two earlier attempts (2026-09-22/25,
++--    reverted; root KNOWN_ISSUES.md) registered no input. Hardware-confirmed
++--    2026-10-02.
 +--  - audio_select is 3 bits on the core (100/101/110/111 solo effect1/
 +--    effect2/effect3/melody, else mixed); wired to sw(10 downto 8) here
 +--    (the pristine DE10-lite top hardcodes it to "000", i.e. always mixed).
 +--  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
 +--    (reproduces the pristine top's 13-bit accumulator verbatim).
 +--  - btnC = reset (also resets the MMCM; core held in reset until MMCM
-+--    lock). No other buttons or JA joystick are wired (see above).
++--    lock).
 +--  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
 +--    project default since 2026-09 (root PORTING_SPEC.md §3) -- pure XDC
 +--    pin choice, no VHDL change; the core's PS/2 decode already ran fine at
 +--    its native clock rate on the legacy JB1/JB3 path, and that same rate is
 +--    unchanged here (no clock-divider work was needed for this machine).
 +--    Hardware-confirmed working 2026-09-23.
-+--  - No led port: the pristine top's ledr assignment is a static debug
-+--    pattern ("101010101"), not core-driven, so it is omitted entirely --
-+--    matches Bagman/Pooyan/Time-Pilot/Berzerk/Burnin-Rubber's convention.
++--  - No led port: the pristine top's ledr debug pattern is not ported (a
++--    led(7:0) ext_joy diagnostic was used during the 2026-10-02 bring-up).
 +--  - The DE10-lite 7-segment debug hex display is not ported, matching
 +--    every other machine (no Basys3 board in this repo carries 7-segment
 +--    wiring).
@@ -291,6 +286,11 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + clk             : in  std_logic;
 + sw              : in  std_logic_vector(15 downto 0);
 + btnC            : in  std_logic;  -- reset
++ btnU            : in  std_logic;  -- coin
++ btnD            : in  std_logic;  -- coin
++ btnL            : in  std_logic;  -- 1P start
++ btnR            : in  std_logic;  -- 2P start
++ JA              : in  std_logic_vector(4 downto 0);  -- active-low: right, left, down(n.u.), up, fire
 +
 + ps2_dat         : in  std_logic;
 + ps2_clk         : in  std_logic;
@@ -350,6 +350,17 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + signal audio           : std_logic_vector(11 downto 0);
 + signal pwm_accumulator : std_logic_vector(12 downto 0);
 +
++ -- External player inputs (see header). JA is synchronized; buttons are
++ -- synchronized and debounced: output follows only after 2**17 stable
++ -- clock_11 cycles (11 MHz: 11.9 ms).
++ signal ja_meta, ja_sync    : std_logic_vector(4 downto 0) := (others => '1');
++ signal btn_meta, btn_sync  : std_logic_vector(3 downto 0) := (others => '0');  -- U, D, L, R
++ signal btn_db              : std_logic_vector(3 downto 0) := (others => '0');
++ type btn_cnt_t is array (0 to 3) of unsigned(16 downto 0);
++ signal btn_cnt             : btn_cnt_t := (others => (others => '0'));
++ attribute ASYNC_REG : string;
++ attribute ASYNC_REG of ja_meta, ja_sync, btn_meta, btn_sync : signal is "TRUE";
++ signal ext_joy             : std_logic_vector(7 downto 0);
 +begin
 +
 + -- btnC is active-high: it resets the MMCM and, together with !locked,
@@ -366,12 +377,41 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + );
 +
 + -- Phoenix
++ process(clock_11)
++ begin
++   if rising_edge(clock_11) then
++     ja_meta  <= JA;                          ja_sync  <= ja_meta;
++     btn_meta <= btnU & btnD & btnL & btnR;   btn_sync <= btn_meta;
++     for i in 0 to 3 loop
++       if btn_sync(i) = btn_db(i) then
++         btn_cnt(i) <= (others => '0');
++       elsif btn_cnt(i) = (btn_cnt(i)'range => '1') then
++         btn_db(i)  <= btn_sync(i);
++         btn_cnt(i) <= (others => '0');
++       else
++         btn_cnt(i) <= btn_cnt(i) + 1;
++       end if;
++     end loop;
++   end if;
++ end process;
++
++ -- ext_joy, active-high, core JoyPCFRLDU bit order.
++ ext_joy(0) <= not ja_sync(3);             -- up: protection (JA4)
++ ext_joy(1) <= '0';                        -- down: no core input
++ ext_joy(2) <= not ja_sync(1);             -- left  (JA2)
++ ext_joy(3) <= not ja_sync(0);             -- right (JA1)
++ ext_joy(4) <= not ja_sync(4);             -- fire  (JA7)
++ ext_joy(5) <= btn_db(1);                  -- 1P start (btnL)
++ ext_joy(6) <= btn_db(0);                  -- 2P start (btnR)
++ ext_joy(7) <= btn_db(3) or btn_db(2);     -- coin (btnU / btnD)
++
 + phoenix_inst : entity work.phoenix
 + port map(
 +  clock_50     => clock_50,
 +  clock_11     => clock_11,
 +  reset        => reset,
 +  dip_switch   => sw(7 downto 0),
++  ext_joy      => ext_joy,
 +  ps2_clk      => ps2_clk,
 +  ps2_dat      => ps2_dat,
 +  video_r      => r,

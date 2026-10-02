@@ -30,6 +30,9 @@ port(
  clk            : in  std_logic;
  sw             : in  std_logic_vector(15 downto 0);
  btnC           : in  std_logic;
+ btnU           : in  std_logic;  -- coin
+ btnL           : in  std_logic;  -- 1P start
+ btnR           : in  std_logic;  -- 2P start
 
  JA             : in  std_logic_vector(4 downto 0);  -- joystick
  ps2_dat        : in  std_logic;
@@ -102,6 +105,17 @@ architecture struct of galaga_basys3 is
      );
  end component;
 
+ -- Button debounce (2026-10-02): 2-FF synchronizer, then the output follows
+ -- the input only after it has been stable for 2**18 clock_18 cycles
+ -- (18.432 MHz: 14.2 ms). Added because this core edge-detects coin on press,
+ -- so release bounce counted extra coins. Clocked on clock_18, the core's own
+ -- clock, so btn_db changes on core clock edges (a first version on clock_36
+ -- changed it next to clock_18 edges; btnU then registered inconsistently).
+ signal btn_raw, btn_meta, btn_sync, btn_db : std_logic_vector(2 downto 0) := (others => '0');  -- U, L, R
+ type btn_cnt_t is array (0 to 2) of unsigned(17 downto 0);
+ signal btn_cnt : btn_cnt_t := (others => (others => '0'));
+ attribute ASYNC_REG : string;
+ attribute ASYNC_REG of btn_meta, btn_sync : signal is "TRUE";
 begin
 
 reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
@@ -252,16 +266,37 @@ port map (
 -- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
 -- JA is active-low (pressed shorts to ground); invert so a press reads active-high,
 -- matching the core's active-high input boundary and the keyboard path.
+-- Button debounce (see declarations).
+btn_raw <= btnU & btnL & btnR;
+process(clock_18)
+begin
+  if rising_edge(clock_18) then
+    btn_meta <= btn_raw;
+    btn_sync <= btn_meta;
+    for i in 0 to 2 loop
+      if btn_sync(i) = btn_db(i) then
+        btn_cnt(i) <= (others => '0');
+      elsif btn_cnt(i) = (btn_cnt(i)'range => '1') then
+        btn_db(i)  <= btn_sync(i);
+        btn_cnt(i) <= (others => '0');
+      else
+        btn_cnt(i) <= btn_cnt(i) + 1;
+      end if;
+    end loop;
+  end if;
+end process;
+
 -- Galaga core takes left/right/fire only (bits 2/3/4); coin=7, start1=5, start2=6.
--- Coin/start reachable from the joystick via fire+direction combos.
+-- Coin/start come from the keyboard and btnU/btnL/btnR
+-- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
 joyPCFRLDU(0) <= '0';
 joyPCFRLDU(1) <= '0';
 joyPCFRLDU(2) <= kbd_joy(2) or not JA(1);                 -- left  (JA2)
 joyPCFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right (JA1)
 joyPCFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire  (JA7)
-joyPCFRLDU(5) <= kbd_joy(5) or (not JA(4) and not JA(1)); -- start1 = fire+left
-joyPCFRLDU(6) <= kbd_joy(6) or (not JA(4) and not JA(0)); -- start2 = fire+right
-joyPCFRLDU(7) <= kbd_joy(7) or (not JA(4) and not JA(3)); -- coin   = fire+up
+joyPCFRLDU(5) <= kbd_joy(5) or btn_db(1); -- start1 = btnL
+joyPCFRLDU(6) <= kbd_joy(6) or btn_db(0); -- start2 = btnR
+joyPCFRLDU(7) <= kbd_joy(7) or btn_db(2); -- coin   = btnU
 
 -- pwm sound output
 process(clock_18)  -- same clock as the DE10 top drove the PWM accumulator

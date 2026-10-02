@@ -24,6 +24,10 @@ notes.
   `video_hs`/`video_vs` drivers plus a `pix_clk_div` output exposing the
   core's real 12/6 MHz clock bits for the scandoubler's `clk_sys`/`ce_x1` —
   see `contrib/basys3/PORTING_SPEC.md` §4 for the full derivation.
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Sound**: mono (left-channel) PWM audio on PmodAMP2.
 - **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged);
   dedicated buttons for coin/start (btnU/btnD = coin, btnL = start 1, btnR =
@@ -62,11 +66,12 @@ Buttons (active-high, Basys3 board pull-down, same convention as btnC):
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
-| btnU / btnD | `btnU` / `btnD` | coin-in |
+| btnU / btnD | `btnU` / `btnD` | coin-in (all buttons debounced ~11 ms since 2026-10-02) |
 | btnL / btnR | `btnL` / `btnR` | start 1 / start 2 |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
 | sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
+| sw(12) | `sw(12)` | display flip, inverted polarity (XOR with the F4 toggle; added and inverted 2026-10-02) |
 | C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (mono/left channel; JC1=AIN, JC2=GAIN, JC4=SHUTD) |
@@ -148,15 +153,6 @@ including the Galaga-precedent finding that a fast clock fed directly into
 ```
 grep -n 'pix_clk_div' vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
 ```
-
-## Known issues
-
-- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
-  (reported 2026-09-25, on the hardware-confirmed USB-HID build). Same
-  pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and
-  Berzerk-FPGA-by-Dar. Not yet investigated; deferred at the user's request.
-  See root `KNOWN_ISSUES.md`.
 
 ## Build status
 

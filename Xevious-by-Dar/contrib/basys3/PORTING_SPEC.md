@@ -99,8 +99,18 @@ matching the DE10 top's `clock_18n` convention.
   pattern) with the PS/2 keyboard path (`io_ps2_keyboard` -> `kbd_joystick`
   -> `joyBCPPFRLDU(8..0)`). Dedicated buttons add coin/start1/start2.
   JA pin assignment honoring the Makefile's "bomb=JA3":
-  `JA[0]=right, JA[1]=left, JA[2]=bomb, JA[3]=up, JA[4]=fire`; `down`
-  keyboard-only (the core has no down control).
+  `JA[0]=right, JA[1]=left, JA[2]=down and bomb, JA[3]=up, JA[4]=fire`
+  (the core does use `down`, `rtl_dar/xevious.vhd:1218`; JA3 added to it
+  2026-10-01).
+- **Input synchronizers** (2026-10-02): `ps2_clk`/`ps2_dat`, `JA(4:0)` and
+  `btnU`/`btnL`/`btnR` pass through 2-FF synchronizers (`ASYNC_REG`) on
+  `clock_18`. After the keyboard moved to the 18.432 MHz core clock
+  (2026-10-01), keyboard and JA showed stuck and missed inputs. Cause, as in
+  `pinballwiz/NEXYS2-Pacman` PORTING_SPEC section 11: `io_ps2_keyboard` has
+  no synchronizer, an edge near a clock edge can drop a bit, and with no
+  frame check a lost make code is a missed key and a lost F0 a stuck key; a
+  stuck keyboard bit also holds the OR-merged JA direction. The vendored
+  decoder stays unmodified.
 - **Audio**: reuse the pristine DE10 top's PWM accumulator verbatim
   (`pwm_accumulator <= unsigned('0' & pwm_accumulator(11 downto 0)) +
   unsigned('0' & audio)`, `audio` is 11 bits, out = bit 12) — same pattern

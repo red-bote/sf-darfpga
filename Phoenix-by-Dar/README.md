@@ -22,20 +22,18 @@ archive for the original Dar release notes.
   (native RGB + composite sync on HS, reproducing the pristine DE10-lite
   top's own output path). See `contrib/basys3/PORTING_SPEC.md` for the full
   design record.
-- **Scan doubler source**: downloaded the first build from
-  https://raw.githubusercontent.com/DECAfpga/Arcade_Galaga/main/mist/scandoubler.v
-  and stashed in `dloads/`; the stashed copy is reused for subsequent builds.
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Sound**: mono PWM audio on PmodAMP2; `audio_select` (3-bit, sw(10:8))
   selects effect1/effect2/effect3/melody solo or the default mix.
-- **Controls**: PS/2 keyboard only (native, handled entirely inside the
-  core). JA joystick / dedicated-button support has been attempted twice
-  (external ports OR-merged into the core's PS/2-derived signals) and
-  hardware-tested both times: no input registered at all on the first
-  attempt; on the second (2026-09-25), physical pin toggling and the
-  core-side netlist wiring were exhaustively re-verified correct end-to-end,
-  yet it still produced no in-game effect — an unresolved contradiction.
-  Rolled back both times; see "Known issues" and root `KNOWN_ISSUES.md` for
-  the full investigation record.
+- **Controls**: PS/2 keyboard (decoded inside the core) OR-merged with the JA
+  joystick and dedicated buttons (third attempt, 2026-10-02): JA1 = right,
+  JA2 = left, JA4 = up (protection), JA7 = fire; btnU/btnD = coin, btnL = 1P
+  start, btnR = 2P start. The core patch `phoenix_external_inputs.patch` adds
+  an active-high `ext_joy` input merged before the core's inversion to the
+  CPU's active-low inputs. Hardware-confirmed 2026-10-02.
 
 | Input | Keyboard |
 |-------|----------|
@@ -52,6 +50,8 @@ archive for the original Dar release notes.
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
+| btnU / btnD / btnL / btnR | `btnU`/`btnD`/`btnL`/`btnR` | coin / coin / 1P start / 2P start (debounced ~12 ms) |
+| JA1 / JA2 / JA4 / JA7 | `JA(0)`/`JA(1)`/`JA(3)`/`JA(4)` | right / left / up (protection) / fire (JA3 unused) |
 | sw(7:0) | `sw(7 downto 0)` | dip switches (lives, bonus life, coin mode, upright/cocktail) |
 | sw(10:8) | `sw(10 downto 8)` | `audio_select`: solo effect1/2/3/melody or mixed |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
@@ -73,8 +73,8 @@ patches (see "Fix patches" below), then runs
 reconstructed `make_phoenix_proms.sh` (the upstream archive ships no
 `.bat`/`tools_prom_src`), stage the romset from `$ROMZIP` (default
 `~/roms/phoenix.zip`), and generate the PROM VHDL. Run it via `make setup`.
-The MiST `scandoubler.v` (see Features above) is likewise fetched on first
-build and stashed in `dloads/` for reuse.
+The MiST `scandoubler.v` (see Features above) is tracked in `contrib/code/`
+and copied into the project by `create_project.sh`.
 
 ## ROM set required
 
@@ -93,6 +93,14 @@ needs only the staged ROMs + the script.
 machine ROMs are copyrighted — never commit or redistribute them.
 
 ## Fix patches
+
+### `phoenix_external_inputs.patch`
+
+Adds `ext_joy : in std_logic_vector(7 downto 0) := (others => '0')` (active-high,
+`JoyPCFRLDU` bit order) to the `phoenix` entity and OR-merges it into each of the
+seven player-input assignments before their inversion, e.g.
+`coin <= not (JoyPCFRLDU(7) or ext_joy(7));` (2026-10-02). Verify:
+`grep -c 'or ext_joy' vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd` prints `7`.
 
 ### `phoenix_expose_hsync_vsync.patch`
 
@@ -116,18 +124,10 @@ grep -c video_hs vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd   # expect 2 (port d
 
 ## Known issues
 
-- JA joystick / dedicated-button support: attempted twice, both times
-  reverted. First attempt (a patch adding external control ports to the
-  core, OR-merged into the PS/2-derived signals) was hardware-tested and
-  found to register no input at all, on a build where PS/2 keyboard, sound,
-  and VGA display were all confirmed working. Second attempt (2026-09-25)
-  rewired from scratch with a debounce/pulse-stretch synchronizer added;
-  physical pin toggling and the core-side netlist wiring were both
-  exhaustively re-verified correct end-to-end (down to confirming the same
-  CPU register bit the working PS/2 path uses), yet it still produced no
-  in-game effect at all — an unresolved contradiction between verified
-  digital logic and observed behavior. Rolled back; this port is
-  PS/2-keyboard only. Full investigation record in root `KNOWN_ISSUES.md`.
+- JA joystick / dedicated buttons: two earlier attempts (2026-09-22, 2026-09-25)
+  registered no input and were reverted (root `KNOWN_ISSUES.md`). Third attempt
+  2026-10-02 merges the inputs before the core's inversion (see Fix patches);
+  hardware-confirmed 2026-10-02.
 
 Fixed 2026-09-23: keyboard moved from the legacy JB1/JB3 Pmod header onto
 the onboard USB-HID host (C17/B17), matching the project default. Pure XDC

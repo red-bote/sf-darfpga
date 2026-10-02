@@ -106,9 +106,8 @@ Vivado synthesis/timing (status in root `README.md`).
 - Machines needing two romsets (Galaga, Tron, Popeye) require the extra set for
   color PROMs, CPU/speech ROMs absent from the plain set (resolved via
   `ROMZIP2`).
-- Some ports are scripted but not yet through `make synth`/`make bitstream`
-  (e.g. Xevious, Satans-Hollow); the root `README.md` Status section is the
-  current record of each machine's verified state.
+- The root `README.md` Status section is the current record of each
+  machine's verified state.
 - Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
   drift; the root `Makefile` `PORTS` list and the present machine dirs are the
   live record (the root `README.md` Status can lag a dir removal).

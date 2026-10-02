@@ -1,7 +1,7 @@
 diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 --- a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 +++ b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
-@@ -1,354 +1,233 @@
+@@ -1,354 +1,238 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Pooyan by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
@@ -366,7 +366,8 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12.288 MHz / 14.318 MHz
 +--  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
 +--  - Mono PWM audio on PmodAMP2 (JC); sw14 = sound enable, sw15 = gain select
-+--  - 31 kHz VGA on the Basys3 VGA connector via vga_scandoubler
++--  - 31 kHz VGA on the Basys3 VGA connector via vga_scandoubler; sw(13) = 1 selects 15 kHz TV
++--    (scandoubler bypass: native RGB, csync on HS, VS high; 2026-10-02)
 +--  - btnC = reset
 +---------------------------------------------------------------------------------
 +-- Educational use only
@@ -387,6 +388,9 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + clk            : in  std_logic;
 + sw             : in  std_logic_vector(15 downto 0);
 + btnC           : in  std_logic;
++ btnU           : in  std_logic;  -- coin
++ btnL           : in  std_logic;  -- 1P start
++ btnR           : in  std_logic;  -- 2P start
 +
 + JA             : in  std_logic_vector(4 downto 0);  -- joystick
 + ps2_dat        : in  std_logic;
@@ -502,7 +506,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +video_gi <= (g & "000")  when blankn = '1' else "000000";
 +video_bi <= (b & "0000") when blankn = '1' else "000000";
 +
-+enable_scandoubling <= '1';
++enable_scandoubling <= not sw(13);  -- sw(13): 0 = 31 kHz VGA, 1 = 15 kHz TV (native RGB, csync on HS, VS high); added 2026-10-02
 +disable_scaneffect  <= '1';
 +
 +scandoubler : entity work.vga_scandoubler
@@ -566,15 +570,16 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +-- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
 +-- JA is active-low (pressed shorts to ground); invert so a press reads active-high, matching the
 +-- core's active-high input boundary and the keyboard path.
-+-- Coin/start are reachable from the joystick via fire+direction combos, OR-merged with keyboard.
++-- Coin/start come from the keyboard and btnU/btnL/btnR
++-- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
 +joyPCFRLDU(0) <= kbd_joy(0) or not JA(3);                 -- up    (JA4)
 +joyPCFRLDU(1) <= kbd_joy(1) or not JA(2);                 -- down  (JA3)
 +joyPCFRLDU(2) <= kbd_joy(2) or not JA(1);                 -- left  (JA2)
 +joyPCFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right (JA1)
 +joyPCFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire  (JA7)
-+joyPCFRLDU(5) <= kbd_joy(5) or (not JA(4) and not JA(3)); -- coin   = fire+up
-+joyPCFRLDU(6) <= kbd_joy(6) or (not JA(4) and not JA(1)); -- start1 = fire+left
-+joyPCFRLDU(7) <= kbd_joy(7) or (not JA(4) and not JA(0)); -- start2 = fire+right
++joyPCFRLDU(5) <= kbd_joy(5) or btnU; -- coin   = btnU
++joyPCFRLDU(6) <= kbd_joy(6) or btnL; -- start1 = btnL
++joyPCFRLDU(7) <= kbd_joy(7) or btnR; -- start2 = btnR
 +
 +-- pwm sound output
 +process(clock_14)  -- use same clock as pooyan_sound_board

@@ -98,5 +98,6 @@ patch -p1 --dry-run < contrib/basys3/code/pooyan_de10_lite_to_basys3.patch
 ## 9. Open items
 
 - Whether the `blankn` gating before the doubler is redundant (if the core already emits black
-  pixels during blank) — to be confirmed on hardware.
-- 15 kHz bypass mode remains not connected. Dip switches 1–8 confirmed working on hardware.
+  pixels during blank): untested; blanking is correct on hardware with the gating in place.
+- 15 kHz bypass mode: `enable_scandoubling <= not sw(13)`, wired 2026-10-02, hardware-confirmed.
+  Dip switches 1–8 confirmed working on hardware.

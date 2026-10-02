@@ -100,7 +100,8 @@ declaration and port table); values that differ for Phoenix:
 
 - **Reset**: `reset <= btnC or not mmcm_locked` (project-standard MMCM/reset
   pattern); `clk_wiz_0`'s own `reset` port driven by `btnC` directly.
-- **Inputs — JA joystick / dedicated buttons attempted and reverted**: the
+- **Inputs — JA joystick / dedicated buttons (two attempts reverted; third
+  implemented 2026-10-02, see end of this item)**: the
   pristine `phoenix` entity accepts only a PS/2 keyboard scancode stream —
   its `kbd_joystick`/`io_ps2_keyboard` instances and the resulting
   `coin`/`player_start`/`buttons` signals are entirely internal, with no
@@ -121,7 +122,14 @@ declaration and port table); values that differ for Phoenix:
   is no comparable, validated implementation elsewhere to debug against or
   copy. **Reverted**: the patch, the `ext_*` port map connections, the JA/
   button wrapper wiring, and the `btnU`/`btnD`/`btnL`/`btnR`/`JA` XDC
-  constraints have all been removed. Phoenix is PS/2-keyboard only.
+  constraints have all been removed.
+  **Third attempt, implemented 2026-10-02**: `contrib/code/phoenix_external_inputs.patch`
+  adds one active-high `ext_joy : in std_logic_vector(7 downto 0)` port
+  (`JoyPCFRLDU` bit order) and OR-merges it into each of the seven player-input
+  assignments before their inversion to the CPU's active-low inputs (e.g.
+  `coin <= not (JoyPCFRLDU(7) or ext_joy(7))`). The wrapper drives it from
+  the JA joystick (2-FF synchronized) and debounced `btnU`/`btnD`/`btnL`/`btnR`
+  on `clock_11`; the XDC lines are enabled. Hardware-confirmed 2026-10-02.
 - **`audio_select` needs a wider switch range than the Makefile originally
   documented**: the `phoenix` entity's `audio_select` port is 3 bits
   (`std_logic_vector(2 downto 0)`) — `"100"`/`"101"`/`"110"`/`"111"` select

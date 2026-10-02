@@ -25,21 +25,27 @@ extracted source archive for the original Dar release notes.
   (native RGB + composite sync on HS, reproducing the pristine DE10-lite
   top's own output path). See `contrib/basys3/PORTING_SPEC.md` for the full
   design record.
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Sound**: mono PWM audio on PmodAMP2; `sw(14)` = AMP shutdown/enable,
   `sw(15)` = AMP gain.
 - **Controls**: JA joystick + PS/2 keyboard (onboard USB HID host), OR-merged.
   Hardware-confirmed 2026-09-25: USB-HID keyboard working. Xevious has an
-  "up" (move flight path up) control but no "down" control; "down" is
-  keyboard-only. Dedicated buttons: btnU = coin, btnL = start1, btnR = start2.
+  up/down movement (core `buttons` input); JA3 (stick down) drives both down
+  and bomb (2026-10-01; previously bomb only). Dedicated buttons: btnU = coin, btnL = start1, btnR = start2.
+  Keyboard, JA and buttons pass through 2-FF synchronizers (2026-10-02, fixes
+  stuck/missed inputs; see `contrib/basys3/PORTING_SPEC.md`).
 
 | Input | JA pin | Keyboard |
 |-------|--------|----------|
 | Right | JA1 | Right arrow |
 | Left | JA2 | Left arrow |
 | Up | JA4 | Up arrow |
-| (Down — no core control) | — | Down arrow (no effect) |
+| Down | JA3 | Down arrow |
 | Fire | JA7 | Space |
-| Bomb | JA3 | Ctrl |
+| Bomb | JA3 (with down) | Ctrl |
 | Coin | btnU | F3 |
 | Start 1 | btnL | F1 |
 | Start 2 | btnR | F2 |
@@ -54,8 +60,8 @@ the keyboard.
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
-| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / start1 / start2 |
-| JA1-4,7 | `JA(0..4)` | right, left, up, fire, bomb (down unused) |
+| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / start1 / start2 (debounced ~14 ms since 2026-10-02) |
+| JA1-4,7 | `JA(0..4)` | right, left, down + bomb, up, fire |
 | C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
 | JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
 | sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |

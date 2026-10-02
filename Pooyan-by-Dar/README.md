@@ -14,13 +14,14 @@ This file is the single source of truth for design and build. Operational rules 
 
 - Atari-style joystick on JA (active-low; internal `PULLUP true` in the XDC; inverted in the
   top-level OR-merge so a press reads active-high, matching the core). Physical map
-  `JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire`; coin/start reachable via combos
-  `coin=fire+up`, `start1=fire+left`, `start2=fire+right`.
+  `JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire`; coin/start on the keyboard and
+  btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02).
 - Single-player: P2 controls are hardwired to P1 (`fire2/right2/left2/down2/up2` reuse the
   P1 signals), regardless of input source.
 - Mono PWM audio on PmodAMP2 (JC header).
 - PS/2 keyboard on the onboard USB HID host (C17/B17, `ps2_clk`/`ps2_dat`, internal
-  `PULLUP true` in the XDC), OR-merged with the JA joystick; `btnC` = reset (active-high —
+  `PULLUP true` in the XDC), OR-merged with the JA joystick; `btnU` = coin, `btnL` = 1P start, `btnR` = 2P start
+  (added 2026-10-01); `btnC` = reset (active-high —
   pressed asserts reset; the Basys3 button is active-high, unlike the DE10's active-low
   `key(0)`). Hardware-confirmed 2026-09-25: USB-HID keyboard working.
 - 31 kHz VGA on the Basys3 VGA connector (4-bit per color RGB + HS/VS).
@@ -51,12 +52,13 @@ Since 2026-10-01 the MMCM reset is `btnC` and the core reset is `btnC or not mmc
 
 31 kHz VGA uses the DECA scan doubler
 (<https://github.com/DECAfpga/Arcade_Pooyan/blob/main/deca/vga_scandoubler.v>), kept at
-`contrib/basys3/code/vga_scandoubler.v`. `enable_scandoubling` and `disable_scaneffect` are both set
-to 1. **Modification of `vga_scandoubler.v` is off-limits** — it is the hash-checked canonical
+`contrib/basys3/code/vga_scandoubler.v`. `disable_scaneffect` is set to 1; `enable_scandoubling` =
+`not sw(13)` (2026-10-02). **Modification of `vga_scandoubler.v` is off-limits** — it is the hash-checked canonical
 cleanroom import.
 
-15 kHz mode is selectable via the scandoubler's built-in bypass (`enable_scandoubling = '0'` →
-`hsync <= csync`, RGB passthrough), matching the DE10's native output on the same VGA connector.
+15 kHz mode is selected by `sw(13)` = 1 via the scandoubler's built-in bypass
+(`enable_scandoubling = '0'` → `hsync <= csync`, `vsync <= '1'`, RGB passthrough), matching the
+DE10's native output on the same VGA connector (fleet `sw(13)` convention, 2026-10-02).
 
 ## Top level
 
@@ -118,12 +120,8 @@ Project structure lives in `vhdl_pooyan_rev_0_2_2020_04_26/basys3/`. Use the Xil
 The constraints file is based on the
 [Digilent Basys-3-Master.xdc](https://github.com/Digilent/digilent-xdc/blob/master/Basys-3-Master.xdc).
 
-### Incomplete before synthesis
-
-Two pieces are referenced by the `.xpr` but not yet present and must be created first:
-
-- `pooyan_basys3.vhd` (top level) under `sources_1/new/`.
-- `clk_wiz_0` MMCM IP files under `sources_1/imports/clk_wiz_0/`.
+`make patch` places the top level (`sources_1/new/pooyan_basys3.vhd`) and `make clk_wiz`
+generates the `clk_wiz_0` MMCM IP files (`sources_1/imports/clk_wiz_0/`).
 
 ### Build
 
@@ -180,25 +178,25 @@ authors the new `pooyan_basys3.vhd` top level and emits
    `pooyan.vhd` sync generation) and are wired **directly** (no inversion) to the doubler's
    active-low `hsync_ext_n`/`vsync_ext_n`; the doubler re-derives active-low `hsync`/`vsync`
    for the VGA connector. The 15 kHz bypass (`enable_scandoubling='0'` → `hsync <= csync`)
-   remains selectable. The doubler is clocked `clkvideo` = `clock_6` (halved core clock) and
+   is selected by `sw(13)` = 1. The doubler is clocked `clkvideo` = `clock_6` (halved core clock) and
    `clkvga` = `clock_12`, giving the ~2× read/write ratio the line buffer needs for real
    horizontal doubling. The RGB inputs are gated on `blankn` (black during blank), keeping the
    DE10 top's blanking behavior now that blanking happens *before* the doubler rather than on
-   the final `vga_r/g/b`. This gating is kept as a defensive measure and is to be confirmed on
-   hardware — if the core already emits black pixels during blank, it may be redundant.
+   the final `vga_r/g/b`. This gating is kept as a defensive measure; blanking is correct on
+   hardware with it in place (whether the core already emits black during blank is untested).
 5. **Audio** — port the DE10 PWM accumulator (clocked on `clock_14`); drive `O_PMODAMP2_AIN`
    with the PWM bit, and route `sw14` (sound enable) to `O_PMODAMP2_SHUTD` and `sw15` (gain
    select) to `O_PMODAMP2_GAIN`.
 6. **Inputs** — keep the PS/2 keyboard + `kbd_joystick`; OR-merge the JA joystick with it.
    The core's input boundary is active-high (`pooyan.vhd` `input_0/1/2 <= ... & not <input>`),
-   so the active-low JA bits are inverted in the OR-merge; fire+direction combos provide
-   coin/start from the joystick. `btnC` = reset.
+   so the active-low JA bits are inverted in the OR-merge. Coin/start come from the keyboard and
+   btnU/btnL/btnR (fire+direction combos removed 2026-10-02). `btnC` = reset.
 
-## TODO
+## Notes and open items
 
 - Dip switches 1–8 confirmed working on hardware.
 - Scandoubler (`vga_scandoubler.v`) intermittently fails to sync on real hardware
   (reported 2026-09-25); not yet characterized or root-caused. See root
   `KNOWN_ISSUES.md`.
-- 15 kHz display is not connected; needs a switch wired to enable/disable TV mode.
+- 15 kHz TV mode wired to `sw(13)` 2026-10-02 (hardware-confirmed).
 

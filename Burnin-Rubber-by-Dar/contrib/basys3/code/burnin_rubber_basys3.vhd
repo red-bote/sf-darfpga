@@ -5,16 +5,15 @@
 -- Basys3 port by Red~Bote.
 --
 -- Ported from burnin_rubber_de10_lite.vhd (DE10-lite rev 05/12/2017):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz (clock_12) and
---    6 MHz (clock_6)
---  - Joystick on JA (movement + fire, plus fire+up=coin and fire+left=start1
---    combos), OR-merged with PS/2 keyboard (JB) and dedicated buttons
+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz (clock_12); the
+--    6 MHz scandoubler ce_x1 (clock_6) is a clock_12 toggle enable
+--  - Joystick on JA (movement + fire), OR-merged with PS/2 keyboard (JB)
 --  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
 --  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
 --    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high)
 --  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
 --  - btnU/btnD = coin-in, btnL = P1 start, btnR = P2 start (OR-merged with
---    the keyboard/JA-combo paths above)
+--    the keyboard)
 --  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr, cpu address
 --    trace) is not ported; the core's debug output is left open.
 --  - No led port: the pristine top's ledr assignment is dead code (commented
@@ -85,7 +84,7 @@ architecture struct of burnin_rubber_basys3 is
  end component;
 
  signal clock_12    : std_logic;
- signal clock_6     : std_logic;
+ signal clock_6     : std_logic := '0';  -- ce_x1 enable (clock_12 / 2), not a clock
  signal mmcm_locked : std_logic;
  signal reset       : std_logic;
 
@@ -123,11 +122,20 @@ begin
  -- holds the core in reset until the clock is stable.
  reset <= btnC or not mmcm_locked;
 
+ -- Scandoubler ce_x1: 6 MHz pixel-rate enable made by toggling on clock_12
+ -- (single clock domain; was MMCM clk_out2, which failed hold timing as a
+ -- data enable in the clock_12 domain). Pattern as defender_basys3.vhd.
+ process(clock_12)
+ begin
+   if rising_edge(clock_12) then
+     clock_6 <= not clock_6;
+   end if;
+ end process;
+
  clocks : entity work.clk_wiz_0
  port map(
   clk_in1  => clk,
   clk_out1 => clock_12,
-  clk_out2 => clock_6,
   reset    => btnC,
   locked   => mmcm_locked
  );
@@ -198,12 +206,11 @@ begin
  joy_right  <= kbd_joy(3) or not JA(0);                                -- right (JA1)
  joy_fire   <= kbd_joy(4) or not JA(4);                                -- fire  (JA7)
 
- -- Coin/start: keyboard (F1/F2/F3), the JA fire+up (coin) / fire+left
- -- (start1) combos, and dedicated buttons are all OR-merged. Buttons are
- -- active-high (Basys3 board pull-down, same convention as btnC). No JA
- -- combo exists for start2.
- joy_coin   <= kbd_joy(7) or (not JA(4) and not JA(3)) or btnU or btnD; -- coin   = F3 or (fire+up) or btnU or btnD
- joy_start1 <= kbd_joy(5) or (not JA(4) and not JA(1)) or btnL;        -- start1 = F1 or (fire+left) or btnL
+ -- Coin/start: keyboard (F1/F2/F3) and dedicated buttons, OR-merged. Buttons
+ -- are active-high (Basys3 board pull-down, same convention as btnC)
+ -- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
+ joy_coin   <= kbd_joy(7) or btnU or btnD; -- coin   = F3 or btnU or btnD
+ joy_start1 <= kbd_joy(5) or btnL; -- start1 = F1 or btnL
  joy_start2 <= kbd_joy(6) or btnR;                                     -- start2 = F2 or btnR
 
  -- Pad native 3/3/2-bit RGB to the scan doubler's 6-bit/channel input by

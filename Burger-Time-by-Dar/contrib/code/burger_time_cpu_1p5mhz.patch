@@ -1,0 +1,12 @@
+diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time.vhd b/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time.vhd
+--- a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time.vhd
++++ b/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time.vhd
+@@ -327,7 +327,7 @@
+ end process;	
+ 
+ 
+-cpu_ena <= '1' when hcnt(2 downto 0) = "111" and clock_6 = '1' else '0';
++cpu_ena <= '1' when hcnt(1 downto 0) = "11" and clock_6 = '1' else '0'; -- Basys3: 1.5 MHz (btime), was hcnt(2 downto 0) = "111" (750 kHz)
+   
+ -- chip select
+ wram_cs     <= '1' when cpu_addr(15 downto 11) = "00000"         else '0'; -- working ram     0000-07ff

@@ -1,30 +1,17 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 6 MHz / 12 MHz / 50 MHz) for the
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 48 MHz, single output) for the
 # Basys3 port and place its Verilog wrappers where computer_space_basys3.xpr
 # expects them.
 #
-# Three clocks, forced to VCO 600 MHz (CLKFBOUT_MULT_F=6, DIVCLK_DIVIDE=1) so
-# every output is an exact integer divide and clk_sys is exactly 2x game_clk:
-#   clk_out1 = 50 MHz  -> core clock_50 / super_clk (timers, noise, sound)
-#   clk_out2 = 6  MHz  -> core game_clk (video pixel clock, keyboard); this is
-#                         ce_x1 to the scandoubler
-#   clk_out3 = 12 MHz  -> scandoubler clk_sys, EXACTLY 2x game_clk
-# The MiST scandoubler requires clk_sys = exactly 2x the ce_x1 (pixel) rate for
-# its line-buffer read/write pointers to stay aligned (the proven Phoenix
-# convention: clk_sys=11, video_clk=5.5). With any other ratio the read pointer
-# drifts against the write pointer and the VGA output goes black with only
-# occasional misaligned flashes.
-#
-# The clk_wiz auto-solver does not pick a VCO that makes 12 an exact integer
-# divide (given 50/6/12 it chooses VCO=750, giving clk_out3 = 750/63 =
-# 11.90476 MHz, not 12). So after the IP is generated we deterministically
-# rewrite the MMCM constants to the VCO=600 set (CLKFBOUT_MULT_F 6.0,
-# CLKOUT0_DIVIDE_F 12, CLKOUT1_DIVIDE 100, CLKOUT2_DIVIDE 50), which yields the
-# exact 50.000 / 6.000 / 12.000 MHz needed.
-# The MMCM cannot generate 5.84 MHz from 100 MHz with a valid VCO (600-1200 MHz),
-# so game_clk = 6 MHz (2.7% above Dar's 5.842 MHz). Game timing counters live in
-# the clock_50 (50 MHz) domain and are unaffected; only the scan_counter video
-# timing scales by 6/5.842 ~ 1.027 (within a 15 kHz TV's horizontal tolerance).
+# Single output (2026-10-02, contrib/basys3/PORTING_SPEC.md §Clocking):
+#   clk_out1 = 48.000 MHz -> the whole design (core, scandoubler clk_sys,
+#                            keyboard, PWM); 6 MHz pixel and 12 MHz scandoubler
+#                            rates are clock enables in the wrapper.
+# Replaces the former 50 / 6 / 12 MHz three-output set (VCO forced to 600 by a
+# post-generation constant rewrite), whose crossings failed setup (WNS -4.785
+# ns) and hold (WHS -0.497 ns). 48 MHz is an exact auto-solver result
+# (D 5, M 49.5, O0 20.625: 100/5*49.5/20.625 = 48.000), so no
+# constant rewrite is needed; the solve is printed below for the record.
 #
 # The main project's .xpr references three imported files
 # (computer_space_basys3.xpr):
@@ -61,12 +48,7 @@ set_property -dict [list \
     CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKIN1_JITTER_PS {50.0} \
     CONFIG.CLKOUT1_USED {true} \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {50} \
-    CONFIG.CLKOUT2_USED {true} \
-    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {6} \
-    CONFIG.CLKOUT3_USED {true} \
-    CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {12} \
-    CONFIG.USE_PHASE_ALIGNMENT {true} \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {48} \
 ] [get_ips clk_wiz_0]
 
 generate_target all [get_ips clk_wiz_0]
@@ -79,21 +61,9 @@ mkdir -p "$CLK_WIZ_IMPORT_DIR"
 cp "$GEN_DIR/clk_wiz_0.v"            "$CLK_WIZ_IMPORT_DIR/"
 cp "$GEN_DIR/clk_wiz_0_clk_wiz.v"    "$CLK_WIZ_IMPORT_DIR/"
 
-# Force the exact VCO=600 divider set so clk_sys is exactly 2x game_clk
-# (see header): CLKFBOUT_MULT_F 6.0, CLKOUT0_DIVIDE_F 12, CLKOUT1_DIVIDE 100,
-# CLKOUT2_DIVIDE 50 -> 50.000 / 6.000 / 12.000 MHz.
-# The Auto-generated .v is build output inside the gitignored project tree, so
-# this rewrite lives only in this tracked script.
 MMCM="$CLK_WIZ_IMPORT_DIR/clk_wiz_0_clk_wiz.v"
-sed -i \
-    -e 's/\.CLKFBOUT_MULT_F *( *[0-9.]* *)/.CLKFBOUT_MULT_F      (6.000)/' \
-    -e 's/\.CLKOUT0_DIVIDE_F *( *[0-9.]* *)/.CLKOUT0_DIVIDE_F   (12.000)/' \
-    -e 's/\.CLKOUT1_DIVIDE *( *[0-9]* *)/.CLKOUT1_DIVIDE       (100)/' \
-    -e 's/\.CLKOUT2_DIVIDE *( *[0-9]* *)/.CLKOUT2_DIVIDE       (50)/' \
-    "$MMCM"
-
-echo "Rewrote MMCM constants to VCO=600 (exact 50/6/12):"
-grep -n "CLKFBOUT_MULT_F\|CLKOUT0_DIVIDE_F\|CLKOUT1_DIVIDE\|CLKOUT2_DIVIDE" "$MMCM" | sed 's/^/  /'
+echo "MMCM solve (expect 48.000 MHz):"
+grep -n "DIVCLK_DIVIDE\|CLKFBOUT_MULT_F\|CLKOUT0_DIVIDE_F" "$MMCM" | sed 's/^/  /'
 
 rm -rf "$WORK"
 

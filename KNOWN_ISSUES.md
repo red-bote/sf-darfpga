@@ -20,6 +20,18 @@ Entry format:
 
 ## Open
 
+### Phoenix-by-Dar: btnC reset does not reset the sound
+- **Reported**: 2026-10-02 (user, hardware)
+- **Symptom**: btnC resets the CPU/video but the sound keeps playing.
+- **Cause** (by inspection, pristine Dar core): the four sound modules get
+  `reset => '0'` (`rtl_dar/phoenix.vhd:364,376,388,398`, effect1/2/3 and music; each
+  has working synchronous reset logic), and the CPU-written sound registers
+  `sound_a`/`sound_b` (`phoenix.vhd:200-212`) are not cleared on reset.
+- **Proposed fix**: core patch `phoenix_sound_reset.patch`: `reset => reset` on the four
+  modules and `sound_a`/`sound_b` <= 0 while reset (CRLF-preserving, as the other
+  Phoenix patches).
+- **Status**: open, deferred (user, 2026-10-02).
+
 ### Time-Pilot-by-Dar, Pooyan-by-Dar: intermittent sync failure after reset (~50%)
 - **Reported**: 2026-10-01 (user, hardware; builds of 2026-10-01 with the `locked`
   reset convention, Time-Pilot also with the 263-line patch)
@@ -33,6 +45,17 @@ Entry format:
   rate. `CLOCKING_SPEC.md` section 5.1 (proposed fix: drive the doubler from the
   core's own `clock_6`).
 - **Status**: open, deferred (user, 2026-10-01).
+- **Earlier Pooyan record** (merged 2026-10-02 from the 2026-09-25 entry):
+  - **Reported**: 2026-09-25
+  - **Symptom**: the double-scanner (`vga_scandoubler.v`, the canonical DECA
+    cleanroom import) doesn't always sync up on real hardware -- an intermittent
+    clocking issue, not yet characterized. Observed alongside the hardware
+    confirmation of the USB-HID keyboard fix (unrelated: the USB-HID change was
+    XDC-only, no clocking touched).
+  - **Tried**: n/a -- not yet investigated.
+  - **Status**: open, todo -- needs further hardware investigation to characterize
+    the intermittency (e.g. cold-start vs. warm reset, sw(13) 31 kHz/15 kHz mode
+    correlation, `clock_12`/`clock_6`/`clock_14` MMCM lock timing).
 
 ### Tron-by-Dar: bottom horizontal line shows flickering junk
 - **Reported**: 2026-10-01 (user, hardware)
@@ -41,41 +64,80 @@ Entry format:
 - **Status**: open, deferred (user, 2026-10-01). Native progressive timing (634 x 525,
   `vcnt` wrap 524); compare vblank/vsync thresholds with the active window first.
 
+### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
+- **Reported**: 2026-09-24
+- **Symptom**: not a defect -- pending investigation. Compare each machine's total
+  synthesis `duration_s` (in `build-metrics.csv`) against the phase logged between
+  "Start Cross Boundary and Area Optimization" and "Finished Cross Boundary and
+  Area Optimization" in `<machine>/../runs/synth_1/runme.log`, plus the DSP Report /
+  DSP48 counts from the same log and `*_utilization_synth.rpt`.
+  Outliers on record: Tron 00:22:09 opt phase (2 DSP48E1, `plusOp`/`snd_1_reg`/
+  `snd_2_reg`), Burnin-Rubber 4 DSP48E1 with DRC `DPIP-1`/`DPOP` pipelining
+  warnings, Defender 00:03:31 opt, Zaxxon 00:02:14 opt.
+- **Tried**: n/a -- pending investigation; timing data lives in `build-metrics.csv`.
+- **Status**: open
+
+## Fixed
+
+### Bagman, Berzerk, Galaga-Midway, Kick-Midway-MCR, Popeye, Solar-Fox, Tron, Zaxxon: video columns clipping on Eyoyo EM08F
+- **Reported**: 2026-09-25 (user, hardware; eight separate entries, merged here)
+- **Symptom**: several columns of video clipped on the Eyoyo EM08F monitor only.
+- **Tried**: n/a (not investigated).
+- **Status**: closed 2026-10-02 without a fix: Eyoyo EM08F retired from use (user).
+  Reference displays are the Sylvania SF150 and LG Flatron L2000CP
+  (`CLOCKING_SPEC.md` section 2).
+
+### Burger-Time-by-Dar, Burnin-Rubber-by-Dar, Computer-Space-by-Dar: routed timing not met
+- **Reported**: 2026-10-02 (routed timing summaries, by inspection)
+- **Symptom**: Burger-Time / Burnin-Rubber WHS -0.60 ns (6 MHz `clk_out2` as
+  scandoubler `ce_x1` into the 12 MHz domain). Computer-Space WNS -4.785 ns / WHS
+  -0.497 ns (50 -> 6 and 50 -> 12 MHz crossings; `game_clk` net as `ce_x1`). No
+  hardware symptom reported.
+- **Tried**: n/a (by inspection).
+- **Fix applied** (2026-10-02, `CLOCKING_SPEC.md` 5.2): single clock domain on all
+  three. Burger-Time / Burnin-Rubber: `clk_out2` removed, `ce_x1` = `clock_12`
+  toggle. Computer-Space: 48 MHz single output, 6/12 MHz enables, RTL patches
+  `computer_space_single_domain.patch` / `computer_space_motion_single_domain.patch`
+  (`Computer-Space-by-Dar/contrib/basys3/PORTING_SPEC.md` §Clocking), PS/2, JA and
+  buttons 2-FF synchronized.
+- **Status**: fixed 2026-10-02. Rebuilt: WNS / WHS Burger-Time 28.849 / 0.133,
+  Burnin-Rubber 27.933 / 0.137, Computer-Space 4.025 / 0.122; hardware-confirmed (user).
+
+### Solar-Fox-by-Dar: no sync on Sylvania SF150 at power-on (15 kHz TV-mode default)
+- **Reported**: 2026-09-28
+- **Symptom**: on the user's Sylvania SF150 (31 kHz+ multiscan, 1024x768 @ up to
+  85 Hz) Solar Fox shows no sync on reset until F8 is pressed.
+- **Cause**: Solar Fox's display mode was `tv15Khz_mode <= not fn_toggle(7)` (F8
+  toggle from the DE10-lite convention), and `fn_toggle` in `kbd_joystick.vhd`
+  has no reset/init -- the register powers up to 0, so the machine boots into
+  15 kHz interlaced TV mode (csync on HS, VS held high) every power-on. sw(13)
+  had no effect on this machine (unlike every other port). The core's 31 kHz
+  mode is textbook 634x525 @ 20 MHz (31.55 kHz / 60.1 Hz, 512x480) and locks
+  the SF150 immediately.
+- **Tried**: 2026-09-28 -- confirmed on the bench that F8 (31 kHz) syncs the
+  SF150; root-caused in RTL to the missing reset/init on the toggle flip-flop.
+- **Resolved**: 2026-09-28 -- mode moved to the other ports' convention,
+  `tv15Khz_mode <= sw(13)` (wrapper-only; `0` = 31 kHz VGA default, `1` =
+  15 kHz TV), so power-on with sw(13)=0 outputs 31 kHz without any key press.
+  `solar_fox_de10_lite_to_basys3.patch` regenerated; new bitstream built.
+- **Status**: fixed 2026-09-28 (see Resolved above).
+
 ### (cross-machine): control input inconsistencies
 - **Reported**: 2026-10-01 (user, hardware sweep of the 2026-10-01 builds). USB-HID
-  keyboard and btnC = reset confirmed working on all machines below.
-- **Symptom** (per machine, vs root `PORTING_SPEC.md` section 3):
-
-  | Machine | Gaps |
-  |---|---|
-  | Bagman-FPGA-Dar | no JA fire; no btnU/D/L/R |
-  | Crazy-Kong-by-Dar | no JA fire |
-  | Galaga-Midway-by-Dar | no JA fire; no btnU/D/L/R |
-  | Xevious-by-Dar | no JA fire; JA down = bomb only (entry below) |
-  | Zaxxon-by-Dar | no JA fire |
-  | Popeye-by-Dar | no JA fire |
-  | Sky-skipper-by-Dar | no JA fire, left, right; Fire B was on F (moved, entry below) |
-  | Time-Pilot-by-Dar | no JA fire; no btnU/D/L/R; sync failures (entry above) |
-  | Kick-Midway-MCR-by-Dar | no JA fire |
-  | Pooyan-by-Dar | no JA fire; sync failures (entry above) |
-  | Solar-Fox-by-Dar | no JA fire (Fire2 speed-up moved from F2 to Left Ctrl, see Fixed) |
-  | Tron-by-Dar | no JA fire; no btnU/D/L/R; bottom line garbage (entry above) |
-
-  "No JA fire" is common to all twelve: check the JA7 (`JA(4)`, H1) path in the XDC
-  and wrappers first, since several wrappers do OR JA fire into the core.
-- **Tried**: n/a.
-- **Status**: open, deferred (user, 2026-10-01).
-
-### Xevious-by-Dar: JA down triggers bomb but not down movement
-- **Reported**: 2026-10-01 (user, hardware)
-- **Symptom**: pushing the JA stick down fires the bomb (Fire2) as intended, but does
-  not also move down. Code: the core uses `down` (`rtl_dar/xevious.vhd:1218`,
-  `buttons <= left & down & right & up`), but the wrapper drives it from the keyboard
-  only (`xevious_basys3.vhd:259`) while JA3 goes to `bomb` (`:266`). README.md:32,40,58
-  ("no down control") is incorrect.
-- **Fix** (wrapper-only): `joyBCPPFRLDU(1) <= kbd_joy(1) or not JA(2);`, keeping JA3 on
-  bomb as well; correct the README table.
-- **Status**: open, deferred (user, 2026-10-01).
+  keyboard and btnC = reset confirmed working on all machines tested.
+- **Symptom / resolution**:
+  - JA fire missing on all twelve tested, and Sky-skipper JA left/right: a broken
+    joystick connection (user, 2026-10-01). RTL and XDC were correct (fire = `JA(4)`,
+    pin H1, JA7, on every machine); working with a new joystick connection.
+  - No btnU/D/L/R: seven machines constrained only btnC (Bagman, Galaga, Phoenix,
+    Pooyan, Popeye, Time-Pilot, Tron). Fixed in source 2026-10-01 for six (wrapper +
+    XDC, standard mapping btnU = coin, btnL = 1P start, btnR = 2P start, OR-merged
+    with keyboard and JA combos; Tron also btnD = coin 2). Phoenix deferred: its
+    keyboard is decoded inside the core, so JA and buttons need a core patch to
+    expose the player inputs (open entry below).
+  - Xevious JA down: entry below. Sky-skipper / Solar-Fox Left Ctrl: Fixed.
+- **Status**: fixed; six button machines hardware-confirmed 2026-10-02 (user sweep).
+  Phoenix done separately (own entry in Fixed, hardware-confirmed 2026-10-02).
 
 ### Galaga-Midway-by-Dar: controls don't follow the standard allocation; keyboard not on USB-HID
 - **Reported**: 2026-09-22
@@ -99,8 +161,8 @@ Entry format:
      columns clipping also observed on this build -- see the cross-machine clipping
      entry below).
 - **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
-- **Status**: open. Controls need updated wiring in
-  `contrib/basys3/code/galaga_basys3.vhd` to add the standard dedicated buttons.
+- **Status**: controls fixed 2026-10-01 (btnU = coin, btnL = 1P start, btnR = 2P
+  start, OR-merged; XDC lines enabled); hardware-confirmed 2026-10-02 (user sweep).
   USB-HID pin swap fixed and hardware-confirmed 2026-09-25.
 
 ### Popeye-by-Dar: controls don't follow the standard allocation; keyboard not on USB-HID
@@ -146,8 +208,8 @@ Entry format:
      `make patch` re-run (idempotent provenance-patch regeneration).
      Hardware-confirmed 2026-09-28: USB-HID keyboard working.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
-- **Status**: open. Controls need updated wiring in
-  `contrib/basys3/code/popeye_basys3.vhd` to add the standard dedicated buttons.
+- **Status**: controls fixed 2026-10-01 (btnU = coin, btnL = 1P start, btnR = 2P
+  start, OR-merged; XDC lines enabled); hardware-confirmed 2026-10-02 (user sweep).
   USB-HID: plain pin swap (2026-09-26) failed; fallback divider fix fixed and
   hardware-confirmed 2026-09-28.
 
@@ -200,54 +262,6 @@ Entry format:
   pre-existing, unrelated warnings), and `make patch` re-run (idempotent).
 - **Status**: fixed and hardware-confirmed 2026-09-25 (USB-HID). Display-mode toggle changed
   to sw(13) 2026-09-29, staged/verified, not yet hardware-confirmed on this specific build.
-
-### Phoenix-by-Dar: no dedicated buttons/JA joystick; keyboard not on the standard USB-HID convention
-- **Reported**: 2026-09-22
-- **Symptom**: only `btnC` (reset) and PS/2 (`ps2_dat`/`ps2_clk`, legacy JB1/JB3) are
-  wired -- no JA port exists in the entity at all, no `btnU`/`btnD`/`btnL`/`btnR`. This
-  is NOT a simple oversight: per `contrib/basys3/code/phoenix_basys3.vhd`'s own header,
-  a patch adding external coin/start/fire/direction ports
-  (`contrib/code/phoenix_expose_control_ports.patch`) was hardware-tested and caused
-  **no input to register at all** (PS/2 keyboard, sound, and video all still worked on
-  that same build) -- it was reverted. Root cause of that failure was never found.
-  Separately, the keyboard is on legacy JB, not the onboard USB-HID convention -- this
-  part IS a simple pin swap: Phoenix's keyboard clock (`clock_11`, core-internal, no
-  wrapper-level divider) is already 11 MHz, above the >= 6 MHz USB-HID needs, so no
-  clock-divider fix is required here, unlike Kick-Midway-MCR above.
-- **Tried**: USB-HID pin swap applied 2026-09-23: `Basys-3-Master.xdc`'s `##Pmod
-  Header JB` (A14/B15) lines commented out, `##USB HID (PS/2)` (C17/B17) lines
-  uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to `ps2_clk`/
-  `ps2_dat` -- pure XDC change, no VHDL edit. Hardware-confirmed 2026-09-23: `btnC`
-  (reset) and the full PS/2 keyboard path (coin/1P start/2P start/left/right/
-  shield/fire) work correctly.
-
-  JA/buttons attempted twice, both reverted. First attempt (recovered from git
-  history, commit `64d170b`/`384b9e2`): hardware-tested with no input registering at
-  all (2026-09-22). Second attempt (2026-09-25, "reapply the full patch as before"):
-  rewritten from scratch (`btnU`=coin, `btnD`=redundant coin, `btnL`=1P start,
-  `btnR`=2P start, JA1=right/JA2=left/JA4=up(shield)/JA7=fire), verified clean at
-  the syntax/staging level, and hardware-tested extensively. Found: raw pin
-  toggling confirmed correct via a temporary LED diagnostic; a forensic netlist
-  trace proved every signal reaches the exact same CPU register bit
-  (`phoenix_inst/cpu8085/u0/DI_Reg[0..2]`) the working PS/2 F1/F2/F3 keys use;
-  quick taps were sometimes missed (no debounce existed on the raw path) and were
-  fixed with an added `debounce_stretch` synchronizer -- yet even after that fix,
-  JA/buttons still produced zero in-game effect, an unresolved contradiction
-  between verified-correct digital logic and observed behavior. A further LED tap
-  on the post-debounce `ext_coin`/`ext_start1`/`ext_start2` signals themselves was
-  built but never read (hardware testing was interrupted by a JTAG/USB
-  disconnection before it could be tried). Per user request (2026-09-25, "unroll
-  the hacks... just leave the usb-hid conversion"), all JA/buttons code (the
-  `debounce_stretch` block, `btnU`/`btnD`/`btnL`/`btnR`/`JA`/`led` ports, the
-  `ext_*` signals/wiring, and the recreated core patch) was fully reverted,
-  keeping only the USB-HID conversion. Verified via fresh `make clean && make
-  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
-  `check_syntax` (clean) that the reverted source matches the USB-HID-only state.
-- **Status**: USB-HID pin swap and keyboard/reset are hardware-confirmed working
-  and done. JA/buttons: code fully reverted 2026-09-25 (not merely paused) after
-  two inconclusive hardware attempts; needs a fresh approach before retrying --
-  the unread `ext_coin`/`ext_start1`/`ext_start2` LED-tap diagnostic (see above) is
-  the most promising unexplored lead if this is picked up again.
 
 ### Tron-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-23
@@ -320,8 +334,8 @@ Entry format:
      `btnR` pin definitions present, just commented out (template default). Still open.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
 - **Status**: USB-HID pin swap done, hardware-confirmed 2026-09-25.
-  Controls still open -- needs the same dedicated-button wiring added to
-  `contrib/basys3/code/time_pilot_basys3.vhd` as Galaga/Popeye above.
+  Controls fixed 2026-10-01 (btnU/btnL/btnR as Galaga/Popeye); hardware-confirmed
+  2026-10-02 (user sweep).
 
 ### Xevious-by-Dar: keyboard not on USB-HID; down movement not reachable from JA
 - **Reported**: 2026-09-23
@@ -351,10 +365,8 @@ Entry format:
 - **Tried**: n/a -- both are by-inspection gaps vs. convention/request, not hardware
   faults.
 - **Status**: USB-HID pin swap done, hardware-confirmed 2026-09-25.
-  Down/fire remap still open -- needs a one-line change in
-  `contrib/basys3/code/xevious_basys3.vhd`: `joyBCPPFRLDU(1) <= kbd_joy(1) or not
-  JA(2);` (alongside the existing `joyBCPPFRLDU(8) <= kbd_joy(8) or not JA(2);` bomb
-  wiring, unchanged).
+  Down remap done 2026-10-01 (`joyBCPPFRLDU(1) <= kbd_joy(1) or not JA(2);`, bomb
+  wiring unchanged); hardware-confirmed 2026-10-02.
 
 ### Solar-Fox-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-23
@@ -598,18 +610,6 @@ Entry format:
 - **Tried**: n/a -- a by-inspection gap vs. convention, not a hardware fault.
 - **Status**: fixed and hardware-confirmed 2026-09-25.
 
-### Pooyan-by-Dar: scandoubler intermittently fails to sync
-- **Reported**: 2026-09-25
-- **Symptom**: the double-scanner (`vga_scandoubler.v`, the canonical DECA
-  cleanroom import) doesn't always sync up on real hardware -- an intermittent
-  clocking issue, not yet characterized. Observed alongside the hardware
-  confirmation of the USB-HID keyboard fix (unrelated: the USB-HID change was
-  XDC-only, no clocking touched).
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, todo -- needs further hardware investigation to characterize
-  the intermittency (e.g. cold-start vs. warm reset, sw(13) 31 kHz/15 kHz mode
-  correlation, `clock_12`/`clock_6`/`clock_14` MMCM lock timing).
-
 ### Zaxxon-by-Dar: keyboard not on the standard onboard USB-HID convention
 - **Reported**: 2026-09-25
 - **Symptom**: keyboard is still wired to the legacy JB1/JB3 Pmod header (same
@@ -656,142 +656,120 @@ Entry format:
 - **Status**: plain pin swap (2026-09-26) failed; fallback divider fix fixed and
   hardware-confirmed 2026-09-28.
 
-### Solar-Fox-by-Dar: no sync on Sylvania SF150 at power-on (15 kHz TV-mode default)
-- **Reported**: 2026-09-28
-- **Symptom**: on the user's Sylvania SF150 (31 kHz+ multiscan, 1024x768 @ up to
-  85 Hz) Solar Fox shows no sync on reset until F8 is pressed.
-- **Cause**: Solar Fox's display mode was `tv15Khz_mode <= not fn_toggle(7)` (F8
-  toggle from the DE10-lite convention), and `fn_toggle` in `kbd_joystick.vhd`
-  has no reset/init -- the register powers up to 0, so the machine boots into
-  15 kHz interlaced TV mode (csync on HS, VS held high) every power-on. sw(13)
-  had no effect on this machine (unlike every other port). The core's 31 kHz
-  mode is textbook 634x525 @ 20 MHz (31.55 kHz / 60.1 Hz, 512x480) and locks
-  the SF150 immediately.
-- **Tried**: 2026-09-28 -- confirmed on the bench that F8 (31 kHz) syncs the
-  SF150; root-caused in RTL to the missing reset/init on the toggle flip-flop.
-- **Resolved**: 2026-09-28 -- mode moved to the other ports' convention,
-  `tv15Khz_mode <= sw(13)` (wrapper-only; `0` = 31 kHz VGA default, `1` =
-  15 kHz TV), so power-on with sw(13)=0 outputs 31 kHz without any key press.
-  `solar_fox_de10_lite_to_basys3.patch` regenerated; new bitstream built.
+### Galaga-Midway-by-Dar: btnU coin inconsistent vs keyboard F3 after debounce
+- **Reported**: 2026-10-02 (user, hardware)
+- **Symptom**: fast repeated btnU presses, then btnU registers nothing for a couple of
+  seconds; F3 (keyboard coin) behaves consistently.
+- **Cause** (by inspection): the debounce ran on `clock_36` (MMCM) while the core runs
+  on `clock_18`, a toggle of `clock_36` in fabric. `btn_db` could change next to a
+  `clock_18` edge on an untimed path, so the core's coin edge detect and BCD credit
+  registers (`galaga.vhd:844-856`) could sample it inconsistently. The keyboard path
+  runs on `clock_9`, toggled from `clock_18`, so it is in step with the core.
+  Xevious and Zaxxon debounce on their core clocks already.
+- **Fix** (2026-10-02, wrapper-only): debounce moved to `clock_18` (18-bit counter,
+  14.2 ms). Wrapper placed, `check_syntax` clean.
+- **Status**: fixed, hardware-confirmed 2026-10-02 (user).
 
-### Solar-Fox-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Also observed on Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar, Tron-by-Dar,
-  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see their own
-  entries below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
-  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
-  inconclusive: none of the three has gameplay graphics near the horizontal screen
-  edges that would reveal the symptom either way on the Eyoyo EM08F.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("ignoring it for now") -- not
-  being actively pursued.
+### Phoenix-by-Dar: no dedicated buttons/JA joystick; keyboard not on the standard USB-HID convention
+- **Reported**: 2026-09-22
+- **Symptom**: only `btnC` (reset) and PS/2 (`ps2_dat`/`ps2_clk`, legacy JB1/JB3) are
+  wired -- no JA port exists in the entity at all, no `btnU`/`btnD`/`btnL`/`btnR`. This
+  is NOT a simple oversight: per `contrib/basys3/code/phoenix_basys3.vhd`'s own header,
+  a patch adding external coin/start/fire/direction ports
+  (`contrib/code/phoenix_expose_control_ports.patch`) was hardware-tested and caused
+  **no input to register at all** (PS/2 keyboard, sound, and video all still worked on
+  that same build) -- it was reverted. Root cause of that failure was never found.
+  Separately, the keyboard is on legacy JB, not the onboard USB-HID convention -- this
+  part IS a simple pin swap: Phoenix's keyboard clock (`clock_11`, core-internal, no
+  wrapper-level divider) is already 11 MHz, above the >= 6 MHz USB-HID needs, so no
+  clock-divider fix is required here, unlike Kick-Midway-MCR above.
+- **Tried**: USB-HID pin swap applied 2026-09-23: `Basys-3-Master.xdc`'s `##Pmod
+  Header JB` (A14/B15) lines commented out, `##USB HID (PS/2)` (C17/B17) lines
+  uncommented and retargeted from placeholder `PS2Clk`/`PS2Data` to `ps2_clk`/
+  `ps2_dat` -- pure XDC change, no VHDL edit. Hardware-confirmed 2026-09-23: `btnC`
+  (reset) and the full PS/2 keyboard path (coin/1P start/2P start/left/right/
+  shield/fire) work correctly.
 
-### Galaga-Midway-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Kick-Midway-MCR-by-Dar, Tron-by-Dar,
-  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
-  above/below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
-  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
-  inconclusive: none of the three has gameplay graphics near the horizontal screen
-  edges that would reveal the symptom either way on the Eyoyo EM08F.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("we'll just note it for
-  now") -- not being actively pursued.
+  JA/buttons attempted twice, both reverted. First attempt (recovered from git
+  history, commit `64d170b`/`384b9e2`): hardware-tested with no input registering at
+  all (2026-09-22). Second attempt (2026-09-25, "reapply the full patch as before"):
+  rewritten from scratch (`btnU`=coin, `btnD`=redundant coin, `btnL`=1P start,
+  `btnR`=2P start, JA1=right/JA2=left/JA4=up(shield)/JA7=fire), verified clean at
+  the syntax/staging level, and hardware-tested extensively. Found: raw pin
+  toggling confirmed correct via a temporary LED diagnostic; a forensic netlist
+  trace proved every signal reaches the exact same CPU register bit
+  (`phoenix_inst/cpu8085/u0/DI_Reg[0..2]`) the working PS/2 F1/F2/F3 keys use;
+  quick taps were sometimes missed (no debounce existed on the raw path) and were
+  fixed with an added `debounce_stretch` synchronizer -- yet even after that fix,
+  JA/buttons still produced zero in-game effect, an unresolved contradiction
+  between verified-correct digital logic and observed behavior. A further LED tap
+  on the post-debounce `ext_coin`/`ext_start1`/`ext_start2` signals themselves was
+  built but never read (hardware testing was interrupted by a JTAG/USB
+  disconnection before it could be tried). Per user request (2026-09-25, "unroll
+  the hacks... just leave the usb-hid conversion"), all JA/buttons code (the
+  `debounce_stretch` block, `btnU`/`btnD`/`btnL`/`btnR`/`JA`/`led` ports, the
+  `ext_*` signals/wiring, and the recreated core patch) was fully reverted,
+  keeping only the USB-HID conversion. Verified via fresh `make clean && make
+  setup && make create_prj && make clk_wiz && make patch` (no errors) and Vivado
+  `check_syntax` (clean) that the reverted source matches the USB-HID-only state.
+- **Status**: USB-HID pin swap and keyboard/reset are hardware-confirmed working
+  and done. JA/buttons: code fully reverted 2026-09-25 (not merely paused) after
+  two inconclusive hardware attempts; needs a fresh approach before retrying --
+  the unread `ext_coin`/`ext_start1`/`ext_start2` LED-tap diagnostic (see above) is
+  the most promising unexplored lead if this is picked up again.
+  Third attempt 2026-10-02: `contrib/code/phoenix_external_inputs.patch` adds an
+  active-high `ext_joy` core input OR-merged with `JoyPCFRLDU` before the core's single
+  inversion (`coin <= not (JoyPCFRLDU(7) or ext_joy(7))`, etc.), so external inputs use
+  exactly the keyboard's bits and polarity. (A merge of active-low terms with OR would
+  never go low on a single press; whether the earlier attempts did that is not known,
+  their code was reverted.) Wrapper: JA synchronized, btnU/D/L/R synchronized and
+  debounced on `clock_11`; led(7:0) = `ext_joy` as the bring-up diagnostic (remove after
+  confirmation). Patch tested on a fresh extraction; `check_syntax` clean.
+  Hardware-confirmed 2026-10-02 (user); LED diagnostic removed afterwards.
 
-### Kick-Midway-MCR-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, Tron-by-Dar,
-  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
-  above/below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
-  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
-  inconclusive: none of the three has gameplay graphics near the horizontal screen
-  edges that would reveal the symptom either way on the Eyoyo EM08F.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("we'll just note it for
-  now") -- not being actively pursued.
+### (cross-machine): button behavior, debounce, JA coin/start combos
+- **Reported**: 2026-10-02 (user, hardware sweep of all 20 bitstreams)
+- **Findings**:
+  - Coin acts on press on Galaga, Xevious, Zaxxon: the core edge-detects coin
+    (`galaga.vhd:844-847`, `xevious.vhd:1164-1167`, `zaxxon.vhd:480-481`). Release
+    bounce produced extra edges (possible extra coins).
+  - Coin acts on press-and-release on Bagman, Burger-Time, Burnin-Rubber, Popeye,
+    Satans-Hollow, Sky-skipper, Solar-Fox, Tron: the coin level goes to the game CPU and
+    the original program credits after release. Original machine behavior; no change.
+  - No sf-darfpga machine had button debounce (Phoenix's attempt was rolled back).
+  - Eight machines still had JA fire+direction coin/start combos (Bagman, Burnin-Rubber,
+    Galaga, Pooyan, Popeye, Solar-Fox, Time-Pilot, Tron), redundant with the buttons and
+    prone to misfire (fire while moving up inserts a coin).
+  - Display flip: only Zaxxon (F4, `flip_screen` core port).
+- **Fix** (2026-10-02, wrapper-only): debounce (2-FF sync + saturating counter, ~10-14
+  ms) on Galaga (btnU/L/R), Xevious (btnU/L/R), Zaxxon (btnU/D/L/R); combos removed
+  from the eight wrappers; Zaxxon `flip_screen <= fn_toggle(3) xor sw(12)` (sw(12) inverted to `xor not sw(12)` 2026-10-02, hardware-confirmed). Wrappers
+  placed, provenance patches regenerated, `check_syntax` clean on changed lines.
+- **Status**: fixed, hardware-confirmed 2026-10-02 (user, all ten machines).
 
-### Tron-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar, Kick-Midway-MCR-by-Dar,
-  Zaxxon-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and Berzerk-FPGA-by-Dar (see
-  above/below) -- a cross-machine pattern, not specific to this port.
-  Time-Pilot-by-Dar, Burger-Time-by-Dar, and Defender-by-Dar could not be evaluated
-  2026-09-25/28 on their hardware-confirmed USB-HID builds -- not confirmed clear, just
-  inconclusive: none of the three has gameplay graphics near the horizontal screen
-  edges that would reveal the symptom either way on the Eyoyo EM08F.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request ("we'll just note it for
-  now") -- not being actively pursued.
+### Xevious-by-Dar: JA down triggers bomb but not down movement
+- **Reported**: 2026-10-01 (user, hardware)
+- **Symptom**: pushing the JA stick down fired the bomb but did not move down. The core
+  uses `down` (`rtl_dar/xevious.vhd:1218`), but the wrapper drove it from the keyboard
+  only; JA3 went to `bomb` only.
+- **Fix** (2026-10-01, wrapper-only): `joyBCPPFRLDU(1) <= kbd_joy(1) or not JA(2);`,
+  JA3 still also drives bomb. README control tables corrected.
+- **Status**: fixed, hardware-confirmed 2026-10-02 (user).
 
-### Zaxxon-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Popeye-by-Dar, Bagman-FPGA-Dar, and
-  Berzerk-FPGA-by-Dar (see above/below) -- a cross-machine pattern, not specific to
-  this port. Observed on the pre-conversion legacy JB1/JB3 PS/2 keyboard build
-  (USB-HID conversion not yet applied to this machine, see the USB-HID entry above)
-  -- not caused by or specific to the USB-HID work.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request -- not being actively
-  pursued.
-
-### Popeye-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Bagman-FPGA-Dar, and
-  Berzerk-FPGA-by-Dar (see above) -- a cross-machine pattern, not specific to this
-  port. Observed on the pre-conversion legacy JB1/JB3 PS/2 keyboard build (USB-HID
-  conversion not yet applied to this machine, see the USB-HID entry above) -- not
-  caused by or specific to the USB-HID work.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request -- not being actively
-  pursued.
-
-### Bagman-FPGA-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
-  Berzerk-FPGA-by-Dar (see above/below) -- a cross-machine pattern, not specific to
-  this port. Observed on the hardware-confirmed USB-HID build.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request -- not being actively
-  pursued.
-
-### Berzerk-FPGA-by-Dar: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25
-- **Symptom**: several columns of video appear clipped on the user's Eyoyo EM08F monitor.
-  Same pattern reported on Solar-Fox-by-Dar, Galaga-Midway-by-Dar,
-  Kick-Midway-MCR-by-Dar, Tron-by-Dar, Zaxxon-by-Dar, Popeye-by-Dar, and
-  Bagman-FPGA-Dar (see above) -- a cross-machine pattern, not specific to this port.
-  Observed on the hardware-confirmed USB-HID build.
-- **Tried**: n/a -- not yet investigated.
-- **Status**: open, deferred at the user's explicit request -- not being actively
-  pursued.
-
-### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
-- **Reported**: 2026-09-24
-- **Symptom**: not a defect -- pending investigation. Compare each machine's total
-  synthesis `duration_s` (in `build-metrics.csv`) against the phase logged between
-  "Start Cross Boundary and Area Optimization" and "Finished Cross Boundary and
-  Area Optimization" in `<machine>/../runs/synth_1/runme.log`, plus the DSP Report /
-  DSP48 counts from the same log and `*_utilization_synth.rpt`.
-  Outliers on record: Tron 00:22:09 opt phase (2 DSP48E1, `plusOp`/`snd_1_reg`/
-  `snd_2_reg`), Burnin-Rubber 4 DSP48E1 with DRC `DPIP-1`/`DPOP` pipelining
-  warnings, Defender 00:03:31 opt, Zaxxon 00:02:14 opt.
-- **Tried**: n/a -- pending investigation; timing data lives in `build-metrics.csv`.
-- **Status**: open
-
-## Fixed
+### Xevious-by-Dar: stuck and missed inputs (keyboard and JA)
+- **Reported**: 2026-10-02 (user, hardware; build with the 2026-10-01 changes)
+- **Symptom**: keyboard and JA both show stuck inputs and missed presses. The keyboard
+  was confirmed working before the 2026-10-01 changes.
+- **Cause** (by inspection): the 2026-10-01 single-domain change moved
+  `io_ps2_keyboard` from the 11 MHz output to the 18.432 MHz core clock, with no
+  synchronizer on `ps2_clk`/`ps2_dat`. Same mechanism as
+  `pinballwiz/NEXYS2-Pacman` PORTING_SPEC section 11 (hardware-confirmed there): a
+  dropped bit gives a missed key, a lost F0 a stuck key. Keyboard and JA are
+  OR-merged per direction, so a stuck keyboard bit also holds the JA direction.
+- **Fix** (2026-10-02, wrapper-only): 2-FF synchronizers (`ASYNC_REG`) on
+  `ps2_clk`/`ps2_dat`, `JA(4:0)` and `btnU`/`btnL`/`btnR` (`clock_18`). Wrapper placed,
+  provenance patch regenerated, `check_syntax` clean on the changed lines.
+- **Status**: fixed, hardware-confirmed 2026-10-02 (user).
 
 ### Solar-Fox-by-Dar: Fast (speed-up) on F2; Left Ctrl preferred
 - **Reported**: 2026-10-01 (user)

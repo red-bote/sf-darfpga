@@ -158,9 +158,9 @@ board-facing VGA ports, constrained in `Basys-3-Master.xdc` to the Basys 3's
   doubler to work.
 - The pristine DE10-lite top leaves the core's `video_hs`/`video_vs` outputs
   open (commented "not tested") and derives all sync from `video_csync` only.
-  This port wires `video_hs`/`video_vs` into the scan doubler instead — the
-  same unverified-until-synthesis design choice as the Burnin-Rubber /
-  BurgerTime ports of the Dar core family.
+  This port wires `video_hs`/`video_vs` into the scan doubler instead (same
+  choice as the Burnin-Rubber / BurgerTime ports of the Dar core family);
+  hardware-verified on the Basys 3.
 
 ## Other wiring decisions (outside the scan doubler)
 
@@ -190,3 +190,25 @@ board-facing VGA ports, constrained in `Basys-3-Master.xdc` to the Basys 3's
   not in the .xpr.
 - **`sw_coktail_table`**: tied `'1'` (upright cabinet), like the pristine top;
   `cmd_select_players_btn` is left open.
+
+## Main CPU rate (1 MHz, 2026-10-02)
+
+Original hardware: MC6809E E clock = 4 MHz / 4 = 1 MHz (MAME
+`williams.cpp:1537`, 12 MHz / 3 / 4). Pristine `rtl_dar/defender.vhd:313-342`
+drives the cpu09 `clk` (E, falling-edge active) high at `pixel_cnt` 3 and 5
+of the 6-pixel (1 us) period: 2 MHz, Dar comment "speed up processor (two
+clocks / 1us)". User decision: run at 1 MHz.
+
+- `contrib/code/defender_cpu_1mhz.patch`: removes the `pixel_cnt = "011"`
+  (clear) and `pixel_cnt = "100"` (set) branches. `cpu_clock` is then high at
+  `pixel_cnt` 3-5 and low at 0-2: one falling edge per 1 us, 50% duty.
+- RAM sharing: `wram_addr` selects the CPU address while `cpu_clock = '1'`
+  (`:403-405`); video latches `wram*_do` at `pixel_cnt = 1` (`:427`), address
+  presented during `pixel_cnt = 0`. The CPU window (3-5) does not overlap.
+- cpu09 is not cycle-compatible with a 6809 (fewer cycles on several
+  instructions, `rtl_jkent/cpu09l_128.vhd:14`), so throughput at 1 MHz
+  remains above the original.
+- `setup_defender.sh` applies the generic patch loop with `--binary` (the
+  extracted rtl is CRLF).
+- Hardware-confirmed 2026-10-02 (user): picture and sound correct. Revert
+  by removing the patch.

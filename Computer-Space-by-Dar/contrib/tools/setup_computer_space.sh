@@ -7,10 +7,12 @@
 #     motion_board.vhd (sources_1/imports/rtl/motion_board.vhd, decoupled
 #     from the pristine rtl/ copy once imported), so
 #     computer_space_motion_q_assoc.patch and
-#     computer_space_rocket_timer_synth_fix.patch are applied to that copy
+#     computer_space_rocket_timer_synth_fix.patch and
+#     computer_space_motion_single_domain.patch are applied to that copy
 #     by create_project.sh instead -- the pristine rtl/motion_board.vhd is
 #     never modified.
-#   --binary: the extracted Dar rtl files are CRLF; a plain `patch` run
+#   --binary: the extracted Dar rtl files are CRLF (incl. the generic
+#     computer_space_single_domain.patch targets); a plain `patch` run
 #     (which strips trailing CRs from the patch) cannot match them.
 #
 # Rom-prep here (contrib/tools/prep_roms.sh) verifies the six sound-waveform
@@ -29,4 +31,5 @@ darfpga_setup \
   --sha256  706ee25e84e22bbf115ad63fb4821feeb4f1c0d83971076b3be08070ac502a51 \
   --extra-exclude '*computer_space_motion_q_assoc.patch' \
   --extra-exclude '*computer_space_rocket_timer_synth_fix.patch' \
+  --extra-exclude '*computer_space_motion_single_domain.patch' \
   --binary

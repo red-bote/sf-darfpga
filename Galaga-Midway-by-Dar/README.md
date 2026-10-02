@@ -19,8 +19,12 @@ notes.
 ## Features supported
 
 - **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`), sourced from
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>.
+  (`imports/mist/scandoubler.v`). sw(13) switches to 15 kHz TV mode (native
+  RGB + composite sync on HS).
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 - **Sound**: mono PWM audio on PmodAMP2.
 - **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged), btnC =
   reset. Hardware-confirmed 2026-09-25: USB-HID keyboard working.
@@ -36,7 +40,7 @@ notes.
 
 JA joystick (active-low, switch to GND):
 - JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin = Fire + Up together; Start 1 = Fire + Left together
+- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
 - Player 2 mirrors player 1 left/right/fire inputs.
 
 ## IO mapping
@@ -45,7 +49,7 @@ JA joystick (active-low, switch to GND):
 |------------------|--------------|----------|
 | clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
 | btnC | `btnC` | reset (active-high) |
-| btnU/btnL/btnR/btnD | `btnU/L/R/D` | declared, unused (reserved) |
+| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / 1P start / 2P start (OR-merged with keyboard; added 2026-10-01; debounced ~14 ms since 2026-10-02) |
 | sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
 | sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
 | C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
@@ -62,10 +66,6 @@ JA joystick (active-low, switch to GND):
   with credits available.
 - Keyboard can randomly stick to the right (and maybe left) — original core
   issue.
-- Several columns of video appear clipped on the user's Eyoyo EM08F monitor
-  (reported 2026-09-25). Same pattern reported on Solar-Fox-by-Dar,
-  Kick-Midway-MCR-by-Dar, and Tron-by-Dar. Not yet investigated; deferred at
-  the user's request. See root `KNOWN_ISSUES.md`.
 
 ## ROM set required
 
@@ -143,4 +143,3 @@ generator's `hsync`/`vsync` to them. Verify it took:
 ```
 grep -n "hsync   => video_hs" vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
 ```
-

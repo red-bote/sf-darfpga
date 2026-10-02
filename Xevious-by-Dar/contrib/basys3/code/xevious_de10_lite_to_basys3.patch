@@ -1,7 +1,7 @@
 diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 --- a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +++ b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
-@@ -1,387 +1,280 @@
+@@ -1,387 +1,321 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Xevious by Dar (darfpga@aol.fr) (01/05/2017)
 --- http://darfpga.blogspot.fr
@@ -403,6 +403,8 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +--  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
 +--    sw(13) switches to 15 kHz TV (native RGB + composite sync on HS)
 +--  - btnC = reset; btnU = coin, btnL = start1, btnR = start2
++--  - PS/2 pins, JA and btnU/L/R pass through 2-FF synchronizers on
++--    clock_18 before use (stuck/missed inputs seen without them)
 +---------------------------------------------------------------------------------
 +-- Educational use only
 +-- Do not redistribute synthetized file with roms
@@ -478,6 +480,21 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 + signal kbd_scancode : std_logic_vector(7 downto 0);
 + signal kbd_joy      : std_logic_vector(8 downto 0);
 + signal joyBCPPFRLDU : std_logic_vector(8 downto 0);
++
++ -- 2-FF synchronizers for the asynchronous inputs
++ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
++ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
++ signal ja_meta, ja_s           : std_logic_vector(4 downto 0) := (others => '1');
++ signal btn_meta, btn_s         : std_logic_vector(2 downto 0) := (others => '0');  -- U, L, R
++ -- Button debounce (2026-10-02): btn_s must be stable for 2**18 clock_18
++ -- cycles (18.432 MHz: 14.2 ms) before btn_db follows. This core
++ -- edge-detects coin on press, so release bounce counted extra coins.
++ signal btn_db                  : std_logic_vector(2 downto 0) := (others => '0');
++ type btn_cnt_t is array (0 to 2) of unsigned(17 downto 0);
++ signal btn_cnt                 : btn_cnt_t := (others => (others => '0'));
++ attribute ASYNC_REG : string;
++ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
++ attribute ASYNC_REG of ja_meta, ja_s, btn_meta, btn_s : signal is "TRUE";
 +
 + component scandoubler
 +     port (
@@ -620,12 +637,36 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +vga_hs <= csync   when sw(13) = '1' else hsync_o;
 +vga_vs <= '1'     when sw(13) = '1' else vsync_o;
 +
++-- The PS/2 pins, JA and the buttons are asynchronous to clock_18.
++-- io_ps2_keyboard has no synchronizer of its own: an edge near a clock
++-- edge can drop a bit, giving missed or stuck keys (same failure and fix
++-- as pinballwiz/NEXYS2-Pacman PORTING_SPEC section 11).
++process(clock_18)
++begin
++  if rising_edge(clock_18) then
++    ps2_clk_meta <= ps2_clk;  ps2_clk_s <= ps2_clk_meta;
++    ps2_dat_meta <= ps2_dat;  ps2_dat_s <= ps2_dat_meta;
++    ja_meta      <= JA;       ja_s      <= ja_meta;
++    btn_meta     <= btnU & btnL & btnR;  btn_s <= btn_meta;
++    for i in 0 to 2 loop
++      if btn_s(i) = btn_db(i) then
++        btn_cnt(i) <= (others => '0');
++      elsif btn_cnt(i) = (btn_cnt(i)'range => '1') then
++        btn_db(i)  <= btn_s(i);
++        btn_cnt(i) <= (others => '0');
++      else
++        btn_cnt(i) <= btn_cnt(i) + 1;
++      end if;
++    end loop;
++  end if;
++end process;
++
 +-- get scancode from keyboard
 +keyboard : entity work.io_ps2_keyboard
 +port map (
 +  clk       => clock_18, -- core clock (18.432 MHz), single domain
-+  kbd_clk   => ps2_clk,
-+  kbd_dat   => ps2_dat,
++  kbd_clk   => ps2_clk_s,
++  kbd_dat   => ps2_dat_s,
 +  interrupt => kbd_intr,
 +  scancode  => kbd_scancode
 +);
@@ -641,20 +682,20 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +
 +-- OR-merge the Atari-style joystick on JA with the PS/2 keyboard joystick.
 +-- JA physical map (JA[0]=JA1, JA[1]=JA2, JA[2]=JA3, JA[3]=JA4, JA[4]=JA7):
-+--   JA[0]=right, JA[1]=left, JA[2]=bomb, JA[3]=up, JA[4]=fire; down unused
-+--   (the game has no down control; down is keyboard-only).
++--   JA[0]=right, JA[1]=left, JA[2]=down and bomb, JA[3]=up, JA[4]=fire.
++--   The synchronized JA (ja_s) and debounced buttons (btn_db) are used below.
 +-- JA is active-low (pressed shorts to ground); invert so a press reads
 +-- active-high, matching the core's active-high input boundary and the
 +-- keyboard path.
-+joyBCPPFRLDU(0) <= kbd_joy(0) or not JA(3);                 -- up      (JA4)
-+joyBCPPFRLDU(1) <= kbd_joy(1);                              -- down    (keyboard only)
-+joyBCPPFRLDU(2) <= kbd_joy(2) or not JA(1);                 -- left    (JA2)
-+joyBCPPFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right   (JA1)
-+joyBCPPFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire    (JA7)
-+joyBCPPFRLDU(5) <= kbd_joy(5) or btnL;                      -- start1  (btnL / F1)
-+joyBCPPFRLDU(6) <= kbd_joy(6) or btnR;                      -- start2  (btnR / F2)
-+joyBCPPFRLDU(7) <= kbd_joy(7) or btnU;                      -- coin    (btnU / F3)
-+joyBCPPFRLDU(8) <= kbd_joy(8) or not JA(2);                 -- bomb    (JA3 / CTRL)
++joyBCPPFRLDU(0) <= kbd_joy(0) or not ja_s(3);                 -- up      (JA4)
++joyBCPPFRLDU(1) <= kbd_joy(1) or not ja_s(2);                 -- down    (JA3, also bomb)
++joyBCPPFRLDU(2) <= kbd_joy(2) or not ja_s(1);                 -- left    (JA2)
++joyBCPPFRLDU(3) <= kbd_joy(3) or not ja_s(0);                 -- right   (JA1)
++joyBCPPFRLDU(4) <= kbd_joy(4) or not ja_s(4);                 -- fire    (JA7)
++joyBCPPFRLDU(5) <= kbd_joy(5) or btn_db(1);                   -- start1  (btnL / F1)
++joyBCPPFRLDU(6) <= kbd_joy(6) or btn_db(0);                   -- start2  (btnR / F2)
++joyBCPPFRLDU(7) <= kbd_joy(7) or btn_db(2);                   -- coin    (btnU / F3)
++joyBCPPFRLDU(8) <= kbd_joy(8) or not ja_s(2);                 -- bomb    (JA3 / CTRL)
 +
 +-- pwm sound output
 +process(clock_18)  -- same clock as the DE10 top drove the PWM accumulator

@@ -13,7 +13,7 @@
 --    keyboard toggle to match this repo's sw(13) convention used by
 --    Bagman/Berzerk/Defender/etc (no F8 toggle needed).
 --  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB) for
---    movement/fire and coin/start (fire+direction combos); the spinner
+--    movement/fire; coin/start on the keyboard and btnU/btnL/btnR/btnD; the spinner
 --    (f/g/t keys: spin left/right/fast) stays keyboard-only, same as the
 --    pristine DE10-lite top -- no JA equivalent for the analog "angle" input.
 --  - Stereo PWM audio in the core; PmodAMP2 (JC) is mono, so O_PMODAMP2_AIN
@@ -49,6 +49,10 @@ port(
  clk            : in  std_logic;
  sw             : in  std_logic_vector(15 downto 0);
  btnC           : in  std_logic;
+ btnU           : in  std_logic;  -- coin
+ btnL           : in  std_logic;  -- 1P start
+ btnR           : in  std_logic;  -- 2P start
+ btnD           : in  std_logic;  -- coin 2
 
  JA             : in  std_logic_vector(4 downto 0);  -- joystick
  ps2_dat        : in  std_logic;
@@ -137,10 +141,10 @@ port map(
  audio_out_l    => audio_l,
  audio_out_r    => audio_r,
 
- coin1          => fn_pulse(0), -- F1 or JA fire+up
- coin2          => '0',
- start1         => fn_pulse(1), -- F2 or JA fire+left
- start2         => fn_pulse(2), -- F3 or JA fire+right
+ coin1          => fn_pulse(0), -- F1 or btnU
+ coin2          => btnD,        -- btnD
+ start1         => fn_pulse(1), -- F2 or btnL
+ start2         => fn_pulse(2), -- F3 or btnR
 
  left           => joy_BBBBFRLDU(2), -- left
  right          => joy_BBBBFRLDU(3), -- right
@@ -177,11 +181,11 @@ joy_BBBBFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right (JA1)
 joy_BBBBFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire  (JA7)
 joy_BBBBFRLDU(8 downto 5) <= kbd_joy(8 downto 5);             -- spin: keyboard-only
 
--- Coin/start reachable from the joystick via fire+direction combos, OR-merged with the
--- keyboard's F1/F2/F3 (fn_pulse_kbd), same convention as the sibling Pooyan/Time-Pilot ports.
-fn_pulse(0) <= fn_pulse_kbd(0) or (not JA(4) and not JA(3)); -- coin   = fire+up
-fn_pulse(1) <= fn_pulse_kbd(1) or (not JA(4) and not JA(1)); -- start1 = fire+left
-fn_pulse(2) <= fn_pulse_kbd(2) or (not JA(4) and not JA(0)); -- start2 = fire+right
+-- Coin/start: keyboard F1/F2/F3 (fn_pulse_kbd) OR btnU/btnL/btnR
+-- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
+fn_pulse(0) <= fn_pulse_kbd(0) or btnU; -- coin   = F1 or btnU
+fn_pulse(1) <= fn_pulse_kbd(1) or btnL; -- start1 = F2 or btnL
+fn_pulse(2) <= fn_pulse_kbd(2) or btnR; -- start2 = F3 or btnR
 fn_pulse(7 downto 3) <= fn_pulse_kbd(7 downto 3);
 
 -- spin angle decoder simulation (verbatim from the DE10-lite top; keyboard-only, unaffected by

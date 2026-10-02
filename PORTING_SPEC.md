@@ -13,8 +13,7 @@ ambiguous, copy what an existing full port does.
 - Each machine lives in its own `<Machine>-by-Dar/` directory.
 - Each machine's `README.md` is the single source of truth for that machine's design and build.
 - Each machine carries a `PORTING_SPEC.md` documenting its specific porting decisions.
-  Canonical location is `<Machine>-by-Dar/contrib/basys3/PORTING_SPEC.md`; some
-  machines still have it at the machine-directory top level pending migration.
+  Location: `<Machine>-by-Dar/contrib/basys3/PORTING_SPEC.md` (all machines).
 - Shared assets live under `<Machine>-by-Dar/contrib/basys3/`:
   - `code/` — `vga_scandoubler.v` (canonical, never modify) + `*.patch` (synthesis-fix records)
   - `vivado/` — `.xpr`, `.xdc`, clock-IP and project scripts

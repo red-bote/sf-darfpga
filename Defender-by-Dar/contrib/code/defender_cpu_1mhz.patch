@@ -1,0 +1,19 @@
+diff --git a/vhdl_defender_rev_0_0_2017_10_15/rtl_dar/defender.vhd b/vhdl_defender_rev_0_0_2017_10_15/rtl_dar/defender.vhd
+--- a/vhdl_defender_rev_0_0_2017_10_15/rtl_dar/defender.vhd
++++ b/vhdl_defender_rev_0_0_2017_10_15/rtl_dar/defender.vhd
+@@ -329,13 +329,8 @@
+ 				cpu_clock <= '1';
+ 			end if;
+ 			
+-			if pixel_cnt = "011" then   -- speed up processor (two clocks / 1us)
+-				cpu_clock <= '0';
+-			end if;
+-			
+-			if pixel_cnt = "100" then 
+-				cpu_clock <= '1';
+-			end if;
++			-- Basys3: 1 MHz E (original rate); Dar's 2 MHz speed-up branches
++			-- (pixel_cnt 3 clear / 4 set) removed. cpu_clock high at pixel_cnt 3-5.
+ 
+ 						
+ 		end if;
