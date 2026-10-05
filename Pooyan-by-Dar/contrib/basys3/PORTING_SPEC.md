@@ -75,8 +75,8 @@ Replace the DE10-lite ports (`max10_clk1_50`, `ledr`, `key`, `sw(9:0)`, `hex0-3`
   to ground), so it is inverted (`not JA`) to read active-high, matching the core's active-high
   input boundary and the keyboard path.
 - JA physical map: `JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire`.
-- Coin/start reachable from the joystick via fire+direction combos:
-  `coin = fire+up`, `start1 = fire+left`, `start2 = fire+right`.
+- Coin = keyboard OR `btnU`; Start 1 = keyboard OR `btnL`; Start 2 = keyboard OR `btnR`.
+  No JA fire+direction combos (removed 2026-10-02).
 - P2 controls mirror P1 (`fire2/right2/left2/down2/up2` reuse the P1 signals).
 
 ## 8. Patch generation & placement (the automation)

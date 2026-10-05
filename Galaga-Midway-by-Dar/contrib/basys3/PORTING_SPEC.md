@@ -103,7 +103,8 @@ Confirmed against the pristine `rtl_dar/galaga_de10_lite.vhd` top:
   Coin F3 0x04, Start 1 F1 0x05, Start 2 F2 0x06.
 - JA joystick, active-low (switch to GND): `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Fire`.
   Invert (`not JA`) to active-high to match the core boundary (Pooyan pattern).
-- Coin/start from joystick via combos: `coin = fire+up`, `start1 = fire+left`.
+- Coin = keyboard OR `btnU`; Start 1 = keyboard OR `btnL`; Start 2 = keyboard OR `btnR`
+  (buttons debounced on `clock_18`). No JA fire+direction combos (removed 2026-10-02).
 - P2 mirrors P1 left/right/fire inputs (verified, machine README).
 - `btnC` = reset.
 - **Known issue** (verified, machine README): the keyboard can randomly stick to the right (and
@@ -168,7 +169,7 @@ to `contrib/basys3/code/` (the conventional location), matching Pooyan/Time-Pilo
 ## 10. Build / project setup
 
 - Scripted: `make setup` (extract + patch + rom-prep),
-  `make create_prj` (project dirs, `.xpr` copy with scandoubler re-point, XDC copy, scandoubler.v
+  `make create_prj` (project dirs, `.xpr` copy (references the local scandoubler import), XDC copy, scandoubler.v
   copy + `scandoubler_fix.patch`), `make clk_wiz` (Vivado-batch MMCM IP generation), `make patch`
   (top-level wrapper generation via `make_de10_lite_to_basys3_patch.sh`, authoring
   `galaga_basys3.vhd`), `make synth` and `make bitstream`

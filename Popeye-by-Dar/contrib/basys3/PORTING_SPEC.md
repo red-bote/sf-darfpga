@@ -37,8 +37,9 @@
 - PS/2 keyboard + `kbd_joystick`, OR-merged with the JA joystick (active-low, invert to
   active-high, "verified working" per machine `README.md`): `JA1=Right, JA2=Left, JA3=Down,
   JA4=Up, JA7=Punch`.
-- Coin = JA fire+up combo (OR keyboard F1); Start 1 = JA fire+left combo (OR keyboard F2);
-  Start 2 = keyboard F3; Service = keyboard F7. Player 2 mirrors player 1.
+- Coin = keyboard F1 OR `btnU`; Start 1 = keyboard F2 OR `btnL`; Start 2 = keyboard F3 OR
+  `btnR`; Service = keyboard F7. No JA fire+direction combos (removed 2026-10-02). Player 2
+  mirrors player 1.
 
 ## 7. LEDs
 

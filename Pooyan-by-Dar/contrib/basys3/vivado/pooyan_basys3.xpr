@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="54" Path="/home/xubuntu/hdl/red-bote/Pooyan-by-Dar/vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3.xpr">
+<Project Version="7" Minor="54" Path="$PROJECT_DIR/pooyan_basys3.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="ac1f9e3a464e4b548b6c1d9d3c9cd899"/>

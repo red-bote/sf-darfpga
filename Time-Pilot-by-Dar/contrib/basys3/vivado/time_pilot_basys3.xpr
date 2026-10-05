@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="54" Path="/home/xubuntu/hdl/red-bote/Time-Pilot-by-Dar/vhdl_time_pilot_rev_0_0_2017_11_05/basys3/time_pilot_basys3.xpr">
+<Project Version="7" Minor="54" Path="$PROJECT_DIR/time_pilot_basys3.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="08f808fec32a4678a54c44588002c812"/>

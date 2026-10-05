@@ -108,8 +108,8 @@ Confirmed against `tron_de10_lite.vhd` and the authored `tron_basys3.vhd`
   movement/fire/coin/start, same convention as Pooyan/Time-Pilot/Galaga.
 - JA joystick, active-low (switch to GND): `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Fire`.
   Invert (`not JA`) to active-high to match the core boundary.
-- Coin/start from joystick via fire+direction combos: `coin = fire+up`, `start1 = fire+left`,
-  `start2 = fire+right`, OR-merged with the keyboard's F1/F2/F3 (unaffected).
+- Coin 1 = keyboard F1 OR `btnU`; Coin 2 = `btnD`; Start 1 = F2 OR `btnL`; Start 2 = F3 OR
+  `btnR`. No JA fire+direction combos (removed 2026-10-02).
 - **Spinner (angle) is keyboard-only, matching the DE10-lite top exactly — this is not a
   functional regression from porting.** The core's `angle`/`angle_c` ports are a 7-bit analog
   rotation value with no discrete-switch equivalent; the DE10-lite top itself only ever drove

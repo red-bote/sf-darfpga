@@ -6,10 +6,10 @@
 <!-- Basys3 port of Dar's Galaga (Namco/Midway, 1981).
      Top entity: galaga_basys3. Non-nested project layout: this .xpr lives in
      basys3/ with the sources tree at basys3/galaga_basys3.srcs/.
-     The scandoubler File entry below uses the upstream Arcade_Galaga path;
-     create_project.sh re-points it to the local mist/ import. -->
+     The scandoubler File entry references the local mist/ import
+     (copied by create_project.sh from contrib/code/scandoubler.v). -->
 
-<Project Version="7" Minor="54" Path="/home/xubuntu/hdl/red-bote/Galaga-Midway-by-Dar/vhdl_galaga_rev_0_3_2018_05_06/basys3/galaga_basys3.xpr">
+<Project Version="7" Minor="54" Path="$PROJECT_DIR/galaga_basys3.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="08f808fec32a4678a54c44588002c812"/>
@@ -95,7 +95,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../../Arcade_Galaga/mist/scandoubler.v">
+      <File Path="$PSRCDIR/sources_1/imports/mist/scandoubler.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>

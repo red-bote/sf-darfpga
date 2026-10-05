@@ -9,7 +9,7 @@
      No external scandoubler: the core doubles scanlines internally
      (rtl_dar/line_doubler.vhd, tv15Khz_mode fixed '0'). -->
 
-<Project Version="7" Minor="54" Path="/home/xubuntu/hdl/red-bote/Bagman-FPGA-Dar/vhdl_bagman_rev_0_1_2018_06_05/basys3/bagman_basys3.xpr">
+<Project Version="7" Minor="54" Path="$PROJECT_DIR/bagman_basys3.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="223e4510f56549e8aba33fd976770ff0"/>

@@ -94,8 +94,8 @@ From the `Time-Pilot-by-Dar/` directory, `make` wraps the scripted setup:
 - `make clean` — remove the extracted `vhdl_time_pilot_rev_0_0_2017_11_05/` tree.
 
 `contrib/basys3/vivado/create_project.sh` lays down the initial project tree: it creates
-`basys3/` in the extracted source, copies `time_pilot_basys3.xpr` (re-pointing the scandoubler
-reference to the local import), `Basys-3-Master.xdc`, and `vga_scandoubler.v`. Run it once after
+`basys3/` in the extracted source, copies `time_pilot_basys3.xpr` (which references the local
+scandoubler import directly), `Basys-3-Master.xdc`, and `vga_scandoubler.v`. Run it once after
 `make setup`, before `make synth`/`make bitstream`.
 
 The port is complete and hardware-verified: video, audio, PS/2 keyboard, JA joystick, and

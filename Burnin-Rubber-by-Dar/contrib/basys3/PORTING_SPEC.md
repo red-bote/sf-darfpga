@@ -201,8 +201,8 @@ video_b(1:0), video_blankn -------> r, g, b, blankn
   `btnC` is pressed or the MMCM has not locked (Berzerk/Bagman pattern).
   `clk_wiz_0`'s own `reset` port is driven directly by `btnC`.
 - **Inputs**: PS/2 keyboard + `kbd_joystick` OR-merged with the JA joystick
-  (active-low, inverted) and, for coin/start, also OR-merged with dedicated
-  Basys3 buttons and the JA fire+up (coin) / fire+left (start1) combos —
+  (active-low, inverted); coin = F3 OR `btnU` OR `btnD`, start1 = F1 OR
+  `btnL`, start2 = F2 OR `btnR`; no JA fire+direction combos (removed 2026-10-02) —
   see `README.md`'s IO mapping table for the full button/JA/keyboard
   assignment. Player 2 mirrors player 1.
 - **Audio**: the mono PWM accumulator is reused verbatim from the pristine

@@ -37,9 +37,9 @@
 
 - PS/2 keyboard + `kbd_joystick`, OR-merged with the JA joystick (active-low, invert to
   active-high): `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Jump`.
-- Coin = JA fire+up combo (OR keyboard F3); Start 1 = JA fire+left combo (OR keyboard F1);
-  Start 2 = keyboard F2. Player 2 mirrors player 1.
-- No dedicated coin/start buttons (unlike Berzerk) — only `btnC` (reset) is wired.
+- Coin = keyboard F3 OR `btnU`; Start 1 = keyboard F1 OR `btnL`; Start 2 = keyboard F2 OR
+  `btnR`. No JA fire+direction combos (removed 2026-10-02, root `PORTING_SPEC.md` policy).
+  Player 2 mirrors player 1. `btnC` = reset.
 
 ## 7. LEDs
 

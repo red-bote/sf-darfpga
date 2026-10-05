@@ -34,8 +34,8 @@
 - PS/2 keyboard + `kbd_joystick`, OR-merged with the JA joystick (active-low, invert to
   active-high, "verified working" per machine `README.md`): `JA1=Right, JA2=Left, JA3=Down,
   JA4=Up, JA7=Fire`.
-- Coin = JA fire+up combo, OR keyboard F1, OR `btnU`; Fast = JA fire+left combo, OR keyboard F2,
-  OR `btnL` — the root `PORTING_SPEC.md`'s generic default IO mapping (coin-in = `btnU`, 1P
+- Coin = keyboard F1 OR `btnU`; Fast = keyboard Left Ctrl OR `btnL` (no JA fire+direction
+  combos, removed 2026-10-02) — the root `PORTING_SPEC.md`'s generic default IO mapping (coin-in = `btnU`, 1P
   start = `btnL`) applies since the core has real `coin1`/`fast1` inputs for them to drive.
 - `btnD`/`btnR` declared but unconnected (reserved): the core ties `coin2`/`fast2` (and all P2
   inputs) to `'0'` with no genuine second-coin or second-start facility (DE10-lite header:

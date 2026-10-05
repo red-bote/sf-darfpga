@@ -73,9 +73,10 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
   4 bits/color (`vga_ro(5 downto 2)`, etc.) — same narrowing convention as Pooyan.
 - `clkvideo => clock_6` (halved core clock), `clkvga => clock_12`, giving the ~2x read/write
   ratio for real horizontal doubling (Pooyan pattern).
-- `create_project.sh` re-points the `.xpr`'s scandoubler reference from the external
-  `$PPRDIR/../../../Arcade_Pooyan/deca/vga_scandoubler.v` path to the local
-  `contrib/basys3/code/vga_scandoubler.v` import; confirmed in place and working.
+- The tracked `.xpr` references the local import
+  (`sources_1/imports/deca/vga_scandoubler.v`, copied from `contrib/basys3/code/`) directly
+  (2026-10-02; formerly an external `$PPRDIR/../../../Arcade_Pooyan/` path re-pointed by
+  `create_project.sh`).
 
 ## 6. Audio (mono PWM on PmodAMP2)
 
@@ -93,8 +94,8 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
   start 2P.
 - JA joystick, active-low (switch to GND): `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Fire`.
   Invert (`not JA`) to active-high to match the core boundary (Pooyan pattern).
-- Coin/start from joystick via fire+direction combos: `coin = fire+up`, `start1 = fire+left`,
-  `start2 = fire+right`.
+- Coin = keyboard OR `btnU`; Start 1 = keyboard OR `btnL`; Start 2 = keyboard OR `btnR`.
+  No JA fire+direction combos (removed 2026-10-02).
 - P2 mirrors P1 movement/fire inputs (verified, machine README and hardware).
 - `btnC` = reset.
 - **Dip switches:** unlike Pooyan, Time-Pilot's DE10-lite top hardcoded both dip registers
@@ -124,7 +125,7 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
   and its record patch), `make synth` / `make bitstream`
   (`contrib/basys3/tools/make_time_pilot_basys3_bitstream.sh`).
 - `contrib/basys3/vivado/create_project.sh` lays down the Vivado project tree (non-nested:
-  `.xpr` directly in `basys3/`, unlike Pooyan's nested `pooyan_basys3/` layout) and re-points the
+  `.xpr` directly in `basys3/`, unlike Pooyan's nested `pooyan_basys3/` layout) and copies the
   scandoubler import; run once after `make setup`.
 - `setup_time_pilot.sh`'s synthesis-fix-patch loop excludes `*_de10_lite_to_basys3.patch` by
   name — that file is a record of the top-level rewrite, not a patch to apply to the pristine

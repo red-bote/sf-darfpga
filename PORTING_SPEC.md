@@ -195,7 +195,8 @@ level is a provenance record only; it documents the transformation below, it doe
    gain switches to `O_PMODAMP2_SHUTD` / `O_PMODAMP2_GAIN`.
 7. **Inputs** — keep the keyboard (`io_ps2_keyboard` + `kbd_joystick`) on the onboard USB-HID
     connector by default; OR-merge the JA joystick (inverted
-   active-low → active-high to match the core boundary); coin/start via fire+direction combos;
+   active-low → active-high to match the core boundary); coin/start from the keyboard and
+   btnU/btnL/btnR (§3 policy: no fire+direction combos);
    P2 mirrors P1.
 8. **PROM VHDL** — generated from the staged romset (never distributed).
 

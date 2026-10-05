@@ -6,7 +6,7 @@
 # the project sources tree is basys3/galaga_basys3.srcs/.
 #
 # 1. Create the project dirs.
-# 2. Copy the .xpr, re-pointing its scandoubler reference to the local import.
+# 2. Copy the .xpr (references the local scandoubler import directly).
 # 3. Copy Basys-3-Master.xdc into constrs_1/imports/digilent-xdc-master/.
 # 4. Copy scandoubler.v into sources_1/imports/mist/.
 #
@@ -33,10 +33,11 @@ step() { printf '\n==> %s\n' "$1"; }
 step "1/4 Creating project directories"
 mkdir -p "$PROJ_DIR" "$CONSTRS_IMPORT" "$SOURCES_IMPORT"
 
-step "2/4 Copying galaga_basys3.xpr (re-pointing scandoubler)"
+step "2/4 Copying galaga_basys3.xpr"
+# The tracked .xpr references the project-local import
+# (sources_1/imports/mist/scandoubler.v) directly (2026-10-05; formerly an
+# external ../../../Arcade_Galaga path re-pointed here by sed).
 cp -f "$CONTRIB/vivado/galaga_basys3.xpr" "$PROJ_DIR/galaga_basys3.xpr"
-sed -i 's|\$PPRDIR/../../../Arcade_Galaga/mist/scandoubler.v|\$PSRCDIR/sources_1/imports/mist/scandoubler.v|' \
-    "$PROJ_DIR/galaga_basys3.xpr"
 
 step "3/4 Copying Basys-3-Master.xdc"
 cp -f "$CONTRIB/vivado/Basys-3-Master.xdc" "$CONSTRS_IMPORT/Basys-3-Master.xdc"
