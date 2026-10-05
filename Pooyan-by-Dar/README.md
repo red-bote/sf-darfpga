@@ -41,24 +41,27 @@ This file is the single source of truth for design and build. Operational rules 
 
 ## Clocking
 
-The Basys3 provides a 100 MHz oscillator. A Vivado MMCM (`clk_wiz_0`) derives the 12.288 MHz
-(video board core) and 14.318 MHz (sound board) clocks. The top level instantiates `clk_wiz_0`; its IP
-files must be (re)generated and placed under `sources_1/imports/clk_wiz_0/`. The wizard solves
-to `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`, `CLKOUT1_DIVIDE=56`.
-Since 2026-10-01 the MMCM reset is `btnC` and the core reset is `btnC or not mmcm_locked`
-(`../CLOCKING_SPEC.md` section 6; previously `locked` was left open).
+Single clock domain (2026-10-05; `contrib/basys3/PORTING_SPEC.md` section 2). `clk_wiz_0`
+derives one clock, `clk_core` = 24.573991 MHz (`DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=34.25`,
+`CLKOUT0_DIVIDE_F=27.875`), from the 100 MHz oscillator. The former 12.288 MHz, 6.144 MHz
+(and their inverted phases) and 14.318 MHz sound clocks are clock enables from the wrapper
+(2-bit phase counter; 20-bit phase accumulator for the 14.318181 MHz sound rate), applied to
+the core and sound board by `contrib/basys3/code/pooyan_single_domain.patch`. The former
+two-output MMCM plus register-derived clocks left the core-to-scandoubler path untimed and
+failed VGA sync on about half of the resets. MMCM reset is `btnC`; core reset is `btnC or
+not mmcm_locked`, released synchronously to `clk_core`.
 
 ## VGA
 
-31 kHz VGA uses the DECA scan doubler
-(<https://github.com/DECAfpga/Arcade_Pooyan/blob/main/deca/vga_scandoubler.v>), kept at
-`contrib/basys3/code/vga_scandoubler.v`. `disable_scaneffect` is set to 1; `enable_scandoubling` =
-`not sw(13)` (2026-10-02). **Modification of `vga_scandoubler.v` is off-limits** — it is the hash-checked canonical
-cleanroom import.
+31 kHz VGA uses the MiST scandoubler (`clk_sys = clk_core`, `ce_x1` = 6.1435 MHz pixel
+enable, `ce_x2` = 2x). 15 kHz TV mode is selected by `sw(13)` = 1 (native RGB, `csync` on HS,
+VS high; fleet convention). The DECA `vga_scandoubler.v` used until 2026-10-05 is no longer
+part of this port.
 
-15 kHz mode is selected by `sw(13)` = 1 via the scandoubler's built-in bypass
-(`enable_scandoubling = '0'` → `hsync <= csync`, `vsync <= '1'`, RGB passthrough), matching the
-DE10's native output on the same VGA connector (fleet `sw(13)` convention, 2026-10-02).
+- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
+  tracked as `contrib/code/scandoubler.v`, copied into the project by
+  `create_project.sh`.
 
 ## Top level
 
@@ -115,7 +118,8 @@ Project structure lives in `vhdl_pooyan_rev_0_2_2020_04_26/basys3/`. Use the Xil
 
 - `vivado/pooyan_basys3.xpr` → `basys3/pooyan_basys3.xpr`
 - `vivado/pooyan_basys3.xdc` → `basys3/pooyan_basys3.srcs/constrs_1/imports/digilent-xdc-master/`
-- `code/vga_scandoubler.v` → `basys3/pooyan_basys3.srcs/sources_1/imports/deca/vga_scandoubler.v`
+- `../code/scandoubler.v` → `basys3/pooyan_basys3.srcs/sources_1/imports/mist/scandoubler.v`
+  (then `contrib/code/scandoubler_fix.patch` is applied to the copy)
 
 The constraints file is based on the
 [Digilent Basys-3-Master.xdc](https://github.com/Digilent/digilent-xdc/blob/master/Basys-3-Master.xdc).
@@ -144,17 +148,19 @@ From scratch, to (re)build `pooyan_basys3.xpr` (steps 1–4 are scripted by
    - `rtl_t80_350/` — the T80 Z80 core
    - `rtl_mikej/` — `YM2149_linmix_sep.vhd`
    - the generated PROM files from `tools/pooyan_unzip/` (must already exist, see above)
-3. Add the scan doubler: `contrib/basys3/code/vga_scandoubler.v` →
-   `sources_1/imports/deca/vga_scandoubler.v` (canonical, never modify).
+3. Add the scan doubler: `contrib/code/scandoubler.v` → `sources_1/imports/mist/scandoubler.v`,
+   then apply `contrib/code/scandoubler_fix.patch` to the copy.
 4. Add constraints: `contrib/basys3/vivado/pooyan_basys3.xdc` →
    `constrs_1/imports/digilent-xdc-master/`.
-5. Generate the `clk_wiz_0` MMCM IP, deriving 12.288 MHz and 14.318 MHz from the 100 MHz Basys3
-   oscillator; place its outputs under `sources_1/imports/clk_wiz_0/`.
+5. Generate the `clk_wiz_0` MMCM IP (single 24.576 MHz request, solve above) with
+   `contrib/basys3/vivado/make_clk_wiz_0.sh`; outputs go under `sources_1/imports/clk_wiz_0/`.
 6. Generate the top level `pooyan_basys3.vhd` under `sources_1/new/` with `make patch`
    (writes the authored top level from `contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh`
    and emits `contrib/basys3/code/pooyan_de10_lite_to_basys3.patch` as a record of the change;
    see the porting steps).
-7. Apply the T80 patch `contrib/basys3/code/pooyan_t80_xor_width.patch` to `rtl_t80_350/T80.vhd`.
+7. Apply `contrib/basys3/code/pooyan_t80_xor_width.patch` (`rtl_t80_350/T80.vhd`) and
+   `contrib/basys3/code/pooyan_single_domain.patch` (`rtl_dar/`), both by `make setup`
+   (`--binary`).
 8. Run synthesis/implementation from `/tmp` so `vivado.log` / `vivado.jou` stay outside the repo.
 
 ## Porting the DE10 top level to Basys3
@@ -167,24 +173,15 @@ authors the new `pooyan_basys3.vhd` top level and emits
 1. **Port list** — map the Basys3 IO per `pooyan_basys3.xdc`: `clk` (100 MHz), `sw`, `btnC`,
    joystick on `JA[]`, PS/2 on `jb` (`ps2_dat`, `ps2_clk`), PmodAMP2 on `jc`
    (`O_PMODAMP2_AIN/GAIN/SHUTD`), `vga_r/g/b[3:0]`, `vga_hs`, `vga_vs`.
-2. **Clocking** — replace the DE10 `max10_pll_12M_14M` with `clk_wiz_0` (12.288/14.318 MHz from the
-    100 MHz oscillator); keep the internal `clock_6` divider that feeds the PS/2 path.
+2. **Clocking** — replace the DE10 `max10_pll_12M_14M` with `clk_wiz_0`; single `clk_core`
+    domain with clock enables (see Clocking above).
 3. **Core instantiation** — keep the `pooyan` entity port map unchanged (r/g/b, csync,
    blankn, hs, vs, audio_out).
-4. **VGA via scan doubler** — feed the core's 3+3+2-bit video (zero-extended to 6-bit) into
-   the doubler's `ri/gi/bi`, `csync` → `csync_ext_n`, HS/VS from the core, with
-   `enable_scandoubling`/`disable_scaneffect` = 1; take the 6-bit `ro/go/bo` down to the
-   Basys3 4-bit VGA connector. The core's `video_hs`/`video_vs` are **active-low** (see
-   `pooyan.vhd` sync generation) and are wired **directly** (no inversion) to the doubler's
-   active-low `hsync_ext_n`/`vsync_ext_n`; the doubler re-derives active-low `hsync`/`vsync`
-   for the VGA connector. The 15 kHz bypass (`enable_scandoubling='0'` → `hsync <= csync`)
-   is selected by `sw(13)` = 1. The doubler is clocked `clkvideo` = `clock_6` (halved core clock) and
-   `clkvga` = `clock_12`, giving the ~2× read/write ratio the line buffer needs for real
-   horizontal doubling. The RGB inputs are gated on `blankn` (black during blank), keeping the
-   DE10 top's blanking behavior now that blanking happens *before* the doubler rather than on
-   the final `vga_r/g/b`. This gating is kept as a defensive measure; blanking is correct on
-   hardware with it in place (whether the core already emits black during blank is untested).
-5. **Audio** — port the DE10 PWM accumulator (clocked on `clock_14`); drive `O_PMODAMP2_AIN`
+4. **VGA via scan doubler** — MiST `scandoubler` (see VGA above); the core's 3+3+2-bit video,
+   zero-extended to 6 bits and gated on `blankn`, feeds `r_in/g_in/b_in`; the core's active-low
+   `video_hs`/`video_vs` feed `hs_in`/`vs_in` directly; the 6-bit outputs are reduced to the
+   4-bit connector. `sw(13)` = 1 selects the native 15 kHz output.
+5. **Audio** — port the DE10 PWM accumulator (on `clk_core`, enabled at the 14.318 MHz rate); drive `O_PMODAMP2_AIN`
    with the PWM bit, and route `sw14` (sound enable) to `O_PMODAMP2_SHUTD` and `sw15` (gain
    select) to `O_PMODAMP2_GAIN`.
 6. **Inputs** — keep the PS/2 keyboard + `kbd_joystick`; OR-merge the JA joystick with it.
@@ -195,8 +192,7 @@ authors the new `pooyan_basys3.vhd` top level and emits
 ## Notes and open items
 
 - Dip switches 1–8 confirmed working on hardware.
-- Scandoubler (`vga_scandoubler.v`) intermittently fails to sync on real hardware
-  (reported 2026-09-25); not yet characterized or root-caused. See root
-  `KNOWN_ISSUES.md`.
+- Intermittent VGA sync failure after reset (reported 2026-09-25 / 2026-10-01): addressed by
+  the single-domain change of 2026-10-05; hardware-confirmed 2026-10-05. See root `KNOWN_ISSUES.md`.
 - 15 kHz TV mode wired to `sw(13)` 2026-10-02 (hardware-confirmed).
 

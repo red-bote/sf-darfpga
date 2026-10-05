@@ -14,7 +14,7 @@ Time-Pilot is fully scripted (`contrib/tools/`, `contrib/basys3/vivado/`, `Makef
   - `rtl_T80/` — `T80.vhd`, `T80_Pack.vhd`, `T80_ALU.vhd`, `T80_MCode.vhd`, `T80_RegX.vhd`,
     `T80se.vhd`
   - `rtl_mikej/` — `YM2149_linmix_sep.vhd`
-  - `clk_wiz_0` MMCM IP, `vga_scandoubler.v`, generated PROM VHDL from
+  - `clk_wiz_0` MMCM IP, MiST `scandoubler.v`, generated PROM VHDL from
     `tools/time_pilot_unzip/`
 
 ## 1. Port list (DE10-lite → Basys3)
@@ -35,12 +35,22 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
 
 ## 2. Clocking
 
-- The core uses **12.288 MHz** (machine core) and **14.318 MHz** (sound), derived from the
-  100 MHz Basys 3 oscillator by the `clk_wiz_0` MMCM.
-- Solved MMCM constants (verified, machine README):
-  `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`,
-  `CLKOUT1_DIVIDE=56`; `clk_out1` = 12.288 MHz, `clk_out2` = 14.318 MHz; reset active-high
-  (btnC), `locked` used (wired 2026-10-01: `reset <= btnC or not mmcm_locked`, MMCM reset = btnC).
+- Single clock domain (2026-10-05; rule `.opencode/rules.md` §"Clocking (Basys3 ports)"):
+  one MMCM output `clk_core` = 24.573991 MHz (D 5 / M 34.25 / O0 27.875; pixel 6.1435 MHz,
+  VGA H 31.997 kHz). The former `clock_12`, `clock_6`, `clock_6n`, `clock_12n`, `clock_14`,
+  `clock_14n`, sound `cpu_clock` and `ayx_clock` are clock enables; the same design as
+  Pooyan, recorded in `../../Pooyan-by-Dar/contrib/basys3/PORTING_SPEC.md` section 2
+  (enable table, ROM address-hold mux, `gen_ram` `ce` port, 20-bit 14.318181 MHz phase
+  accumulator). Reason: VGA failed to sync on about half of the btnC resets; the
+  register-derived clocks left the core-to-scandoubler path untimed (`../../KNOWN_ISSUES.md`).
+- Time-Pilot differences: T80se (v247) `CLK_n = clk_core`, `CLKEN = cpu_ena and ce6` (main),
+  `CLKEN = cpu_ce` (sound); all T80se state, including `T80_RegX` `RAM16X1D` WE and the NMI
+  edge detect, is CLKEN-gated. Six PROMs on the former `clock_6` (char, char palette, sprite,
+  sprite palette, two RGB palettes) use the address-hold mux.
+- Patch `contrib/code/time_pilot_single_domain.patch` (`rtl_dar/time_pilot.vhd`,
+  `time_pilot_sound_board.vhd`, `gen_ram.vhd`; CRLF, `setup_time_pilot.sh --binary`); it sorts
+  and applies before the 263-line patch, both verified in that order.
+- Reset: `btnC or not mmcm_locked`, released synchronously to `clk_core`; MMCM reset = btnC.
 - Core patch `contrib/code/time_pilot_vcnt_263_lines.patch` (2026-10-01): `vcnt` reload `0x0FC` -> `0x0F9`, 263 lines, V 60.84 Hz (was 61.54 Hz); same as Dar's later Pooyan core. `../../CLOCKING_SPEC.md` 5.7.
 
 ## 3. Reset polarity
@@ -60,23 +70,20 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
 
 ## 5. Video / scan doubler (31 kHz VGA)
 
-- Use the DECA `vga_scandoubler.v` (canonical cleanroom import, never
-  modified, sourced from
-  <https://github.com/DECAfpga/Arcade_Pooyan/blob/main/deca/vga_scandoubler.v>) with
-  `enable_scandoubling` and `disable_scaneffect` both `1` (verified, machine README).
+- MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>, tracked as
+  `contrib/code/scandoubler.v` with `contrib/code/scandoubler_fix.patch`; `clk_sys =
+  clk_core`, `ce_x1 = ce6`, `ce_x2 = ce12`. Replaces the two-clock DECA `vga_scandoubler.v`
+  (2026-10-05).
 - The DE10-lite top leaves the core's `video_hs`/`video_vs` outputs unconnected (`open`,
   labeled "not tested"), even though `time_pilot.vhd` does drive them. The Basys3 top wires
-  them to the scandoubler's `hsync_ext_n`/`vsync_ext_n` (Pooyan pattern) instead of leaving them
+  them to the scandoubler's `hs_in`/`vs_in` (Pooyan pattern) instead of leaving them
   open; confirmed correct on hardware.
 - Time Pilot's core outputs 5 bits/color; the top pads each with 1 bit (`r & "0"`, etc.) to
-  reach the scandoubler's 6-bit `ri`/`gi`/`bi`, then narrows the doubled 6-bit output back to
+  reach the scandoubler's 6-bit inputs, then narrows the doubled 6-bit output back to
   4 bits/color (`vga_ro(5 downto 2)`, etc.) — same narrowing convention as Pooyan.
-- `clkvideo => clock_6` (halved core clock), `clkvga => clock_12`, giving the ~2x read/write
-  ratio for real horizontal doubling (Pooyan pattern).
-- The tracked `.xpr` references the local import
-  (`sources_1/imports/deca/vga_scandoubler.v`, copied from `contrib/basys3/code/`) directly
-  (2026-10-02; formerly an external `$PPRDIR/../../../Arcade_Pooyan/` path re-pointed by
-  `create_project.sh`).
+- The tracked `.xpr` references the local import (`sources_1/imports/mist/scandoubler.v`)
+  directly.
 
 ## 6. Audio (mono PWM on PmodAMP2)
 
@@ -91,7 +98,10 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
 
 - PS/2 keyboard on JB (`ps2_dat`/`ps2_clk`) OR-merged with the JA joystick (verified, machine
   README and hardware). Key map: arrows = move, Space = fire, F1 = coin, F2 = start 1P, F3 =
-  start 2P.
+  start 2P. Keyboard on `clk_core`; JA and buttons pass a 2-FF synchronizer.
+  PS/2 `ps2_clk`/`ps2_dat` also pass the 2-FF synchronizer. Evaluation 2026-10-05 (user):
+  with raw PS/2 at 24.57 MHz the Time-Pilot keyboard misbehaved and Pooyan showed no fault;
+  the synchronizer was re-instated on both.
 - JA joystick, active-low (switch to GND): `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Fire`.
   Invert (`not JA`) to active-high to match the core boundary (Pooyan pattern).
 - Coin = keyboard OR `btnU`; Start 1 = keyboard OR `btnL`; Start 2 = keyboard OR `btnR`.
@@ -141,5 +151,6 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
 
 Dip switches 1–8 confirmed working on hardware.
 
-15 kHz bypass mode: `enable_scandoubling <= not sw(13)` (0 = 31 kHz VGA, 1 = 15 kHz TV with
-csync on HS, VS high), wired 2026-10-02, hardware-confirmed.
+15 kHz TV mode: `sw(13)` = 1 selects native RGB (gated on `blankn`), `csync` on HS, VS high,
+muxed in the wrapper (fleet convention; wired 2026-10-02 via the DECA bypass, moved to the
+wrapper mux with the MiST scandoubler 2026-10-05).

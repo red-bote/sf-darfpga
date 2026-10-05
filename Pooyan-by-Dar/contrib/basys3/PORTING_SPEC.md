@@ -27,11 +27,66 @@ Replace the DE10-lite ports (`max10_clk1_50`, `ledr`, `key`, `sw(9:0)`, `hex0-3`
 | `gpio` (audio, PS/2) | `ps2_dat`, `ps2_clk`, `O_PMODAMP2_AIN/GAIN/SHUTD`, `JA(4:0)` |
 | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | unchanged (same 4-4-4 RGB + HS/VS) |
 
-## 2. Clocking
+## 2. Clocking (single domain, 2026-10-05)
 
-- Replace the DE10 `max10_pll_12M_14M` (50 MHz in) with the Basys 3 `clk_wiz_0` MMCM
-  (100 MHz in → 12.288 MHz core + 14.318 MHz sound board).
-- Keep the internal `clock_6` divider (halves `clock_12` → 6.144 MHz) that feeds the PS/2 path.
+Rule: `.opencode/rules.md` §"Clocking (Basys3 ports)". One MMCM output, `clk_core` =
+2 x 12.288 MHz, solved as 24.573991 MHz (D 5 / M 34.25 / O0 27.875, -75 ppm; pixel
+6.1435 MHz, VGA H 31.997 kHz), clocks the core, sound board,
+scandoubler, keyboard and PWM. Every former clock is a clock enable.
+
+### Previous scheme and why it changed
+
+MMCM `clock_12` (12.2879) + `clock_14` (14.3176), plus register-derived clocks: core
+`clock_6`, an independent wrapper `clock_6` (DECA doubler `clkvideo`, keyboard),
+`clock_6n`, `clock_12n`, `clock_14n`, sound `cpu_clock` (`clock_div1(2)`) and
+`ayx_clock` (`not clock_div1(2)`). Vivado reported these as `no_clock` (1467 pins), so
+the core-to-doubler path and the main-to-sound crossing were untimed. Hardware: VGA
+failed to sync on about half of the btnC resets (`KNOWN_ISSUES.md`). User decision
+2026-10-05: single domain (chosen over a minimal shared-`clock_6` fix for long-term
+maintainability; cost: core RTL patch and scandoubler replacement).
+
+### Enables (wrapper, from a 2-bit phase counter `ph` on `clk_core`)
+
+Four `clk_core` edges per 6 MHz period: e0 = former `clock_6` rising (and `clock_12`
+rising), e1 = `clock_12` falling, e2 = `clock_12` rising and `clock_6` falling,
+e3 = `clock_12` falling. An enable is high in the cycle that ends at its edge.
+
+| Enable | Edge | Replaces |
+|---|---|---|
+| `ce6` | e0 | `rising_edge(clock_6)`; T80 main CPU `CEN = cpu_ena and ce6` |
+| `ce6n` | e2 | `clock_6n` RAM (`wram`, `spram1/2`) |
+| `ce12` | e0, e2 | `rising_edge(clock_12)` (line-buffer read, debug) |
+| `ce12n` | e1, e3 | `clock_12n` line buffers |
+| `clk6_lvl` | level, '1' between e0 and e2 | `clock_6` used as data (line-buffer `we`, read process) |
+| `ce14` | phase accumulator, average 14.31818 MHz (ratio 0.58262, jitter 1 cycle = 41 ns) | `rising_edge(clock_14)` |
+
+Sound board: `clock_div1` counts `ce14`; `cpu_ce` = `ce14` and `clock_div1(2 downto 0)
+= "011"` (former `cpu_clock` rising), `ay_ce` = `ce14` and `"111"` (former `ayx_clock`
+rising); YM2149 `ENA = ay_ce` (port existed, tied to `'1'`); sound `wram` enabled by
+`ce14`.
+
+### Memories without enables
+
+- `gen_ram` (`rtl_dar/gen_ram.vhd`, shared by core and sound board) gains
+  `ce : in std_logic := '1'` gating write and registered read, so each RAM updates on
+  its original edge only.
+- Generated PROM entities (`make_vhdl_prom`, registered read, no enable port, not
+  tracked): graphics/palette ROMs on former `clock_6` use an address-hold mux
+  (`addr` when `ce6`, else the address captured at the last `ce6`), so the registered
+  output changes only at e0, as before. CPU program ROMs (main on `clock_6n`, sound
+  on `clock_14n`) read every `clk_core` cycle: their consumers (T80) sample only on
+  enabled edges with a stable address, so the result is unchanged.
+
+### T80
+
+`T80s` (v350) `CLK = clk_core`. Its NMI edge detect (`T80.vhd:1201`) runs on every
+`CLK` edge outside `CEN`; `cpu_nmi_n` changes only at e0 and `NMI_s` is consumed in
+CEN-gated logic, so behavior is unchanged.
+
+### Patches
+
+- `contrib/basys3/code/pooyan_single_domain.patch` (CRLF; `setup_pooyan.sh` applies with `--binary`):
+  `rtl_dar/pooyan.vhd`, `rtl_dar/pooyan_sound_board.vhd`, `rtl_dar/gen_ram.vhd`.
 
 ## 3. Reset polarity
 
@@ -46,31 +101,33 @@ Replace the DE10-lite ports (`max10_clk1_50`, `ledr`, `key`, `sw(9:0)`, `hex0-3`
 - Dip switches: `dip_switch_1 = X"FF"`; `dip_switch_2` maps to `sw(7 downto 0)`
   (was hardcoded `X"7F"` on the DE10).
 
-## 5. Video / scan doubler (31 kHz VGA)
+## 5. Video / scan doubler (31 kHz VGA / 15 kHz TV)
 
-- DECA `vga_scandoubler.v`, canonical cleanroom import, never modified, sourced from
-  <https://github.com/DECAfpga/Arcade_Pooyan/blob/main/deca/vga_scandoubler.v>.
-- Feed the core's 3+3+2-bit video, zero-extended to 6-bit, into the DECA `vga_scandoubler`
-  with `enable_scandoubling`/`disable_scaneffect = 1`; take the 6-bit output down to the
-  Basys 3 4-bit-per-color connector (`vga_*o(5 downto 2)`).
-- `clkvideo = clock_6`, `clkvga = clock_12` (~2× read ratio for real horizontal doubling).
-- RGB is gated on `blankn` (black during blank) **before** the doubler, preserving the DE10
-  top's blanking behavior.
-- The core's `video_hs`/`video_vs` are **active-low**; they are wired **directly** (no
-  inversion) to the doubler's active-low `hsync_ext_n`/`vsync_ext_n`. The doubler re-derives
-  active-low `hsync`/`vsync` for the VGA connector.
-- Contrast with the DE10's native output: raw `r&'0'`, `g&'0'`, `b&"00"` gated on `blankn`,
-  `vga_hs <= csync`, `vga_vs <= '1'`.
+- MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
+  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>, tracked as
+  `contrib/code/scandoubler.v` with `contrib/code/scandoubler_fix.patch` (the 9-machine
+  fleet copy). Replaces the two-clock DECA `vga_scandoubler.v` (2026-10-05, §2).
+- `clk_sys = clk_core`, `ce_x1 = ce6` (6.144 MHz pixel), `ce_x2 = ce12` (exactly 2x).
+- Core 3+3+2-bit video zero-extended to 6 bits and gated on `blankn` before the doubler;
+  6-bit output reduced to the 4-bit connector (`(5 downto 2)`).
+- Core `video_hs`/`video_vs` are active-low and fed directly; the doubler replicates
+  hsync at 2x (active-low out) and passes vsync through.
+- `sw(13)`: 0 = scandoubler output, 1 = 15 kHz TV (native RGB gated on `blankn`,
+  `csync` on HS, VS high), fleet convention.
 
 ## 6. Audio (mono PWM on PmodAMP2)
 
-- Keep the same PWM accumulator clocked on `clock_14`.
+- PWM accumulator on `clk_core`, enabled by `ce14` (same rate as the former `clock_14`).
 - Drive the mono `O_PMODAMP2_AIN` (the DE10 had dual `pwm_audio_out_l/r`).
 - `sw14` → `O_PMODAMP2_SHUTD` (sound enable), `sw15` → `O_PMODAMP2_GAIN` (gain select).
 
 ## 7. Inputs
 
-- Keep the PS/2 keyboard (`io_ps2_keyboard`) + `kbd_joystick` on `clock_6`.
+- PS/2 keyboard (`io_ps2_keyboard`) + `kbd_joystick` on `clk_core`; JA and buttons pass a
+  2-FF synchronizer (`ASYNC_REG`).
+  PS/2 `ps2_clk`/`ps2_dat` also pass the 2-FF synchronizer. Evaluation 2026-10-05 (user):
+  with raw PS/2 at 24.57 MHz the Time-Pilot keyboard misbehaved and Pooyan showed no fault;
+  the synchronizer was re-instated on both.
 - OR-merge the JA Atari-style joystick with the keyboard path. JA is active-low (press shorts
   to ground), so it is inverted (`not JA`) to read active-high, matching the core's active-high
   input boundary and the keyboard path.

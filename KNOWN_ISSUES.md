@@ -32,31 +32,6 @@ Entry format:
   Phoenix patches).
 - **Status**: open, deferred (user, 2026-10-02).
 
-### Time-Pilot-by-Dar, Pooyan-by-Dar: intermittent sync failure after reset (~50%)
-- **Reported**: 2026-10-01 (user, hardware; builds of 2026-10-01 with the `locked`
-  reset convention, Time-Pilot also with the 263-line patch)
-- **Symptom**: press btnC, watch for sync; the display fails to sync on about half of
-  the resets (Time-Pilot: 4 of 5 in one count). Same behavior on both machines. Extends the existing Pooyan entry below.
-- **Tried**: n/a.
-- **Candidate cause** (by inspection, not confirmed): the wrapper and the core each
-  toggle their own `clock_6` from `clock_12` with no common reset, so the DECA
-  scandoubler (`clkvideo` = wrapper copy) and the core (core copy) start in phase or
-  180 degrees apart depending on reset timing. A coin-flip per reset matches the ~50%
-  rate. `CLOCKING_SPEC.md` section 5.1 (proposed fix: drive the doubler from the
-  core's own `clock_6`).
-- **Status**: open, deferred (user, 2026-10-01).
-- **Earlier Pooyan record** (merged 2026-10-02 from the 2026-09-25 entry):
-  - **Reported**: 2026-09-25
-  - **Symptom**: the double-scanner (`vga_scandoubler.v`, the canonical DECA
-    cleanroom import) doesn't always sync up on real hardware -- an intermittent
-    clocking issue, not yet characterized. Observed alongside the hardware
-    confirmation of the USB-HID keyboard fix (unrelated: the USB-HID change was
-    XDC-only, no clocking touched).
-  - **Tried**: n/a -- not yet investigated.
-  - **Status**: open, todo -- needs further hardware investigation to characterize
-    the intermittency (e.g. cold-start vs. warm reset, sw(13) 31 kHz/15 kHz mode
-    correlation, `clock_12`/`clock_6`/`clock_14` MMCM lock timing).
-
 ### Tron-by-Dar: bottom horizontal line shows flickering junk
 - **Reported**: 2026-10-01 (user, hardware)
 - **Symptom**: the bottom scan line of the picture shows flickering garbage.
@@ -78,6 +53,39 @@ Entry format:
 - **Status**: open
 
 ## Fixed
+
+### Time-Pilot-by-Dar, Pooyan-by-Dar: intermittent sync failure after reset (~50%)
+- **Reported**: 2026-10-01 (user, hardware; builds of 2026-10-01 with the `locked`
+  reset convention, Time-Pilot also with the 263-line patch)
+- **Symptom**: press btnC, watch for sync; the display fails to sync on about half of
+  the resets (Time-Pilot: 4 of 5 in one count). Same behavior on both machines. Extends the existing Pooyan entry below.
+- **Tried**: n/a.
+- **Candidate cause** (by inspection, not confirmed): the wrapper and the core each
+  toggle their own `clock_6` from `clock_12` with no common reset, so the DECA
+  scandoubler (`clkvideo` = wrapper copy) and the core (core copy) start in phase or
+  180 degrees apart depending on reset timing. A coin-flip per reset matches the ~50%
+  rate. `CLOCKING_SPEC.md` section 5.1 (proposed fix: drive the doubler from the
+  core's own `clock_6`).
+- **Status**: fixed 2026-10-05 (hardware-confirmed on both machines, user). Fixed by the
+  combined change below (single clock domain + MiST scandoubler); per-cause attribution not
+  tested (`CLOCKING_SPEC.md` 5.1). History: open, deferred (user, 2026-10-01). Re-observed 2026-10-05 (user, both
+  machines). Survey 2026-10-05: 9 clock nets per machine, Vivado `no_clock` on the
+  register-derived clocks, so the core-to-doubler path is untimed. Fix in progress
+  (user decision: single domain): Pooyan converted 2026-10-05 (one `clk_core`,
+  enables, MiST scandoubler; `Pooyan-by-Dar/contrib/basys3/PORTING_SPEC.md`
+  section 2), hardware-confirmed 2026-10-05 (user). Time-Pilot converted the same day
+  (`Time-Pilot-by-Dar/contrib/code/time_pilot_single_domain.patch`), hardware-confirmed 2026-10-05 (user).
+- **Earlier Pooyan record** (merged 2026-10-02 from the 2026-09-25 entry):
+  - **Reported**: 2026-09-25
+  - **Symptom**: the double-scanner (`vga_scandoubler.v`, the canonical DECA
+    cleanroom import) doesn't always sync up on real hardware -- an intermittent
+    clocking issue, not yet characterized. Observed alongside the hardware
+    confirmation of the USB-HID keyboard fix (unrelated: the USB-HID change was
+    XDC-only, no clocking touched).
+  - **Tried**: n/a -- not yet investigated.
+  - **Status** (superseded, see above): open, todo -- needed further hardware investigation to characterize
+    the intermittency (e.g. cold-start vs. warm reset, sw(13) 31 kHz/15 kHz mode
+    correlation, `clock_12`/`clock_6`/`clock_14` MMCM lock timing).
 
 ### Bagman, Berzerk, Galaga-Midway, Kick-Midway-MCR, Popeye, Solar-Fox, Tron, Zaxxon: video columns clipping on Eyoyo EM08F
 - **Reported**: 2026-09-25 (user, hardware; eight separate entries, merged here)

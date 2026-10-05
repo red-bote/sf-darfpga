@@ -1,7 +1,7 @@
 diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 --- a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 +++ b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
-@@ -1,354 +1,238 @@
+@@ -1,354 +1,329 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Pooyan by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
@@ -363,11 +363,20 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +-- Basys3 port by Red~Bote.
 +--
 +-- Ported from pooyan_de10_lite.vhd (DE10-lite rev 02 26/04/2020):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12.288 MHz / 14.318 MHz
-+--  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
++--  - Single clock domain (2026-10-05, contrib/basys3/PORTING_SPEC.md section 2):
++--    clk_wiz_0 derives clk_core = 24.573991 MHz (2 x 12.287 MHz) from the
++--    100 MHz oscillator. The former clock_12 / clock_6 / clock_6n / clock_12n
++--    edges are clock enables from a 2-bit phase counter; the former 14.318 MHz
++--    sound clock is a phase-accumulator enable (ce14). Core and sound board are
++--    patched to use them (contrib/basys3/code/pooyan_single_domain.patch).
++--  - Atari-style joystick on JA, OR-merged with the PS/2 keyboard (onboard USB-HID)
 +--  - Mono PWM audio on PmodAMP2 (JC); sw14 = sound enable, sw15 = gain select
-+--  - 31 kHz VGA on the Basys3 VGA connector via vga_scandoubler; sw(13) = 1 selects 15 kHz TV
-+--    (scandoubler bypass: native RGB, csync on HS, VS high; 2026-10-02)
++--  - 31 kHz VGA via the MiST scandoubler (clk_sys = clk_core, ce_x1 = ce6,
++--    ce_x2 = ce12); sw(13) = 1 selects 15 kHz TV (native RGB, csync on HS,
++--    VS high)
++--  - PS/2, JA and pushbuttons pass a 2-FF synchronizer into clk_core (PS/2
++--    synchronizer re-instated 2026-10-05 after a raw-input evaluation, PORTING_SPEC
++--    section 7)
 +--  - btnC = reset
 +---------------------------------------------------------------------------------
 +-- Educational use only
@@ -410,11 +419,47 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +
 +architecture struct of pooyan_basys3 is
 +
-+ signal clock_12  : std_logic;
-+ signal clock_14  : std_logic;
-+ signal reset     : std_logic;
++ component scandoubler
++     port (
++         clk_sys   : in  std_logic;
++         scanlines : in  std_logic_vector(1 downto 0);
++         ce_x1     : in  std_logic;
++         ce_x2     : in  std_logic;
++         hs_in     : in  std_logic;
++         vs_in     : in  std_logic;
++         r_in      : in  std_logic_vector(5 downto 0);
++         g_in      : in  std_logic_vector(5 downto 0);
++         b_in      : in  std_logic_vector(5 downto 0);
++         hs_out    : out std_logic;
++         vs_out    : out std_logic;
++         r_out     : out std_logic_vector(5 downto 0);
++         g_out     : out std_logic_vector(5 downto 0);
++         b_out     : out std_logic_vector(5 downto 0)
++     );
++ end component;
++
++ signal clk_core    : std_logic;  -- 24.573991 MHz, the only clock
 + signal mmcm_locked : std_logic;
-+ signal clock_6   : std_logic;
++ signal reset_s     : std_logic_vector(1 downto 0) := "11";
++ signal reset       : std_logic;
++ attribute ASYNC_REG : string;
++ attribute ASYNC_REG of reset_s : signal is "TRUE";
++
++ -- Phase counter: 4 clk_core edges per former 6 MHz period.
++ --   e0 = clock_6 rising (end of ph="11"), e1 = clock_12 falling (ph="00"),
++ --   e2 = clock_6 falling (ph="01"),       e3 = clock_12 falling (ph="10").
++ signal ph       : std_logic_vector(1 downto 0) := "00";
++ signal ce6      : std_logic;  -- e0
++ signal ce6n     : std_logic;  -- e2
++ signal ce12     : std_logic;  -- e0, e2
++ signal ce12n    : std_logic;  -- e1, e3
++ signal clk6_lvl : std_logic;  -- former clock_6 level: '1' from e0 to e2
++
++ -- 14.318181 MHz sound enable: 20-bit phase accumulator,
++ -- 610959 / 2^20 x 24.573991 MHz = 14.318181 MHz (-0.06 ppm vs 315/22 MHz).
++ constant CE14_INC : unsigned(20 downto 0) := to_unsigned(610959, 21);
++ signal ce14_acc  : unsigned(20 downto 0) := (others => '0');
++ signal ce14      : std_logic;
 +
 + signal r         : std_logic_vector(2 downto 0);
 + signal g         : std_logic_vector(2 downto 0);
@@ -426,6 +471,8 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +
 + signal audio           : std_logic_vector(10 downto 0);
 + signal pwm_accumulator : std_logic_vector(12 downto 0);
++ signal pwm_prev        : std_logic_vector(12 downto 0);  -- '0' & accumulator(11:0)
++ signal audio_x4        : std_logic_vector(12 downto 0);  -- audio & "00"
 +
 + signal vga_ro    : std_logic_vector(5 downto 0);
 + signal vga_go    : std_logic_vector(5 downto 0);
@@ -437,8 +484,13 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + signal video_gi  : std_logic_vector(5 downto 0);
 + signal video_bi  : std_logic_vector(5 downto 0);
 +
-+ signal enable_scandoubling : std_logic;
-+ signal disable_scaneffect  : std_logic;
++ -- PS/2, JA(4 downto 0) and btnR/btnL/btnU, 2-FF synchronized (index 1 = output).
++ signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
++ type in_sync_t is array (1 downto 0) of std_logic_vector(7 downto 0);
++ signal in_s : in_sync_t := (others => (others => '1'));
++ attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
++ signal ja_s      : std_logic_vector(4 downto 0);
++ signal btnU_s, btnL_s, btnR_s : std_logic;
 +
 + signal kbd_intr      : std_logic;
 + signal kbd_scancode  : std_logic_vector(7 downto 0);
@@ -449,23 +501,57 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +
 +begin
 +
-+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
-+
-+-- Clock 12.288MHz for pooyan core, 14.318MHz for sound_board (from 100 MHz)
++-- 100 MHz -> clk_core 24.573991 MHz (single output)
 +clocks : entity work.clk_wiz_0
 +port map(
 + clk_in1  => clk,
-+ clk_out1 => clock_12,
-+ clk_out2 => clock_14,
++ clk_out1 => clk_core,
 + reset    => btnC,
 + locked   => mmcm_locked
 +);
 +
++-- Core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6);
++-- asserted asynchronously, released synchronously to clk_core.
++process (clk_core, btnC, mmcm_locked)
++begin
++	if btnC = '1' or mmcm_locked = '0' then
++		reset_s <= "11";
++	elsif rising_edge(clk_core) then
++		reset_s <= reset_s(0) & '0';
++	end if;
++end process;
++reset <= reset_s(1);
++
++-- Clock enables
++process (clk_core)
++begin
++	if rising_edge(clk_core) then
++		if reset = '1' then
++			ph <= "00";
++		else
++			ph <= ph + '1';
++		end if;
++		ce14_acc <= ('0' & ce14_acc(19 downto 0)) + CE14_INC;
++	end if;
++end process;
++
++ce6      <= '1' when ph = "11" else '0';
++ce6n     <= '1' when ph = "01" else '0';
++ce12     <= ph(0);
++ce12n    <= not ph(0);
++clk6_lvl <= not ph(1);
++ce14     <= ce14_acc(20);
++
 +-- Pooyan
 +pooyan : entity work.pooyan
 +port map(
-+ clock_12   => clock_12,
-+ clock_14   => clock_14,
++ clk_core   => clk_core,
++ ce6        => ce6,
++ ce6n       => ce6n,
++ ce12       => ce12,
++ ce12n      => ce12n,
++ clk6_lvl   => clk6_lvl,
++ ce14       => ce14,
 + reset      => reset,
 +
 + video_r      => r,
@@ -499,59 +585,59 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + dbg_cpu_addr => dbg_cpu_addr
 +);
 +
-+-- 31 kHz VGA via scan doubler (canonical import, never modify)
-+-- clkvideo = clock_6 (halved core clock), clkvga = clock_12 -> ~2x read ratio
-+-- RGB gated on blankn to keep black during blank (as the DE10 top did)
++-- 31 kHz VGA via the MiST scandoubler; RGB gated on blankn (black during blank).
 +video_ri <= (r & "000")  when blankn = '1' else "000000";
 +video_gi <= (g & "000")  when blankn = '1' else "000000";
 +video_bi <= (b & "0000") when blankn = '1' else "000000";
 +
-+enable_scandoubling <= not sw(13);  -- sw(13): 0 = 31 kHz VGA, 1 = 15 kHz TV (native RGB, csync on HS, VS high); added 2026-10-02
-+disable_scaneffect  <= '1';
-+
-+scandoubler : entity work.vga_scandoubler
++scandoubler_inst : scandoubler
 +port map(
-+ clkvideo            => clock_6,
-+ clkvga              => clock_12,
-+ enable_scandoubling => enable_scandoubling,
-+ disable_scaneffect  => disable_scaneffect,
-+ ri                  => video_ri,
-+ gi                  => video_gi,
-+ bi                  => video_bi,
-+ hsync_ext_n         => hsync,
-+ vsync_ext_n         => vsync,
-+ csync_ext_n         => csync,
-+ ro                  => vga_ro,
-+ go                  => vga_go,
-+ bo                  => vga_bo,
-+ hsync               => vga_hs_o,
-+ vsync               => vga_vs_o
++ clk_sys   => clk_core,
++ scanlines => "00",
++ ce_x1     => ce6,    -- 6.1435 MHz pixel enable
++ ce_x2     => ce12,   -- exactly 2 x ce_x1
++ hs_in     => hsync,
++ vs_in     => vsync,
++ r_in      => video_ri,
++ g_in      => video_gi,
++ b_in      => video_bi,
++ hs_out    => vga_hs_o,
++ vs_out    => vga_vs_o,
++ r_out     => vga_ro,
++ g_out     => vga_go,
++ b_out     => vga_bo
 +);
 +
-+-- adapt 6-bit scan-doubled output to 4bits/color
-+vga_r <= vga_ro(5 downto 2);
-+vga_g <= vga_go(5 downto 2);
-+vga_b <= vga_bo(5 downto 2);
-+vga_hs <= vga_hs_o;
-+vga_vs <= vga_vs_o;
++-- Display mode via sw(13): 0 = 31 kHz VGA (scandoubler), 1 = 15 kHz TV
++-- (native RGB gated on blankn, csync on HS, VS high).
++vga_r  <= vga_ro(5 downto 2) when sw(13) = '0' else video_ri(5 downto 2);
++vga_g  <= vga_go(5 downto 2) when sw(13) = '0' else video_gi(5 downto 2);
++vga_b  <= vga_bo(5 downto 2) when sw(13) = '0' else video_bi(5 downto 2);
++vga_hs <= vga_hs_o           when sw(13) = '0' else csync;
++vga_vs <= vga_vs_o           when sw(13) = '0' else '1';
 +
-+-- get scancode from keyboard
-+process (reset, clock_12)
++-- Input synchronizers (2-FF) into clk_core
++process (clk_core)
 +begin
-+	if reset='1' then
-+		clock_6  <= '0';
-+	else
-+		if rising_edge(clock_12) then
-+				clock_6  <= not clock_6;
-+		end if;
++	if rising_edge(clk_core) then
++		ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
++		ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
++		in_s(0)   <= btnR & btnL & btnU & JA;
++		in_s(1)   <= in_s(0);
 +	end if;
 +end process;
 +
++ja_s   <= in_s(1)(4 downto 0);
++btnU_s <= in_s(1)(5);
++btnL_s <= in_s(1)(6);
++btnR_s <= in_s(1)(7);
++
++-- get scancode from keyboard
 +keyboard : entity work.io_ps2_keyboard
 +port map (
-+  clk       => clock_6, -- synchrounous clock with core
-+  kbd_clk   => ps2_clk,
-+  kbd_dat   => ps2_dat,
++  clk       => clk_core,
++  kbd_clk   => ps2_clk_s(1),
++  kbd_dat   => ps2_dat_s(1),
 +  interrupt => kbd_intr,
 +  scancode  => kbd_scancode
 +);
@@ -559,7 +645,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +-- translate scancode to joystick
 +joystick : entity work.kbd_joystick
 +port map (
-+  clk           => clock_6, -- synchrounous clock with core
++  clk           => clk_core,
 +  kbdint        => kbd_intr,
 +  kbdscancode   => std_logic_vector(kbd_scancode),
 +  joyPCFRLDU    => kbd_joy
@@ -572,20 +658,25 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +-- core's active-high input boundary and the keyboard path.
 +-- Coin/start come from the keyboard and btnU/btnL/btnR
 +-- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
-+joyPCFRLDU(0) <= kbd_joy(0) or not JA(3);                 -- up    (JA4)
-+joyPCFRLDU(1) <= kbd_joy(1) or not JA(2);                 -- down  (JA3)
-+joyPCFRLDU(2) <= kbd_joy(2) or not JA(1);                 -- left  (JA2)
-+joyPCFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right (JA1)
-+joyPCFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire  (JA7)
-+joyPCFRLDU(5) <= kbd_joy(5) or btnU; -- coin   = btnU
-+joyPCFRLDU(6) <= kbd_joy(6) or btnL; -- start1 = btnL
-+joyPCFRLDU(7) <= kbd_joy(7) or btnR; -- start2 = btnR
++joyPCFRLDU(0) <= kbd_joy(0) or not ja_s(3);               -- up    (JA4)
++joyPCFRLDU(1) <= kbd_joy(1) or not ja_s(2);               -- down  (JA3)
++joyPCFRLDU(2) <= kbd_joy(2) or not ja_s(1);               -- left  (JA2)
++joyPCFRLDU(3) <= kbd_joy(3) or not ja_s(0);               -- right (JA1)
++joyPCFRLDU(4) <= kbd_joy(4) or not ja_s(4);               -- fire  (JA7)
++joyPCFRLDU(5) <= kbd_joy(5) or btnU_s; -- coin   = btnU
++joyPCFRLDU(6) <= kbd_joy(6) or btnL_s; -- start1 = btnL
++joyPCFRLDU(7) <= kbd_joy(7) or btnR_s; -- start2 = btnR
 +
-+-- pwm sound output
-+process(clock_14)  -- use same clock as pooyan_sound_board
++-- pwm sound output (accumulates at the former clock_14 rate)
++-- (concatenations assigned to typed signals first: inside a type conversion the
++--  result type of '&' is ambiguous with numeric_std and std_logic_unsigned visible)
++pwm_prev <= '0' & pwm_accumulator(11 downto 0);
++audio_x4 <= audio & "00";
++
++process(clk_core)
 +begin
-+  if rising_edge(clock_14) then
-+    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned(audio & "00"));
++  if rising_edge(clk_core) and ce14 = '1' then
++    pwm_accumulator  <=  std_logic_vector(unsigned(pwm_prev) + unsigned(audio_x4));
 +  end if;
 +end process;
 +
