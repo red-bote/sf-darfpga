@@ -47,8 +47,8 @@ The ported `.xpr` and `.xdc` derive from the sample project.
 
 Steps must run in order. From the machine directory:
 
-1. `make setup` — fetches Dar source archive into the gitignored `dloads/`
-   cache (SHA-256 verified), extracts it, applies synthesis-fix patches,
+1. `make setup` — uses the Dar source archive in `dloads/` (tracked in git;
+   fetched from SourceForge only if missing or the SHA-256 differs), extracts it, applies synthesis-fix patches,
    compiles `make_vhdl_prom`, converts the `.bat` to `.sh`, stages romsets,
    generates PROM VHDL.
 2. `make create_prj` — `contrib/basys3/vivado/create_project.sh` lays down the

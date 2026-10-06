@@ -84,7 +84,7 @@ Buttons (active-low, switch to GND):
 ## Scripted setup
 
 `contrib/tools/setup_burnin_rubber.sh` automates the manual steps below: it
-fetches the Dar archive into the gitignored `dloads/` cache (reused when its
+fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_burnin_rubber_rev_0_0_2017_12_22/`, applies
 `contrib/code/burnin_rubber_vsync_before_vblank.patch` (see Known issues

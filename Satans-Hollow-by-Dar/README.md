@@ -69,7 +69,7 @@ JA fire drives fire1; JA4 drives fire2 (shield), OR-merged with keyboard Up.
 ## Scripted setup
 
 `contrib/tools/setup_satans_hollow.sh` automates the manual steps below: it
-fetches the Dar archive into the gitignored `dloads/` cache (reused when its
+fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_satans_hollow_rev_0_2_2019_11_22/`, applies any
 fix patches idempotently (none are needed for this core), then runs

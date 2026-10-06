@@ -53,7 +53,7 @@ JA joystick (active-low, switch to GND):
 ## Scripted setup
 
 `contrib/tools/setup_bagman.sh` automates the manual steps below: it fetches the
-Dar archive into the gitignored `dloads/` cache (reused when its SHA-256 matches
+Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256 matches
 the hash embedded in the script; re-downloaded when missing or tampered),
 extracts it as `vhdl_bagman_rev_0_1_2018_06_05/`, applies
 `contrib/code/bagman_xor_width.patch`, then runs `contrib/tools/prep_roms.sh` to

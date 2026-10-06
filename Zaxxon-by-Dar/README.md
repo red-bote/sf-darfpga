@@ -80,7 +80,7 @@ Buttons (active-high, Basys3 board pull-down, same convention as btnC):
 ## Scripted setup
 
 `contrib/tools/setup_zaxxon.sh` automates the manual steps below: it fetches
-the Dar archive into the gitignored `dloads/` cache (reused when its SHA-256
+the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_zaxxon_rev_0_0_2019_11_29/`, applies
 `contrib/code/zaxxon_hflip_xor_width.patch` and

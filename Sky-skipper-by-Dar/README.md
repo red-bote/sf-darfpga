@@ -79,7 +79,7 @@ pristine DE10 top; the board switches are not wired to them.
 ## Scripted setup
 
 `contrib/tools/setup_sky_skipper.sh` automates the manual steps below: it
-fetches the Dar archive into the gitignored `dloads/` cache (reused when its
+fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_sky_skipper_rev_01_2020_01_28/`, applies any
 fix patches idempotently (none are needed for this core), then runs

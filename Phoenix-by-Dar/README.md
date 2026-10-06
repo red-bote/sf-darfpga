@@ -64,7 +64,7 @@ archive for the original Dar release notes.
 ## Scripted setup
 
 `contrib/tools/setup_phoenix.sh` automates the manual steps below: it
-fetches the Dar archive into the gitignored `dloads/` cache (reused when its
+fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing
 or tampered), extracts it as `vhdl_phoenix_DE10_lite/` (the archive has no
 internal top-level folder, unlike every other machine's), applies the fix

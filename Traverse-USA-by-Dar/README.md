@@ -82,7 +82,7 @@ Buttons (active-high, Basys3 board pull-down, same convention as btnC):
 ## Scripted setup
 
 `contrib/tools/setup_traverse_usa.sh` automates the manual steps below: it
-fetches the Dar archive into the gitignored `dloads/` cache (reused when its
+fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
 SHA-256 matches the hash embedded in the script; re-downloaded when missing
 or tampered), extracts it as `vhdl_traverse_usa_rev_0_0_2019_03_16/`, applies
 `contrib/code/traverse_usa_expose_video_timing.patch`, then runs

@@ -75,7 +75,7 @@ pristine DE10 top's `b_test => '1'`, `b_svce => '1'`.
 ## Scripted setup
 
 `contrib/tools/setup_xevious.sh` automates the manual steps: it fetches the
-Dar archive into the gitignored `dloads/` cache (reused when its SHA-256
+Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_xevious_de2_de10_lite_2017_05_01/`, applies
 the fix patches, then runs `contrib/tools/prep_roms.sh` to compile

@@ -35,7 +35,7 @@ skills: `xpr-dependency-closure` (.xpr authoring), `romset-forensics`
 Clone an existing one (`Bagman-FPGA-Dar/contrib/tools/setup_bagman.sh` is the
 minimal reference). Structure:
 
-1. `fetch_zip`: cache into `<machine>/dloads/` (gitignored); reuse only if the
+1. `fetch_zip`: cache into `<machine>/dloads/` (tracked in git for sf-darfpga machines; commit a new archive there); reuse only if the
    embedded SHA-256 matches; re-download and re-verify otherwise; hard-fail on
    mismatch after download.
 2. Extract into the repo root as `$SRC_DIR/`.

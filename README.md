@@ -82,8 +82,8 @@ mono left-channel PWM audio). See the machine `README.md`/`PORTING_SPEC.md`
 for the romset/PROM and controls detail.
 
 Every machine directory now carries a scripted setup: `contrib/tools/setup_<game>.sh`
-(fetches the Dar archive into a gitignored `dloads/` cache with an embedded
-SHA-256 check, extracts it, applies any synthesis-fix patches) chaining into
+(uses the Dar archive in `dloads/`, tracked in git and fetched from SourceForge
+only if missing or the embedded SHA-256 check fails, extracts it, applies any synthesis-fix patches) chaining into
 `contrib/tools/prep_roms.sh` (compiles `make_vhdl_prom`, converts the
 `make_<game>_proms.bat`, stages the romset(s), generates the PROM VHDL), plus a
 `Makefile` wrapping both. Computer Space is the exception: it is a
@@ -134,9 +134,9 @@ Per machine, from its own directory (see the machine's `README.md` for the exact
 file names, MMCM constants, and verify commands):
 
 1. **Run `make setup`** (or `contrib/tools/setup_<game>.sh` directly). This
-   fetches the Dar source archive into the machine's gitignored `dloads/` cache
-   (SHA-256 verified against the hash embedded in the script; re-downloaded when
-   missing or tampered), extracts it as `vhdl_<machine>_rev_.../`, applies any
+   uses the Dar source archive in the machine's `dloads/` (tracked in git;
+   SHA-256 verified against the hash embedded in the script; re-downloaded from
+   SourceForge when missing or tampered), extracts it as `vhdl_<machine>_rev_.../`, applies any
    synthesis-fix patches, and chains into `contrib/tools/prep_roms.sh`, which
    compiles `make_vhdl_prom`, converts `make_<game>_proms.bat` to `.sh`, stages
    the romset(s) from `$ROMZIP`/`$ROMZIP2` (default `~/roms/<set>.zip`), and

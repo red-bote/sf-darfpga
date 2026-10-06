@@ -57,7 +57,7 @@ placement-proven port list).
 ## Scripted setup
 
 `contrib/tools/setup_berzerk.sh` automates the manual steps below: it fetches
-the Dar archive into the gitignored `dloads/` cache (reused when its SHA-256
+the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_berzerk_rev_0_1_2018_08_08/`, applies
 `contrib/code/berzerk_reset_sensitivity.patch`, then runs

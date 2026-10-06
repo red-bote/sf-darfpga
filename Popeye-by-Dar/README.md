@@ -62,7 +62,7 @@ JA joystick (active-low, switch to GND):
 ## Scripted setup
 
 `contrib/tools/setup_popeye.sh` automates the manual steps below: it fetches the
-Dar archive into the gitignored `dloads/` cache (reused when its SHA-256 matches
+Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256 matches
 the hash embedded in the script; re-downloaded when missing or tampered),
 extracts it as `vhdl_popeye_rev_0_3_2020_01_27/`, applies
 `contrib/code/popeye_linmix_sensitivity.patch`, then runs

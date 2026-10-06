@@ -28,6 +28,8 @@
 
 # Copyrighted MAME-derived content is never committed — extra safety net
 *.zip
+# Upstream Dar archives are tracked (2026-10-06); romset zips stay ignored.
+!*/dloads/*.zip
 
 # Vivado build junk (keep .xpr/.xdc/.vhd sources visible)
 **/.runs/

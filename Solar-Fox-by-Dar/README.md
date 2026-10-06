@@ -64,7 +64,7 @@ JA joystick (active-low, switch to GND):
 ## Scripted setup
 
 `contrib/tools/setup_solar_fox.sh` automates the manual steps below: it fetches
-the Dar archive into the gitignored `dloads/` cache (reused when its SHA-256
+the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
 matches the hash embedded in the script; re-downloaded when missing or
 tampered), extracts it as `vhdl_solar_fox_rev_0_1_2019_11_22/`, then runs
 `contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
