@@ -1,0 +1,617 @@
+diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/gen_ram.vhd b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/gen_ram.vhd
+--- a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/gen_ram.vhd
++++ b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/gen_ram.vhd
+@@ -33,6 +33,7 @@
+ 	);
+ 	port (
+ 		clk : in std_logic;
++		ce : in std_logic := '1'; -- Basys3: single clk_core domain clock enable (write and read)
+ 		we : in std_logic;
+ 		addr : in std_logic_vector((aWidth-1) downto 0);
+ 		d : in std_logic_vector((dWidth-1) downto 0);
+@@ -61,7 +62,7 @@
+ 	process(clk)
+ 	begin
+ 		if rising_edge(clk) then
+-			if we = '1' then
++			if we = '1' and ce = '1' then
+ 				ram(to_integer(unsigned(addr))) <= d;
+ 			end if;
+ 		end if;
+@@ -76,7 +77,7 @@
+ --			qReg <= ram(to_integer(unsigned(rAddrReg)));
+ --			rAddrReg <= addr;
+ ----			qReg <= ram(to_integer(unsigned(addr)));
+-      q <= ram(to_integer(unsigned(addr)));
++      if ce = '1' then q <= ram(to_integer(unsigned(addr))); end if;
+ 		end if;
+ 	end process;
+ --q <= ram(to_integer(unsigned(addr)));
+diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd
+--- a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd
++++ b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd
+@@ -81,8 +81,13 @@
+ 
+ entity time_pilot is
+ port(
+- clock_12     : in std_logic;
+- clock_14     : in std_logic;
++ clk_core     : in std_logic; -- Basys3: single clk_core domain (2 x 12.288 MHz)
++ ce6          : in std_logic;  -- former clock_6 rising (e0)
++ ce6n         : in std_logic;  -- former clock_6 falling (e2)
++ ce12         : in std_logic;  -- former clock_12 rising (e0, e2)
++ ce12n        : in std_logic;  -- former clock_12 falling (e1, e3)
++ clk6_lvl     : in std_logic;  -- former clock_6 level (1 from e0 to e2)
++ ce14         : in std_logic;  -- former clock_14 rising (sound board)
+  reset        : in std_logic;
+ -- tv15Khz_mode : in std_logic;
+  video_r        : out std_logic_vector(4 downto 0);
+@@ -121,9 +126,7 @@
+ architecture struct of time_pilot is
+ 
+  signal reset_n: std_logic;
+- signal clock_12n : std_logic;
+- signal clock_6   : std_logic := '0';
+- signal clock_6n  : std_logic;
++ signal cpu_cen   : std_logic; -- Basys3: single clk_core domain
+  signal clock_div : std_logic_vector(1 downto 0) := "00";
+ 
+  signal hcnt    : std_logic_vector(5 downto 0); -- horizontal counter
+@@ -213,35 +216,50 @@
+  signal sound_cmd  : std_logic_vector(7 downto 0);
+  signal sound_trig : std_logic;
+  
++ signal ch_graphx_addr_h, ch_graphx_addr_m     : std_logic_vector(12 downto 0); -- Basys3: single clk_core domain
++ signal ch_palette_addr_h, ch_palette_addr_m   : std_logic_vector(7 downto 0);
++ signal sp_graphx_addr_h, sp_graphx_addr_m     : std_logic_vector(13 downto 0);
++ signal sp_palette_addr_h, sp_palette_addr_m   : std_logic_vector(7 downto 0);
++ signal rgb_palette_addr_h, rgb_palette_addr_m : std_logic_vector(4 downto 0);
++
+  signal input_0       : std_logic_vector(7 downto 0);
+  signal input_1       : std_logic_vector(7 downto 0);
+  signal input_2       : std_logic_vector(7 downto 0);
+ 
+ begin
+ 
+-clock_12n <= not clock_12;
+-clock_6n  <= not clock_6;
+ reset_n   <= not reset;
+ 
++-- Basys3 single domain: the PROM entities (make_vhdl_prom) have a registered
++-- read and no enable port. Hold their address between ce6 edges so the
++-- registered output changes only at the former clock_6 rising edge.
++process (clk_core)
++begin
++	if rising_edge(clk_core) and ce6 = '1' then
++		ch_graphx_addr_h   <= ch_graphx_addr;
++		ch_palette_addr_h  <= ch_palette_addr;
++		sp_graphx_addr_h   <= sp_graphx_addr;
++		sp_palette_addr_h  <= sp_palette_addr;
++		rgb_palette_addr_h <= rgb_palette_addr;
++	end if;
++end process;
++
++ch_graphx_addr_m   <= ch_graphx_addr   when ce6 = '1' else ch_graphx_addr_h;
++ch_palette_addr_m  <= ch_palette_addr  when ce6 = '1' else ch_palette_addr_h;
++sp_graphx_addr_m   <= sp_graphx_addr   when ce6 = '1' else sp_graphx_addr_h;
++sp_palette_addr_m  <= sp_palette_addr  when ce6 = '1' else sp_palette_addr_h;
++rgb_palette_addr_m <= rgb_palette_addr when ce6 = '1' else rgb_palette_addr_h;
++
+ -- debug 
+-process (reset, clock_12)
++process (clk_core)
+ begin
+- if rising_edge(clock_12) and cpu_ena ='1' and cpu_mreq_n ='0' then
++ if rising_edge(clk_core) and ce12 = '1' and cpu_ena ='1' and cpu_mreq_n ='0' then
+    dbg_cpu_addr <= cpu_addr;
+  end if;
+ end process;
+ 
+ -- make 6MHz clock from 12MHz
+-process (clock_12)
+-begin
+-	if reset='1' then
+-		clock_6  <= '0';
+-	else 
+-		if rising_edge(clock_12) then
+-			clock_6  <= not clock_6;
+-		end if;
+-	end if;   		
+-end process;
++-- 6MHz clock: replaced by the ce6/ce6n/clk6_lvl enables from the Basys3 wrapper
+ 
+ 
+ --------------------------
+@@ -258,7 +276,7 @@
+ --  hcnt [0..47] => 48 x 8 = 384 pixels,  384/6.144Mhz => 1 line is 62.5us (16.000KHz)
+ --  vcnt [252..255,256..511] => 260 lines, 1 frame is 260 x 62.5us = 16.250ms (61.54Hz)
+ 
+-process (reset, clock_6)
++process (reset, clk_core)
+ begin
+ 	if reset='1' then
+ 		pxcnt <= "000";
+@@ -266,7 +284,7 @@
+ 		vcnt  <= '0'&X"FC";	
+ 		spcnt <= "00000";
+ 	else 
+-		if rising_edge(clock_6) then
++		if rising_edge(clk_core) and ce6 = '1' then
+ 			pxcnt <= pxcnt + '1';
+ 			if pxcnt = "111" then
+ 				hcnt <= hcnt + '1';
+@@ -355,9 +373,9 @@
+ C3xx_we   <= '1' when cpu_wr_n = '0' and cpu_ena = '1' and cpu_addr(15 downto 12) = X"C" and cpu_addr(9 downto 8) = "11" else '0';
+ 
+ -- Misc registers : interrupt enable/clear, cocktail flip, sound trigger
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 		if C0xx_we = '1' then
+ 			sound_cmd <= cpu_do;
+ 		end if;
+@@ -386,9 +404,9 @@
+ 
+ -- latch current sprite data with respect to pixel and hcnt in relation
+ -- with sprite data ram addressing  
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 	
+ 		if (hcnt(0) = '0') and (pxcnt = "001") then
+ 			sp_posh <= spram1_do ; -- a.k.a. X
+@@ -427,9 +445,9 @@
+ 							
+ -- latch and shift sprite graphics data with respect to flipx control
+ -- 8bits => 4x2bits = 4pixels / 4colors (3colors + transparent)
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 	
+ 		if pxcnt(1 downto 0) = "00" then
+ 			if sp_on_line = '1' then
+@@ -455,9 +473,9 @@
+ sp_palette_addr <= sp_color_set & sp_pixels(3) & sp_pixels(7);
+ 
+ -- write sprite to line buffer at posh position
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 		if hcnt(0) = '0' and pxcnt = "101" then
+ 			sp_buffer_write_addr <= sp_posh;
+ 		else
+@@ -470,13 +488,13 @@
+ sp_buffer_write_we <= '0' when sp_palette_do = "0000" else '1';
+ 
+ -- read sprite line buffer and erase after read
+-process (clock_12)
++process (clk_core)
+ begin
+-	if rising_edge(clock_12) then
++	if rising_edge(clk_core) and ce12 = '1' then
+ 		if hcnt = "101111" and pxcnt = "111" then
+ 			sp_buffer_read_addr <= "11111010"; -- tune horizontal position of sprites
+ 		else
+-			if clock_6 = '0' then
++			if clk6_lvl = '0' then
+ 				sp_buffer_read_addr <= sp_buffer_read_addr + '1';
+ 			else
+ 				if vcnt(0) = '0' then
+@@ -492,9 +510,9 @@
+ -- toggle read/write sprite line buffer every other line
+ 
+ -- wait pxcnt = "101" to allow last sprite (#8) to be written to line buffer
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 		if pxcnt = "101" then sp_buffer_sel <= vcnt(0); end if;
+ 	end if;
+ end process;
+@@ -505,8 +523,8 @@
+ sp_buffer_ram1_di <= "0000" when sp_buffer_sel = '0' else sp_palette_do(3 downto 0);
+ sp_buffer_ram2_di <= "0000" when sp_buffer_sel = '1' else sp_palette_do(3 downto 0);
+ 
+-sp_buffer_ram1_we <= not clock_6 when sp_buffer_sel = '0' else sp_buffer_write_we;
+-sp_buffer_ram2_we <= not clock_6 when sp_buffer_sel = '1' else sp_buffer_write_we;
++sp_buffer_ram1_we <= not clk6_lvl when sp_buffer_sel = '0' else sp_buffer_write_we;
++sp_buffer_ram2_we <= not clk6_lvl when sp_buffer_sel = '1' else sp_buffer_write_we;
+ 
+ --------------------
+ --- char machine ---
+@@ -514,13 +532,13 @@
+ 
+ -- latch current char data with respect to vcnt and hcnt in relation
+ -- with wram ram addressing  
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) and pxcnt = "001" then
++	if rising_edge(clk_core) and ce6 = '1' and pxcnt = "001" then
+ 		ch_data1 <= wram_do ;
+ 	end if;
+ 
+-	if rising_edge(clock_6) and pxcnt = "100" then
++	if rising_edge(clk_core) and ce6 = '1' and pxcnt = "100" then
+ 		ch_color_set <= ch_data1(4 downto 0) ;
+ 	end if;
+ 
+@@ -539,9 +557,9 @@
+ 
+ -- latch and shift char graphics data with respect to flipx control and cocktail flip control
+ -- 8bits => 4x2bits = 4pixels / 4colors
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 		if pxcnt(1 downto 0) = "00" then 
+ 			if (ch_data1(6) xor flip) = '0'  then
+ 				ch_pixels <= ch_graphx_do;
+@@ -565,9 +583,9 @@
+ ---------------------
+ 
+ -- char data controls sprite display/hide
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 		sp_blank <= ch_color_set(4);
+ 	end if;
+ end process;	
+@@ -578,9 +596,9 @@
+ 	'0' & sp_read_out; 
+ 	
+ -- register and assign rbg palette output
+-process (clock_6)
++process (clk_core)
+ begin
+-	if rising_edge(clock_6) then
++	if rising_edge(clk_core) and ce6 = '1' then
+ 		video_r <= rgb_palette_gr_do(5 downto 1);
+ 		video_g <= rgb_palette_bg_do(2 downto 0) & rgb_palette_gr_do(7 downto 6);
+ 		video_b <= rgb_palette_bg_do(7 downto 3);
+@@ -593,12 +611,12 @@
+ 
+ video_csync <= csync;
+ 
+-process(clock_6)
++process(clk_core)
+ 	constant hcnt_base : integer := 37;
+ 	variable vsync_cnt : std_logic_vector(3 downto 0);
+ begin
+ 
+-if rising_edge(clock_6) and pxcnt = "111" then
++if rising_edge(clk_core) and ce6 = '1' and pxcnt = "111" then
+ 
+   if    hcnt = hcnt_base+0 then hsync0 <= '0';
+   elsif hcnt = hcnt_base+3 then hsync0 <= '1';
+@@ -660,13 +678,15 @@
+ -- components & sound board --
+ ------------------------------
+ 
++cpu_cen <= cpu_ena and ce6;
++
+ -- microprocessor Z80
+ cpu : entity work.T80se
+ generic map(Mode => 0, T2Write => 1, IOWait => 1)
+ port map(
+   RESET_n => reset_n,
+-  CLK_n   => clock_6,
+-  CLKEN   => cpu_ena,
++  CLK_n   => clk_core,
++  CLKEN   => cpu_cen,
+   WAIT_n  => '1',
+   INT_n   => '1', --cpu_irq_n,
+   NMI_n   => cpu_nmi_n,
+@@ -687,7 +707,7 @@
+ -- cpu1 program ROM
+ rom_cpu1 : entity work.time_pilot_prog
+ port map(
+- clk  => clock_6n,
++ clk  => clk_core,
+  addr => cpu_addr(14 downto 0),
+  data => cpu_rom_do
+ );
+@@ -696,7 +716,8 @@
+ wram : entity work.gen_ram
+ generic map( dWidth => 8, aWidth => 12)
+ port map(
+- clk  => clock_6n,
++ clk  => clk_core,
++ ce   => ce6n,
+  we   => wram_we,
+  addr => wram_addr,
+  d    => cpu_do,
+@@ -707,7 +728,8 @@
+ spram1 : entity work.gen_ram
+ generic map( dWidth => 8, aWidth => 8)
+ port map(
+- clk  => clock_6n,
++ clk  => clk_core,
++ ce   => ce6n,
+  we   => spram1_we,
+  addr => spram_addr,
+  d    => cpu_do,
+@@ -718,7 +740,8 @@
+ spram2 : entity work.gen_ram
+ generic map( dWidth => 8, aWidth => 8)
+ port map(
+- clk  => clock_6n,
++ clk  => clk_core,
++ ce   => ce6n,
+  we   => spram2_we,
+  addr => spram_addr,
+  d    => cpu_do,
+@@ -729,7 +752,8 @@
+ splinebuf1 : entity work.gen_ram
+ generic map( dWidth => 4, aWidth => 8)
+ port map(
+- clk  => clock_12n,
++ clk  => clk_core,
++ ce   => ce12n,
+  we   => sp_buffer_ram1_we,
+  addr => sp_buffer_ram1_addr,
+  d    => sp_buffer_ram1_di,
+@@ -740,7 +764,8 @@
+ splinebuf2 : entity work.gen_ram
+ generic map( dWidth => 4, aWidth => 8)
+ port map(
+- clk  => clock_12n,
++ clk  => clk_core,
++ ce   => ce12n,
+  we   => sp_buffer_ram2_we,
+  addr => sp_buffer_ram2_addr,
+  d    => sp_buffer_ram2_di,
+@@ -750,55 +775,56 @@
+ -- char graphics ROM
+ char_graphics : entity work.time_pilot_char_grphx
+ port map(
+- clk  => clock_6,
+- addr => ch_graphx_addr,
++ clk  => clk_core,
++ addr => ch_graphx_addr_m,
+  data => ch_graphx_do
+ );
+ 
+ -- char palette ROM
+ ch_palette : entity work.time_pilot_char_color_lut
+ port map(
+- clk  => clock_6,
+- addr => ch_palette_addr,
++ clk  => clk_core,
++ addr => ch_palette_addr_m,
+  data => ch_palette_do
+ );
+ 
+ -- sprite graphics ROM
+ sp_graphics : entity work.time_pilot_sprite_grphx
+ port map(
+- clk  => clock_6,
+- addr => sp_graphx_addr,
++ clk  => clk_core,
++ addr => sp_graphx_addr_m,
+  data => sp_graphx_do
+ );
+ 
+ -- sprite palette ROM
+ sp_palette : entity work.time_pilot_sprite_color_lut
+ port map(
+- clk  => clock_6,
+- addr => sp_palette_addr,
++ clk  => clk_core,
++ addr => sp_palette_addr_m,
+  data => sp_palette_do
+ );
+ 
+ -- rgb palette ROM 1 
+ rgb_palette_gb : entity work.time_pilot_palette_blue_green
+ port map(
+- clk  => clock_6,
+- addr => rgb_palette_addr,
++ clk  => clk_core,
++ addr => rgb_palette_addr_m,
+  data => rgb_palette_bg_do
+ );
+ 
+ -- rgb palette ROM 2
+ rgb_palette_br : entity work.time_pilot_palette_green_red
+ port map(
+- clk  => clock_6,
+- addr => rgb_palette_addr,
++ clk  => clk_core,
++ addr => rgb_palette_addr_m,
+  data => rgb_palette_gr_do
+ );
+ 
+ -- sound board
+ time_pilot_sound_board : entity work.time_pilot_sound_board
+ port map(
+- clock_14     => clock_14,
++ clk_core     => clk_core,
++ ce14         => ce14,
+  reset        => reset,
+ 
+  sound_trig   => sound_trig,
+diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.vhd b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.vhd
+--- a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.vhd
++++ b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.vhd
+@@ -28,7 +28,8 @@
+ 
+ entity time_pilot_sound_board is
+ port(
+- clock_14     : in std_logic;
++ clk_core     : in std_logic; -- Basys3: single clk_core domain
++ ce14         : in std_logic;  -- former clock_14 rising (average 14.318 MHz)
+  reset        : in std_logic;
+ 
+  sound_cmd    : in std_logic_vector(7 downto 0);
+@@ -43,13 +44,12 @@
+ architecture struct of time_pilot_sound_board is
+ 
+  signal reset_n: std_logic;
+- signal clock_14n : std_logic;
+  
+  signal clock_div1 : std_logic_vector(11 downto 0) := (others => '0');
+  signal biquinary_div : std_logic_vector(3 downto 0) := (others => '0');
+  
+- signal cpu_clock  : std_logic;
+- signal ayx_clock  : std_logic;
++ signal cpu_ce     : std_logic;  -- former cpu_clock = clock_div1(2) rising
++ signal ay_ce      : std_logic;  -- former ayx_clock = not clock_div1(2) rising
+ 
+  signal cpu_addr   : std_logic_vector(15 downto 0);
+  signal cpu_di     : std_logic_vector( 7 downto 0);
+@@ -114,13 +114,12 @@
+  
+ begin
+ 
+-clock_14n <= not clock_14;
+ reset_n   <= not reset;
+ 
+ -- debug 
+-process (reset, clock_14)
++process (clk_core)
+ begin
+- if rising_edge(clock_14) and cpu_mreq_n ='0' then
++ if rising_edge(clk_core) and ce14 = '1' and cpu_mreq_n ='0' then
+    dbg_cpu_addr <= cpu_addr;
+  end if;
+ end process;
+@@ -191,9 +190,9 @@
+ Vcn_c <= 255*1024 when Vcn_b > 255*1024 else Vcn_b;
+ 
+ -- demux/store result and mix channels				
+-process (clock_14)  
++process (clk_core)  
+ begin
+-	if rising_edge(clock_14) then -- 14.318MHz/512 => fs = 27.96KHz
++	if rising_edge(clk_core) and ce14 = '1' then -- 14.318MHz/512 => fs = 27.96KHz
+ 	
+ 		-- demux & down sample
+ 		if clock_div1(8 downto 0) = '0'&X"00" then Vc_1a <= Vcn_c; end if;
+@@ -218,13 +217,13 @@
+ 			
+ -- divide clocks 
+ -- random generator ?
+-process (clock_14)
++process (clk_core)
+ begin
+ 	if reset='1' then
+ 		clock_div1 <= (others =>'0');
+ 		biquinary_div <= (others =>'0');
+ 	else 
+-		if rising_edge(clock_14) then
++		if rising_edge(clk_core) and ce14 = '1' then
+ 			clock_div1  <= clock_div1 + '1';
+ 			
+ 			if clock_div1 = X"800" then
+@@ -241,8 +240,8 @@
+ end process;
+ 
+ -- make clocks for cpu and sound generators
+-cpu_clock <= clock_div1(2);
+-ayx_clock <= not clock_div1(2);
++cpu_ce <= ce14 when clock_div1(2 downto 0) = "011" else '0';
++ay_ce  <= ce14 when clock_div1(2 downto 0) = "111" else '0';
+ 
+ -- mux rom/ram/devices data ouput to cpu data input w.r.t cpu address
+ cpu_di <= cpu_rom_do   when cpu_addr(15 downto 12) = "0000" else -- 0000-0FFF
+@@ -277,17 +276,17 @@
+ clr_irq_n <= reset_n and (cpu_m1_n or cpu_iorq_n); 
+ 
+ -- regsiter filters commands (11 bits data are cpu address)
+-process (cpu_clock)
++process (clk_core)
+ begin
+-	if rising_edge(cpu_clock) then
++	if rising_edge(clk_core) and cpu_ce = '1' then
+ 		if filter_cmd_we = '1' then filter_cmd <= cpu_addr(11 downto 0); end if;
+ 	end if;	
+ end process;
+ 
+ -- latch sound trigger rising edge to set cpu_irq, and manage clear
+-process (clock_14)
++process (clk_core)
+ begin
+-	if rising_edge(clock_14) then
++	if rising_edge(clk_core) and ce14 = '1' then
+ 		
+ 		sound_trig_r <= sound_trig;	
+ 		
+@@ -303,9 +302,9 @@
+ end process;
+ 
+ -- demux AY chips output
+-process (ayx_clock)
++process (clk_core)
+ begin
+-	if rising_edge(ayx_clock) then
++	if rising_edge(clk_core) and ay_ce = '1' then
+ 		if ay1_audio_chan = "00" then ay1_chan_a <= ay1_audio_muxed; end if;
+ 		if ay1_audio_chan = "01" then ay1_chan_b <= ay1_audio_muxed; end if;
+ 		if ay1_audio_chan = "10" then ay1_chan_c <= ay1_audio_muxed; end if;
+@@ -320,8 +319,8 @@
+ generic map(Mode => 0, T2Write => 1, IOWait => 1)
+ port map(
+   RESET_n => reset_n,
+-  CLK_n   => cpu_clock,
+-  CLKEN   => '1',
++  CLK_n   => clk_core,
++  CLKEN   => cpu_ce,
+   WAIT_n  => '1',
+   INT_n   => cpu_irq_n,
+   NMI_n   => '1',
+@@ -342,7 +341,7 @@
+ -- cpu1 program ROM
+ rom_cpu1 : entity work.time_pilot_sound_prog
+ port map(
+- clk  => clock_14n,
++ clk  => clk_core,
+  addr => cpu_addr(11 downto 0),
+  data => cpu_rom_do
+ );
+@@ -351,7 +350,8 @@
+ wram : entity work.gen_ram
+ generic map( dWidth => 8, aWidth => 10)
+ port map(
+- clk  => clock_14n,
++ clk  => clk_core,
++ ce   => ce14,
+  we   => wram_we,
+  addr => cpu_addr(9 downto 0),
+  d    => cpu_do,
+@@ -385,9 +385,9 @@
+   O_IOB      => open,            -- out std_logic_vector(7 downto 0);
+   O_IOB_OE_L => open,            -- out std_logic;
+ 
+-  ENA        => '1', --cpu_ena,         -- in  std_logic; -- clock enable for higher speed operation
++  ENA        => ay_ce,         -- in  std_logic; -- clock enable for higher speed operation
+   RESET_L    => reset_n,         -- in  std_logic;
+-  CLK        => ayx_clock        -- in  std_logic  -- note 6 Mhz
++  CLK        => clk_core         -- in  std_logic  -- note 6 Mhz
+ );
+ 
+ -- AY-3-8910 #2
+@@ -417,9 +417,9 @@
+   O_IOB      => open,            -- out std_logic_vector(7 downto 0);
+   O_IOB_OE_L => open,            -- out std_logic;
+ 
+-  ENA        => '1', --cpu_ena,         -- in  std_logic; -- clock enable for higher speed operation
++  ENA        => ay_ce,         -- in  std_logic; -- clock enable for higher speed operation
+   RESET_L    => reset_n,         -- in  std_logic;
+-  CLK        => ayx_clock        -- in  std_logic  -- note 6 Mhz
++  CLK        => clk_core         -- in  std_logic  -- note 6 Mhz
+ );
+ 
+ 
