@@ -1,0 +1,51 @@
+diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd
+--- a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd
++++ b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd
+@@ -200,7 +200,10 @@
+ process (hclk)
+ begin
+  if rising_edge(hclk) then
+-  if cpu_wr_n = '0' then
++  if reset = '1' then -- Basys3 port: btnC also clears the sound registers
++   sound_a <= (others => '0');
++   sound_b <= (others => '0');
++  elsif cpu_wr_n = '0' then
+    case cpu_adr(14 downto 10) is
+     when "10110" => bkgnd_offset <= cpu_do;
+     when "11000" => sound_b      <= cpu_do;
+@@ -361,7 +364,7 @@
+ port map(
+ clk50    => clock_50,
+ clk10    => clk10,
+-reset    => '0',
++reset    => reset, -- Basys3 port: was '0' (btnC did not reset the sound)
+ trigger  => sound_a(4),
+ filter   => sound_a(5),
+ divider  => sound_a(3 downto 0),
+@@ -373,7 +376,7 @@
+ port map(
+ clk50    => clock_50,
+ clk10    => clk10,
+-reset    => '0',
++reset    => reset, -- Basys3 port: was '0' (btnC did not reset the sound)
+ trigger1 => sound_b(4),
+ trigger2 => sound_b(5),
+ divider  => sound_b(3 downto 0),
+@@ -385,7 +388,7 @@
+ port map(
+ clk50    => clock_50,
+ clk10    => clk10,
+-reset    => '0',
++reset    => reset, -- Basys3 port: was '0' (btnC did not reset the sound)
+ trigger1 => sound_b(6),
+ trigger2 => sound_b(7),
+ snd      => snd3
+@@ -395,7 +398,7 @@
+ music : entity work.phoenix_music
+ port map(
+ clk10    => clk10,
+-reset    => '0',
++reset    => reset, -- Basys3 port: was '0' (btnC did not reset the sound)
+ trigger  => sound_a(7),
+ sel_song => sound_a(6),
+ snd      => song

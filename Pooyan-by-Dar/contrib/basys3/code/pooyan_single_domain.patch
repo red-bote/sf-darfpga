@@ -519,7 +519,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_sound_board.vhd b/vhd
  -- divide clocks 
  -- random generator ?
 -process (clock_14)
-+process (clk_core)
++process (clk_core, reset)
  begin
  	if reset='1' then
  		clock_div1 <= (others =>'0');

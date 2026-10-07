@@ -98,6 +98,15 @@ declaration and port table); values that differ for Phoenix:
 
 ## Other wiring decisions
 
+- **Reset reaches the sound (2026-10-07)**: in the pristine core the four sound modules
+  (`effect1/2/3`, `music`) get `reset => '0'` (`rtl_dar/phoenix.vhd` effect/music port maps),
+  and the CPU-written sound registers `sound_a`/`sound_b` are not cleared, so btnC resets
+  CPU and video while the current sound keeps playing (`KNOWN_ISSUES.md`). Each module already
+  has reset logic (`phoenix_effect1.vhd:44,74,123`, `phoenix_music.vhd:92,183,209`).
+  `contrib/code/phoenix_sound_reset.patch`: `reset => reset` on the four modules, and a
+  synchronous clear of `sound_a`/`sound_b` on `hclk` while `reset = '1'` (the other registers
+  in that process keep their pristine behavior).
+
 - **Reset**: `reset <= btnC or not mmcm_locked` (project-standard MMCM/reset
   pattern); `clk_wiz_0`'s own `reset` port driven by `btnC` directly.
 - **Inputs — JA joystick / dedicated buttons (two attempts reverted; third

@@ -505,7 +505,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
  -- divide clocks 
  -- random generator ?
 -process (clock_14)
-+process (clk_core)
++process (clk_core, reset)
  begin
  	if reset='1' then
  		clock_div1 <= (others =>'0');

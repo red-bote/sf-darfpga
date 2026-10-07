@@ -5,7 +5,8 @@
 # missing from the process sensitivity list, so a Port A input change did not
 # re-evaluate the process and read-back data went stale until addr/reg changed.
 # ioa_inreg is combinational (ioa_inreg <= I_IOA), so this is a real
-# simulation/logic bug, not just a lint warning. Added ioa_inreg to the list.
+# simulation/logic bug, not just a lint warning. Added ioa_inreg to the list,
+# and iob_inreg (same pattern for Port B read-back, addr = x"F"; 2026-10-07).
 # See README.md "Applying the linmix sensitivity fix" for details.
 diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd b/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
 --- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
@@ -15,7 +16,7 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd b/vhdl_
   --
    
 -  p_rdata                : process(busctrl_re, addr, reg)
-+  p_rdata                : process(busctrl_re, addr, reg, ioa_inreg)
++  p_rdata                : process(busctrl_re, addr, reg, ioa_inreg, iob_inreg)
    begin
      O_DA <= (others => '0'); -- 'X'
      if (busctrl_re = '1') then -- not necessary, but useful for putting 'X's in the simulator

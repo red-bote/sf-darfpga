@@ -102,6 +102,13 @@ seven player-input assignments before their inversion, e.g.
 `coin <= not (JoyPCFRLDU(7) or ext_joy(7));` (2026-10-02). Verify:
 `grep -c 'or ext_joy' vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd` prints `7`.
 
+### `phoenix_sound_reset.patch`
+
+Ties the four sound modules' `reset` to the core `reset` (pristine: `'0'`) and clears
+`sound_a`/`sound_b` while `reset = '1'`, so btnC also silences the sound (2026-10-07).
+Verify: `grep -c "btnC did not reset the sound" vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd`
+prints `4`.
+
 ### `phoenix_expose_hsync_vsync.patch`
 
 Two-file patch exposing real hsync/vsync end-to-end (the pristine core

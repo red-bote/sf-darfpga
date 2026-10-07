@@ -195,9 +195,18 @@ _darfpga_log_build_metrics() {
         local log_dir="$root/../build-logs/$game" stamp f
         stamp=$(date -u +%Y%m%dT%H%M%SZ)
         mkdir -p "$log_dir"
-        for f in "$impl_dir/$top_entity.vdi" "$impl_dir/${top_entity}_timing_summary_routed.rpt"; do
-            [ -f "$f" ] && cp -f "$f" "$log_dir/${stamp}_impl_$(basename "$f")"
-        done
+        # Vivado appends each impl session to the same .vdi when impl_1 is not
+        # reset, so keep only the latest session (from the last "# Start of
+        # session" header back to its preceding "#----" banner line).
+        if [ -f "$impl_dir/$top_entity.vdi" ]; then
+            awk '{ l[NR] = $0 } /^# Start of session/ { s = NR }
+                 END { b = (s > 2 && l[s-4] ~ /^#-+$/) ? s - 4 : s
+                       if (!b) b = 1
+                       for (i = b; i <= NR; i++) print l[i] }' \
+                "$impl_dir/$top_entity.vdi" > "$log_dir/${stamp}_impl_$top_entity.vdi"
+        fi
+        f="$impl_dir/${top_entity}_timing_summary_routed.rpt"
+        [ -f "$f" ] && cp -f "$f" "$log_dir/${stamp}_impl_$(basename "$f")"
     fi
 
     local wns="" tns=""

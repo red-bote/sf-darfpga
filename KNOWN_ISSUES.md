@@ -20,18 +20,6 @@ Entry format:
 
 ## Open
 
-### Phoenix-by-Dar: btnC reset does not reset the sound
-- **Reported**: 2026-10-02 (user, hardware)
-- **Symptom**: btnC resets the CPU/video but the sound keeps playing.
-- **Cause** (by inspection, pristine Dar core): the four sound modules get
-  `reset => '0'` (`rtl_dar/phoenix.vhd:364,376,388,398`, effect1/2/3 and music; each
-  has working synchronous reset logic), and the CPU-written sound registers
-  `sound_a`/`sound_b` (`phoenix.vhd:200-212`) are not cleared on reset.
-- **Proposed fix**: core patch `phoenix_sound_reset.patch`: `reset => reset` on the four
-  modules and `sound_a`/`sound_b` <= 0 while reset (CRLF-preserving, as the other
-  Phoenix patches).
-- **Status**: open, deferred (user, 2026-10-02).
-
 ### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
 - **Reported**: 2026-09-24
 - **Symptom**: not a defect -- pending investigation. Compare each machine's total
@@ -53,9 +41,123 @@ Entry format:
   `synth_elapsed_s`, `xb_opt_s`, `bram_tiles`, `dsp_used` in `build-metrics.csv` and keeps the
   `.vds` under `build-logs/<game>/` (gitignored). Next: collect data from normal builds, then
   per-module analysis on Xevious (on request).
+  2026-10-07, all 20 machines (`build-metrics.csv` phase columns): Cross Boundary and Area
+  Optimization is 92-97 % of synthesis on the three slowest (Xevious 2152 of 2209 s, Tron
+  1297 of 1359 s, Satans-Hollow 658 of 710 s) and 32-37 % on the fastest (Computer-Space,
+  Phoenix, Burger-Time, Burnin-Rubber). Within the MCR family, Tron and Kick report near-identical
+  RTL component statistics (registers, muxes) yet differ 1297 s vs 194 s in that phase; BRAM
+  tiles 35.5 vs 25.5 (Satans-Hollow 35.5 / 658 s, Solar-Fox 25.5 / 278 s). The `.vds` gives no
+  per-module breakdown of the phase and no ROM-mapping messages. Consistent with, not proof
+  of, the large-PROM-array hypothesis; confirming it needs synthesis experiments (e.g.
+  `-flatten_hierarchy none` or per-ROM `rom_style`) on Tron vs Kick.
 - **Status**: open
 
+### Traverse-USA-by-Dar, Zaxxon-by-Dar: scandoubler `clk_sys` is a register-derived clock (untimed)
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: the MiST scandoubler `clk_sys` comes from a fabric register (Traverse-USA `traverse_usa_basys3.vhd:224-236,288`; Zaxxon `zaxxon_basys3.vhd:336-339`, core `clock_cnt(0)`), so the core-to-scandoubler path is untimed (`check_timing` no_clock: Traverse-USA 829, Zaxxon 104). Traverse-USA also runs the sound board and PWM on `clock_3p58_reg`. Same class as the Pooyan/Time-Pilot sync failure fixed 2026-10-05; no hardware symptom reported.
+- **Tried**: n/a (by inspection).
+- **Status**: open; candidate fix: single-domain conversion (Pooyan pattern: `clk_sys` = core clock, `ce_x1`/`ce_x2` enables). The Zaxxon wrapper header states a fast `clk_sys` "does not work"; Pooyan runs the same scandoubler that way (needs a hardware test).
+
+### Phoenix-by-Dar: scandoubler `ce_x1` is the register-derived `hclk` clock net
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `ce_x1 => video_clk` (`phoenix_basys3.vhd:228`) with `video_clk <= hclk` (`rtl_dar/phoenix.vhd:273`), a register-derived clock used as logic in the `clk_sys` domain (no_clock 718 pins incl. `clk10`, `hclk_i`, `hstb_i`). Same structure as the Burger-Time/Computer-Space `ce_x1` issue fixed 2026-10-02; here untimed rather than failing (inference).
+- **Tried**: n/a (by inspection).
+- **Status**: open; candidate fix: core patch exposing an `hclk` enable, or single-domain conversion.
+
+### Popeye-by-Dar, Zaxxon-by-Dar, Traverse-USA-by-Dar: wrapper `clock_kbd` is a register-derived clock
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: the keyboard clock `clock_kbd_reg` is a fabric divider output (untimed; same class as the MCR `clock_kbd`). No keyboard symptom reported.
+- **Tried**: n/a (by inspection).
+- **Status**: open; options: keyboard on the core clock with 2-FF `ps2_*` synchronizers (Xevious pattern), or accept and record.
+
+### Computer-Space-by-Dar: rocket missile timer keeps an async preset that depends on its own output
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `motion_board.vhd:547-561` (as rewritten by `computer_space_rocket_timer_synth_fix.patch`) asynchronously sets `missile_timer` on `MB_Y = '1' and missile_timer = '0'`; `missile_timer` is also missing from the sensitivity list (Synth 8-614). Functionally confirmed on hardware so far.
+- **Tried**: n/a (by inspection).
+- **Status**: open; candidate fix: synchronous set with an edge detect on `MB_Y` (patch update + hardware check).
+
+### Pooyan-by-Dar, Time-Pilot-by-Dar, Computer-Space-by-Dar: `rising_edge(clk) and ce = '1'` sensitivity warnings
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: about 45 Synth 8-614 warnings from the single-domain patches' `if rising_edge(clk_core) and ce6 = '1'` form. Functionally correct.
+- **Tried**: n/a (by inspection).
+- **Status**: open, optional cleanup: nest `if ce6 = '1'` inside `if rising_edge(...)`.
+
+### (cross-machine, 11 machines): MiST `scandoubler.v` identifiers used before declaration
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: Synth 8-6901 (220 warnings) for `COLOR_DEPTH`, `sd_out`, `hs_sd` in `contrib/code/scandoubler.v` (same file in all 11 importing machines). Portability only.
+- **Tried**: n/a (by inspection).
+- **Status**: open, optional: reorder the declarations in `scandoubler_fix.patch` (tracked copy stays pristine).
+
+### (MCR group: Kick, Satans-Hollow, Solar-Fox, Tron, upstream): CTC registers load variables in the async reset branch
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `ctc_counter.vhd:73` (`clk_trg_r <= clk_trg`) and `ctc_controler.vhd:63` (`load_data_r <= load_data`) assign signal values inside the async-reset branch; Vivado builds LDC latches with gated clocks (PDRC-153), producing the btnC, LOCKED, sw[13], vcnt and CPU-strobe no_clock roots.
+- **Tried**: n/a (by inspection).
+- **Status**: open; candidate fix: core patch assigning constants in the reset branch, then verify CTC/interrupt behavior on hardware.
+
+### Berzerk-FPGA-by-Dar (upstream): sound counter loads `cnt <= max` asynchronously
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `berzerk_sound_fx.vhd:168-176` gives 48 LDC latches, 48 PDRC-153 warnings and btnC/LOCKED/ptm6840_max no_clock roots.
+- **Tried**: n/a (by inspection).
+- **Status**: open; candidate fix: same approach as the MCR CTC entry.
+
+### Bagman, Berzerk, Burger-Time, Burnin-Rubber, Traverse-USA (upstream): register-derived core clocks
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: core-internal divided clocks (e.g. Bagman `Clk512kHz`, `hcnt`; Burger-Time/Burnin-Rubber sound `clock_div1[2]`, `clock_div2[4]`; Berzerk `hcnt[0]`) leave 600-1050 pins untimed per machine.
+- **Tried**: n/a (by inspection).
+- **Status**: open, record only; a single-domain conversion is a large refactor (on request).
+
+### (cross-machine, all 20): no I/O timing constraints
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `check_timing` no_input_delay 9-22 and no_output_delay 9-15 on every machine.
+- **Tried**: n/a (by inspection).
+- **Status**: open; candidate fix: `set_false_path` from the synchronized asynchronous inputs (`btn*`, `sw*`, `JA*`, `ps2_*`), optional output constraints for VGA/PWM.
+
 ## Fixed
+
+### Phoenix-by-Dar: btnC reset does not reset the sound
+- **Reported**: 2026-10-02 (user, hardware)
+- **Symptom**: btnC resets the CPU/video but the sound keeps playing.
+- **Cause** (by inspection, pristine Dar core): the four sound modules get
+  `reset => '0'` (`rtl_dar/phoenix.vhd:364,376,388,398`, effect1/2/3 and music; each
+  has working synchronous reset logic), and the CPU-written sound registers
+  `sound_a`/`sound_b` (`phoenix.vhd:200-212`) are not cleared on reset.
+- **Proposed fix**: core patch `phoenix_sound_reset.patch`: `reset => reset` on the four
+  modules and `sound_a`/`sound_b` <= 0 while reset (CRLF-preserving, as the other
+  Phoenix patches).
+- **Status**: fixed 2026-10-07: `contrib/code/phoenix_sound_reset.patch` (as proposed);
+  hardware-confirmed 2026-10-07 (user). History: open, deferred (user, 2026-10-02).
+
+### Defender-by-Dar: latest bitstream run has no routed report
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: the latest `.vdi` shows `route_design` interrupted (`Common 17-41`, "route_design was cancelled"), so no routed timing summary exists. No design defect implied.
+- **Tried**: n/a (by inspection).
+- **Status**: closed 2026-10-07: rebuild completed with a routed report (WNS 79.206 ns).
+
+### Burger-Time-by-Dar, Defender-by-Dar: XDC constrains a nonexistent `btnD` port (CRITICAL WARNING)
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `contrib/basys3/vivado/Basys-3-Master.xdc:71` constrains `btnD`, which the wrapper does not declare (Common 17-55 critical warning, Vivado 12-584).
+- **Tried**: n/a (by inspection).
+- **Status**: fixed 2026-10-07: line 71 commented out in both XDCs; verified in the 2026-10-07
+  rebuilds (no Common 17-55 in the latest `.vdi` session).
+
+### Crazy-Kong-by-Dar: implementation report strategy omits the timing summary
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `contrib/basys3/vivado/ckong_basys3.xpr` impl_1 `ReportStrategy` was "Vivado Implementation Defaults" (the other 19 use "Default Reports"), so `report_timing_summary` never ran: no routed timing report, empty `wns_ns` in `build-metrics.csv`.
+- **Tried**: n/a (by inspection).
+- **Status**: fixed 2026-10-07: `ReportStrategy` set to "Vivado Implementation Default Reports" (functional `.xpr` change);
+  rebuild produced the routed timing summary (WNS 35.478 ns).
+
+### Pooyan-by-Dar, Time-Pilot-by-Dar: sound-board counter process missing `reset` in its sensitivity list
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: in `*_sound_board.vhd` the `clock_div1` process (async `reset` branch) rewritten by the single-domain patches listed only `clk_core` (Synth 8-614). Simulation mismatch only.
+- **Tried**: n/a (by inspection).
+- **Status**: fixed in source 2026-10-07: `process (clk_core, reset)` in `pooyan_single_domain.patch` and `time_pilot_single_domain.patch` (regenerated; setup order verified); rebuilt, hardware-confirmed 2026-10-07 (user).
+
+### Popeye-by-Dar: YM2149 `p_rdata` sensitivity list misses `iob_inreg`
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: `popeye_linmix_sensitivity.patch` added `ioa_inreg` but not `iob_inreg` (`rtl_mikej/ym_2149_linmix.vhd:295`). Same upstream gap in Bagman, Crazy-Kong, Sky-skipper, Traverse-USA (not patched there). Simulation only.
+- **Tried**: n/a (by inspection).
+- **Status**: fixed in source 2026-10-07 for Popeye: patch extended to `ioa_inreg, iob_inreg`; rebuild pending. Other machines: record only.
 
 ### Tron-by-Dar: bottom horizontal line shows flickering junk
 - **Reported**: 2026-10-01 (user, hardware)

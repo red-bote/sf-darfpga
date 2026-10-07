@@ -93,8 +93,9 @@ machine ROMs are copyrighted — never commit or redistribute them.
 ## Applying the linmix sensitivity fix
 
 The pristine YM2149 mixer (`vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/
-ym_2149_linmix.vhd`) has a process whose sensitivity list omits `ioa_inreg`.
-The one-line fix adds it:
+ym_2149_linmix.vhd`) has a process whose sensitivity list omits `ioa_inreg` and `iob_inreg`.
+The one-line fix adds both (`iob_inreg` added 2026-10-07; same pattern for Port B,
+`addr = x"F"`):
 
 `p_rdata` is a combinational process that drives the chip's read-back data bus
 `O_DA`. When Port A is configured as input, it selects that branch of the
@@ -116,7 +117,7 @@ combinational (`ioa_inreg <= I_IOA;`), this is a real logic-simulation bug, not
 just a Vivado lint warning, and must be fixed for the port to run correctly.
 
 ```vhdl
-p_rdata                : process(busctrl_re, addr, reg, ioa_inreg)
+p_rdata                : process(busctrl_re, addr, reg, ioa_inreg, iob_inreg)
 ```
 
 `popeye_linmix_sensitivity.patch` in this directory applies that single line to
@@ -130,5 +131,5 @@ patch -p1 < popeye_linmix_sensitivity.patch
 Verify it took:
 
 ```
-grep -n "busctrl_re, addr, reg, ioa_inreg" vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
+grep -n "busctrl_re, addr, reg, ioa_inreg, iob_inreg" vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
 ```
