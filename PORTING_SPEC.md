@@ -15,7 +15,9 @@ ambiguous, copy what an existing full port does.
 - Each machine carries a `PORTING_SPEC.md` documenting its specific porting decisions.
   Location: `<Machine>-by-Dar/contrib/basys3/PORTING_SPEC.md` (all machines).
 - Shared assets live under `<Machine>-by-Dar/contrib/basys3/`:
-  - `code/` — `vga_scandoubler.v` (canonical, never modify) + `*.patch` (synthesis-fix records)
+  - `code/` — the Basys3 top-level wrapper, its `*_de10_lite_to_basys3.patch` provenance
+    record, and per-machine `*.patch` synthesis-fix records. The MiST `scandoubler.v`
+    (canonical, never modify) and its `scandoubler_fix.patch` live in `<Machine>/contrib/code/`.
   - `vivado/` — `.xpr`, `.xdc`, clock-IP and project scripts
   - `tools/` — source-setup and rom-prep scripts
 
@@ -179,18 +181,20 @@ level is a provenance record only; it documents the transformation below, it doe
 1. **Port list** — replace the DE10-lite ports (`max10_clk1_50`, `ledr`, `key`, `sw(9:0)`,
    `hex0-3`, `gpio`) with the Basys 3 set (`clk` 100 MHz, `sw(15:0)`, `btnC`, `ps2_dat/ps2_clk`,
    `O_PMODAMP2_AIN/GAIN/SHUTD`, `JA(4:0)`, 4-4-4 RGB + `vga_hs/vs`).
-2. **Clocking** — replace the DE10 PLL (`max10_pll_*`) with `clk_wiz_0` (MMCM, 100 MHz in →
-   core + sound clocks); the internal clock divider feeding the PS/2 path can be kept
-   verbatim only if targeting JB1/JB3 — for the onboard USB HID host port, check its
-   rate against the ≥6 MHz requirement in §3's keyboard-clock note first.
+2. **Clocking** — replace the DE10 PLL (`max10_pll_*`) with `clk_wiz_0` (MMCM, 100 MHz in);
+   follow `.opencode/rules.md` §"Clocking (Basys3 ports)": one MMCM output, with CPU,
+   pixel, sound and keyboard rates as clock enables (reference: Pooyan-by-Dar
+   `PORTING_SPEC.md` §2). For the onboard USB HID host port, check the keyboard rate
+   against the ≥6 MHz requirement in §3's keyboard-clock note.
 3. **Reset polarity** — DE10 uses an active-low key; Basys 3 uses active-high `btnC`.
 4. **Core instantiation** — keep the core port map unchanged; wire `video_hs`/`video_vs` (often
    left `open` on the DE10) to feed the scandoubler.
-5. **Video / scan doubler** — feed the core's native video (zero-extended to 6-bit) into the DECA
-   `vga_scandoubler` (`enable_scandoubling`/`disable_scaneffect = 1`), narrow the 6-bit output to
-   the Basys 3 4-bit/color connector; gate RGB on `blankn` before the doubler; wire the core's
-   active-low HS/VS directly to the doubler's active-low inputs. Clock `clkvideo`/`clkvga` to give
-   the ~2× read/write ratio for real horizontal doubling.
+5. **Video / scan doubler** — feed the core's native video (zero-extended to 6-bit) into the MiST
+   `scandoubler.v` (`contrib/code/`, plus `scandoubler_fix.patch` on the project copy):
+   `clk_sys` = the single core clock, `ce_x1` = pixel enable, `ce_x2` = exactly 2x `ce_x1`.
+   Gate RGB on `blankn` before the doubler; feed the core's HS/VS to `hs_in`/`vs_in`; narrow
+   the 6-bit output to the Basys 3 4-bit/color connector. `sw(13)` = 1 selects 15 kHz TV
+   (native RGB, `csync` on HS, VS high).
 6. **Audio** — keep the PWM accumulator; drive mono `O_PMODAMP2_AIN`; route the sound-enable and
    gain switches to `O_PMODAMP2_SHUTD` / `O_PMODAMP2_GAIN`.
 7. **Inputs** — keep the keyboard (`io_ps2_keyboard` + `kbd_joystick`) on the onboard USB-HID

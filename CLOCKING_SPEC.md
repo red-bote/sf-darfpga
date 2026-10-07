@@ -40,7 +40,7 @@ solve Vivado actually picks, and a Computer-Space-style `sed` override of
 
 | VGA path | H | V | Machines |
 |---|---|---|---|
-| internal `line_doubler` / MiST `scandoubler.v` / DECA `vga_scandoubler.v` (all repeat each native line once, V passes through) | 2 x native H | native | Bagman, Berzerk, Burger-Time, Burnin-Rubber, Computer-Space, Crazy-Kong, Defender, Galaga, Phoenix, Pooyan, Time-Pilot, Traverse-USA, Xevious, Zaxxon |
+| internal `line_doubler` / MiST `scandoubler.v` (both repeat each native line once, V passes through; Pooyan/Time-Pilot used the DECA `vga_scandoubler.v` until 2026-10-05) | 2 x native H | native | Bagman, Berzerk, Burger-Time, Burnin-Rubber, Computer-Space, Crazy-Kong, Defender, Galaga, Phoenix, Pooyan, Time-Pilot, Traverse-USA, Xevious, Zaxxon |
 | native progressive counters (no doubler) | f_pix / htotal | H / vtotal | Kick, Satans-Hollow, Solar-Fox, Tron (634 x 525), Popeye, Sky-skipper (640 x 526) |
 
 ## 4. Audit and proposals
@@ -59,7 +59,7 @@ Speed = main-CPU rate vs original. OUT = outside the design window.
 | Galaga | 36.000 | 31.250 / 59.19 | -2.34% | 36.863711 (6 / 56.125 / 25.375) | 32.000 / 60.61 | -8 ppm |
 | Kick, Satans-Hollow, Solar-Fox, Tron | 40.000 | 31.546 / 60.09 | +0.16% | optional 39.935588 (3 / 31 / 25.875) | 31.495 / 59.99 | -10 ppm (sound -0.16%) |
 | Phoenix | 11.000 + 50.000 | 31.250 / 61.04 OUT | 0 | decision 5.5 | | |
-| Pooyan | 12.28790 + 14.31760 | 32.000 / 60.84 | 0 | none; structure 5.1 | | |
+| Pooyan | 12.28790 + 14.31760 | 32.000 / 60.84 (60.61 from 2026-10-06, 5.7) | 0 | none; structure 5.1 | | |
 | Popeye | 40.320 | 31.500 / 59.89 | **+26%** (5.6) | RTL fix 5.6; clock unchanged | 31.500 / 59.89 | +0.8% |
 | Sky-skipper | 40.000 | 31.250 / 59.41 | **+25%** (5.6) | RTL fix 5.6; 40.32 (5 / 31.5 / 15.625) | 31.500 / 59.89 | +0.8% |
 | Time-Pilot | 12.28790 + 14.31760 | 32.000 / 61.54 OUT | 0 | decision 5.7 | | |
@@ -209,8 +209,20 @@ user.
 
 Implemented as `Time-Pilot-by-Dar/contrib/code/time_pilot_vcnt_263_lines.patch`
 (reset value 0x0FC kept, as in Pooyan). vblank 496/262, vsync 500 and the
-interrupt at vcnt 493 all lie inside 249..511. The original hardware line
-count remains undetermined in-repo.
+interrupt at vcnt 493 all lie inside 249..511.
+
+Revised 2026-10-06 (user; MAME lookup): `konami/pooyan.cpp`
+`set_raw(18.432_MHz_XTAL / 3, 384, 0, 256, 264, 16, 240)`, comment "measured
+~60.6Hz": 264 lines total, 224 visible. `konami/timeplt.cpp` gives only
+`set_refresh_hz(60)` with the same 224-line visible area; same video family.
+Option C adopted for both machines: Time-Pilot
+`time_pilot_vcnt_264_lines.patch` (replaces the 263-line patch) and Pooyan
+`pooyan_vcnt_264_lines.patch` (Dar's 263 -> 264), reload 0x0F8, V 60.61 Hz;
+all event lines (vblank, vsync 500/504, NMI 493) inside 248..511.
+Hardware-confirmed 2026-10-07 (user); no visible difference (accuracy change:
+frame and game speed -0.38%, one extra blanked line).
+Open (no change): Time-Pilot unblanks 234 lines (vcnt 262..495) vs 224 in
+MAME and in Pooyan (271..494).
 
 ## 6. MMCM `locked` / reset convention
 

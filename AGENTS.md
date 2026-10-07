@@ -81,10 +81,11 @@ Makefile targets use underscores (`create_prj`, `clk_wiz`).
 **Vivado builds run from `/tmp`** so `vivado.log`/`vivado.jou` stay outside the
 repo.
 
-`contrib/basys3/code/vga_scandoubler.v` (the DECA scandoubler, per-machine
-import for Pooyan and Time-Pilot) is a cleanroom import — **never modify
-it**. Same for the `mist/scandoubler.v` import under `contrib/code/` where
-present.
+The MiST `scandoubler.v` import under `contrib/code/` (Burger-Time,
+Burnin-Rubber, Computer-Space, Defender, Galaga, Phoenix, Pooyan, Time-Pilot,
+Traverse-USA, Xevious, Zaxxon) is a cleanroom import — **never modify it**;
+Vivado fixes go in `contrib/code/scandoubler_fix.patch`, applied to the
+project copy.
 
 ## Copyright hard rule
 

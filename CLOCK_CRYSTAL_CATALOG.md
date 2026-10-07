@@ -74,6 +74,7 @@ current solves (re-surveyed 2026-10-02 against generated
 | 2026-10-01 | Zaxxon-by-Dar | 24.000 MHz | 24.32900 MHz (3 / 35.125 / 48.125) |
 | 2026-10-01 | Sky-skipper-by-Dar | 40.000 MHz (1 / 10 / 25) | 40.320 MHz (5 / 31.5 / 15.625) |
 | 2026-10-01 | Time-Pilot-by-Dar | 260 lines, V 61.54 Hz | 263 lines, V 60.84 Hz (RTL patch; clock unchanged) |
+| 2026-10-06 | Pooyan-by-Dar, Time-Pilot-by-Dar | 263 lines, V 60.84 Hz | 264 lines, V 60.61 Hz (MAME `pooyan.cpp` set_raw; RTL patches) |
 | 2026-10-01 | Popeye-by-Dar, Sky-skipper-by-Dar | CPU f/8, AY f/16 | CPU f/10, AY f/20 (RTL patch; clock unchanged) |
 | 2026-10-02 | Burger-Time-by-Dar | 12.000 + 6.000 MHz (1 / 7.5 / 62.5 / 125) | 12.000 MHz single output (5 / 49.875 / 83.125) |
 | 2026-10-02 | Burnin-Rubber-by-Dar | 12.000 + 6.000 MHz (1 / 7.5 / 62.5 / 125) | 12.000 MHz single output (5 / 49.875 / 83.125) |
@@ -500,52 +501,27 @@ current solves (re-surveyed 2026-10-02 against generated
 
 ### Pooyan-by-Dar (Pooyan — Konami, 1982)
 
-- **FPGA achieved clock (2026-10-05, single domain)**: `clk_out1` =
-  `clk_core` = 24.573991 MHz (D 5 / M 34.25 / O0 27.875); 12.287 / 6.1435 MHz
-  phases and a 14.318181 MHz phase-accumulator sound enable derived in the
-  wrapper (`Pooyan-by-Dar/contrib/basys3/PORTING_SPEC.md` section 2);
-  hardware-confirmed 2026-10-05. Previous
-  solve, kept below for reference: `clk_out1` = 12.28790 MHz (video-board core
-  clock), `clk_out2` = 14.31760 MHz (sound board). `DIVCLK_DIVIDE=7`,
-  `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`, `CLKOUT1_DIVIDE=56`.
-  Source: README, confirmed identical in the generated `clk_wiz_0.v` header
-  (`clk_out1__12.28790`, `clk_out2__14.31760`) — both are close to but not
-  bit-exact with the nominal 12.288/14.318 MHz named in the README prose;
-  the achieved figures are what the MMCM actually outputs.
-- **VGA mode**: 31 kHz VGA via the DECA `vga_scandoubler`
-  (`enable_scandoubling`/`disable_scaneffect` both `1`); the scandoubler's
-  15 kHz bypass exists but this port's README notes "15 kHz display is not
-  connected; needs a switch wired to enable/disable TV mode" — TV mode isn't
-  user-exposed yet in this port. `rtl_dar/pooyan.vhd`: `clock_6` =
-  `clk_out1`/2 (achieved ≈6.14395 MHz); `hcnt` 0–47 (48 states × 8 `pxcnt`
-  sub-ticks = 384 px total). `vcnt`: the core's own comment gives two
-  alternative line counts (260 or 263); reading the actual RTL confirms the
-  live reset value is `0x F9` (249), i.e. the **263-line** variant is what's
-  implemented (`vcnt` 249–511 = 263 states) — the 260-line alternative in the
-  comment is dead/commented-out code. H = 6.14395 MHz / 384 = 15,999.87 Hz
-  (~16.000 kHz), V = 15,999.87 / 263 = 60.84 Hz. Scandoubler roughly doubles
-  H for the 31 kHz VGA path (~32.0 kHz), same ~60.84 Hz frame.
-- **Doubling axis resolved**: read `contrib/basys3/code/vga_scandoubler.v`
-  directly (the DECA/"Deca Neptuno board test" import). It is a genuine
-  double-buffered line store: the write side (`clkvideo`) captures one native
-  scanline per line into a 2-line ping-pong buffer; the read side (`clkvga`,
-  running at ~2x `clkvideo`) walks the *same address range* (`totalhor`, the
-  captured line's own pixel count) but at twice the clock rate, and — per the
-  module's own Spanish comments — when it finishes that address range before
-  the source's next `hsync` arrives, it re-reads the same buffer half from
-  its origin (`addrvga` low bits reset, high "half" bit unchanged) rather
-  than advancing to a new line. Net effect: each captured line is displayed
-  **twice** (occupying the same wall-clock time as one native line), with
-  the pixel address range — and so the pixel *count* per line — unchanged.
-  This is real **vertical** line-doubling (matching every other scandoubler/
-  line_doubler family in this catalog), not horizontal pixel-count doubling.
-  The design note's "real horizontal doubling" phrasing (elsewhere in this
-  port's own docs) refers to the *horizontal scan rate* (Hz) genuinely
-  doubling via this buffered double-speed readout — not the image's
-  horizontal pixel count increasing; earlier revisions of this catalog
-  misread that phrase as width-doubling. Active resolution 256×224 native
-  (`rtl_dar/pooyan.vhd:640-646`) → **256×448** doubled, no standard VGA/VESA
-  match.
+- **FPGA achieved clock**: single output `clk_core` = 24.573991 MHz
+  (D 5 / M 34.25 / O0 27.875), 2 x 12.287 MHz. The 12.287 / 6.1435 MHz phases
+  (pixel, main CPU enable `cpu_ena and ce6` = 3.072 MHz) and a 14.318181 MHz
+  phase-accumulator sound enable (sound Z80 and AY at /8 = 1.790 MHz) are
+  derived in the wrapper (`Pooyan-by-Dar/contrib/basys3/PORTING_SPEC.md`
+  section 2, which also records the former two-output design). Keyboard on
+  `clk_core` through a 2-FF synchronizer. Hardware-confirmed 2026-10-05.
+- **VGA mode**: 31 kHz VGA via the MiST `scandoubler.v` (`clk_sys` =
+  `clk_core`, `ce_x1` = 6.1435 MHz pixel enable, `ce_x2` = 2x); `sw(13)` = 1
+  selects 15 kHz TV (native RGB, `csync` on HS, VS high). `hcnt` 0–47 (48
+  states × 8 `pxcnt` sub-ticks = 384 px total). `vcnt` reloads `0xF8` (248) at
+  the 0x1FF wrap: 248–511 = **264** states (`pooyan_vcnt_264_lines.patch`;
+  pristine Dar core reloads `0xF9`, 263 lines), matching MAME
+  `konami/pooyan.cpp` `set_raw(..., 384, 0, 256, 264, 16, 240)` ("measured
+  ~60.6Hz"). H = 6.1435 MHz / 384 = 15.999 kHz, V = 15,999 / 264 = 60.61 Hz.
+  The scandoubler doubles H for the 31 kHz VGA path (~32.0 kHz), same 60.61 Hz
+  frame.
+- **Doubling axis**: the MiST scandoubler stores each native line and replays
+  it twice at 2x the pixel rate (vertical line doubling, pixel count per line
+  unchanged). Active resolution 256×224 native (`rtl_dar/pooyan.vhd` vblank
+  271..494) → **256×448** doubled, no standard VGA/VESA match.
 - **Original crystal**: main/video crystal **18.432 MHz** — main CPU (Z80)
   at XTAL/3/2 = 3.072 MHz, video/pixel clock at XTAL/3 = 6.144 MHz (screen
   raw-timing comment: "measured ~60.6 Hz"). Separate sound-board crystal
@@ -682,29 +658,23 @@ current solves (re-surveyed 2026-10-02 against generated
 
 ### Time-Pilot-by-Dar (Time Pilot — Konami, 1982)
 
-- **FPGA achieved clock (2026-10-05, single domain)**: `clk_core` =
-  24.573991 MHz (D 5 / M 34.25 / O0 27.875), same design as Pooyan
-  (`Time-Pilot-by-Dar/contrib/basys3/PORTING_SPEC.md` section 2);
-  hardware-confirmed 2026-10-05. Previous solve, kept for reference: `clk_out1` = 12.28790 MHz
-  (machine core), `clk_out2` = 14.31760 MHz (sound) — identical MMCM solve to
-  Pooyan (sister core). `DIVCLK_DIVIDE=7`, `CLKFBOUT_MULT_F=56.125`, `CLKOUT0_DIVIDE_F=65.25`,
-  `CLKOUT1_DIVIDE=56`. Source: README, confirmed identical in the generated
-  `clk_wiz_0.v` header.
-- **VGA mode**: 31 kHz VGA via the DECA `vga_scandoubler` (same as Pooyan);
-  README likewise notes "15 kHz display is not connected; needs a switch
-  wired to enable/disable TV mode." `rtl_dar/time_pilot.vhd` shares Pooyan's
-  `pxcnt`/`hcnt` structure (48 × 8 = 384 px). Pristine `vcnt` reloads to
+- **FPGA achieved clock**: single output `clk_core` = 24.573991 MHz
+  (D 5 / M 34.25 / O0 27.875); same enables and sound phase accumulator as
+  Pooyan (`Time-Pilot-by-Dar/contrib/basys3/PORTING_SPEC.md` section 2).
+  Keyboard on `clk_core` through a 2-FF synchronizer. Hardware-confirmed
+  2026-10-05.
+- **VGA mode**: 31 kHz VGA via the MiST `scandoubler.v` (same wiring as
+  Pooyan); `sw(13)` = 1 selects 15 kHz TV. `rtl_dar/time_pilot.vhd` shares
+  Pooyan's `pxcnt`/`hcnt` structure (48 × 8 = 384 px). Pristine `vcnt` reloads
   `0xFC` (252) at the 0x1FF wrap, 252–511 = 260 states (61.54 Hz).
-  `contrib/code/time_pilot_vcnt_263_lines.patch` (2026-10-01,
-  `CLOCKING_SPEC.md` 5.7 option D) changes the reload to `0xF9` (249), as
-  in Pooyan: 249–511 = **263** states (reset value `0xFC` kept). H =
-  6.14395 MHz / 384 = 15,999.87 Hz (~16.000 kHz), V = 15,999.87 / 263 =
-  60.84 Hz. Keyboard on the wrapper's `clock_6` toggle (6.14395 MHz).
-- **Doubling axis**: same DECA `vga_scandoubler.v` as Pooyan — see that
-  entry's "Doubling axis resolved" note for the full derivation. Real
-  vertical line-doubling, width unchanged. Active resolution 256×234 native
-  (`rtl_dar/time_pilot.vhd:634-642`) → **256×468** doubled, no standard
-  VGA/VESA match.
+  `contrib/code/time_pilot_vcnt_264_lines.patch` (`CLOCKING_SPEC.md` 5.7)
+  changes the reload to `0xF8` (248): 248–511 = **264** states (reset value
+  `0xFC` kept), per MAME `konami/pooyan.cpp` set_raw (same video family). H =
+  6.1435 MHz / 384 = 15.999 kHz, V = 15,999 / 264 = 60.61 Hz.
+- **Doubling axis**: as Pooyan (vertical line doubling, width unchanged).
+  Active resolution 256×234 native (`rtl_dar/time_pilot.vhd` vblank 262..495;
+  MAME visible area 224 lines) → **256×468** doubled, no standard VGA/VESA
+  match.
 - **Original crystal**: main crystal **18.432 MHz** — main CPU (Z80) at
   XTAL/6 = 3.072 MHz (MAME driver comment flags the /6 divisor itself as
   "not confirmed, but common for Konami games of the era" — the crystal
@@ -888,7 +858,8 @@ this repo's Basys3 port re-solved them on `clk_wiz_0`. Divergences between this 
 "FPGA clock(s)" reflect deliberate Basys3-port choices (e.g. an added clock, a combined
 single output, or a differently-tapped fabric-divided rate), not defects. "VGA pixel clock"
 is the clock actually driving VGA-mode pixel output on the Basys3 board — `clk_sys` fed to
-an imported MiST scandoubler, `clkvga` fed to the DECA scandoubler, the internal
+an imported MiST scandoubler (or its `ce_x2` rate where `clk_sys` is the faster single core
+clock), the internal
 `line_doubler`'s read clock, or (for machines with no scandoubler at all — the core generates
 progressive video natively) the core's own progressive-mode `pix_ena` rate — read directly
 from each machine's wrapper/core source, not derived from the H-rate. "VGA mode" is the
@@ -911,12 +882,12 @@ simulation — see each machine's own section above for the details this uncover
 | Galaga-Midway-by-Dar   | 18 + 11 MHz                  | 36.863711 MHz (core 18.43186) | 12.28790 MHz              | 288×448 (non-standard)                             | 32.00 kHz | 60.61 Hz              | 18.432 MHz                    |
 | Kick-Midway-MCR-by-Dar | 40 MHz                       | 40.000 MHz                    | 20.000 MHz                | 512×480 (480-line matches VGA; width non-standard) | 31.55 kHz | 60.09 Hz / 59.75 Hz   | 19.968 + 16 MHz               |
 | Phoenix-by-Dar         | 11 MHz                       | 11.000 + 50.000 MHz           | 11.000 MHz                | 256×416 (non-standard)                             | 31.25 kHz | 61.04 Hz              | 11.000 MHz                    |
-| Pooyan-by-Dar          | 12.288 + 14.318 MHz          | 12.28790 + 14.31760 MHz       | 12.28790 MHz              | 256×448 (non-standard)                             | 32.00 kHz | 60.84 Hz              | 18.432 + 14.31818 MHz         |
+| Pooyan-by-Dar          | 12.288 + 14.318 MHz          | 24.57399 MHz                  | 12.287 MHz (`ce_x2`)      | 256×448 (non-standard)                             | 32.00 kHz | 60.61 Hz              | 18.432 + 14.31818 MHz         |
 | Popeye-by-Dar          | 40.32 MHz                    | 40.320 MHz                    | 20.160 MHz                | 512×448 (non-standard)                             | 31.50 kHz | 59.886 Hz / 59.886 Hz | 8.000 MHz                     |
 | Satans-Hollow-by-Dar   | 40 MHz                       | 40.000 MHz                    | 20.000 MHz                | 512×480 (480-line matches VGA; width non-standard) | 31.55 kHz | 60.09 Hz / 59.75 Hz   | 19.968 + 16 MHz               |
 | Sky-skipper-by-Dar     | 40 MHz                       | 40.320 MHz                    | 20.160 MHz                | 512×448 (non-standard)                             | 31.50 kHz | 59.886 Hz / 59.886 Hz | 8.000 MHz                     |
 | Solar-Fox-by-Dar       | 40 MHz                       | 40.000 MHz                    | 20.000 MHz                | 512×480 (480-line matches VGA; width non-standard) | 31.55 kHz | 60.09 Hz / 59.75 Hz   | 19.968 + 16 MHz               |
-| Time-Pilot-by-Dar      | 12.288 + 14.318 MHz          | 12.28790 + 14.31760 MHz       | 12.28790 MHz              | 256×468 (non-standard)                             | 32.00 kHz | 60.84 Hz              | 18.432 + 14.31818 MHz         |
+| Time-Pilot-by-Dar      | 12.288 + 14.318 MHz          | 24.57399 MHz                  | 12.287 MHz (`ce_x2`)      | 256×468 (non-standard)                             | 32.00 kHz | 60.61 Hz              | 18.432 + 14.31818 MHz         |
 | Traverse-USA-by-Dar    | 36.86 + 3.58 MHz             | 36.84211 + 7.15909 MHz        | 12.28070 MHz              | 240×512 (non-standard)                             | 31.98 kHz | 56.70 Hz              | 18.432 + 3.579545 + 0.384 MHz |
 | Tron-by-Dar            | 40 MHz                       | 40.000 MHz                    | 20.000 MHz                | 512×480 (480-line matches VGA; width non-standard) | 31.55 kHz | 60.09 Hz / 59.75 Hz   | 19.968 + 16 MHz               |
 | Xevious-by-Dar         | 18 + 11 MHz                  | 18.43196 MHz                  | 18.43196 MHz              | 288×448 (non-standard)                             | 32.00 kHz | 60.61 Hz              | 18.432 MHz                    |

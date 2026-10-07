@@ -14,15 +14,16 @@ notes.
   (`contrib/code/time_pilot_single_domain.patch`; design in
   `contrib/basys3/PORTING_SPEC.md` section 2). MMCM reset on btnC, core reset
   `btnC or not mmcm_locked`, released synchronously.
-- Frame: 263 lines, 60.84 Hz (`contrib/code/time_pilot_vcnt_263_lines.patch`,
-  2026-10-01): pristine reload `0x0FC` gave 260 lines / 61.54 Hz, outside the
-  VGA window; 263 lines (`0x0F9`) is the choice Dar made in his later Pooyan
-  core for the same hardware family. See `../CLOCKING_SPEC.md` 5.7.
+- Frame: 264 lines, 60.61 Hz (`contrib/code/time_pilot_vcnt_264_lines.patch`,
+  2026-10-06; reload `0x0F8`): MAME `konami/pooyan.cpp` `set_raw` gives 384 x
+  264 (224 visible), measured ~60.6 Hz, for the same Konami video hardware
+  (MAME `timeplt.cpp` gives only a nominal 60 Hz). Pristine reload `0x0FC`
+  gives 260 lines / 61.54 Hz. See `../CLOCKING_SPEC.md` 5.7.
 
 ## Features supported
 
-- **Video**: 31 kHz progressive VGA via the MiST scandoubler (same as Pooyan,
-  2026-10-05; replaces the DECA `vga_scandoubler`). sw(13) switches to 15 kHz
+- **Video**: 31 kHz progressive VGA via the MiST scandoubler (same as Pooyan).
+  sw(13) switches to 15 kHz
   TV mode (native RGB + composite sync on HS).
 - **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
   <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;

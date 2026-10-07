@@ -24,8 +24,7 @@ extracted, reset-sensitivity patch applied, romset staged, PROM VHDL generated).
   - `clk_wiz_0` MMCM IP, generated PROM VHDL from `tools/berzerk_unzip/`
     (`berzerk_program1.vhd`, `berzerk_program2.vhd`, `berzerk_speech_rom.vhd`)
 
-No external scandoubler import (unlike Galaga/Burnin' Rubber's `mist/scandoubler.v` or
-Pooyan/Time-Pilot's `vga_scandoubler.v`) — `berzerk.vhd` instantiates `rtl_dar/line_doubler.vhd`
+No external scandoubler import (unlike the machines using the MiST `mist/scandoubler.v`) — `berzerk.vhd` instantiates `rtl_dar/line_doubler.vhd`
 internally.
 
 ## 1. Port list (DE10-lite → Basys3)

@@ -32,13 +32,6 @@ Entry format:
   Phoenix patches).
 - **Status**: open, deferred (user, 2026-10-02).
 
-### Tron-by-Dar: bottom horizontal line shows flickering junk
-- **Reported**: 2026-10-01 (user, hardware)
-- **Symptom**: the bottom scan line of the picture shows flickering garbage.
-- **Tried**: n/a.
-- **Status**: open, deferred (user, 2026-10-01). Native progressive timing (634 x 525,
-  `vcnt` wrap 524); compare vblank/vsync thresholds with the active window first.
-
 ### (cross-machine): correlate synthesis duration with Cross Boundary and Area Optimization time and DSP Report
 - **Reported**: 2026-09-24
 - **Symptom**: not a defect -- pending investigation. Compare each machine's total
@@ -49,10 +42,29 @@ Entry format:
   Outliers on record: Tron 00:22:09 opt phase (2 DSP48E1, `plusOp`/`snd_1_reg`/
   `snd_2_reg`), Burnin-Rubber 4 DSP48E1 with DRC `DPIP-1`/`DPOP` pipelining
   warnings, Defender 00:03:31 opt, Zaxxon 00:02:14 opt.
-- **Tried**: n/a -- pending investigation; timing data lives in `build-metrics.csv`.
+- **Tried**: 2026-10-06 analysis of `build-metrics.csv` (latest synth run per machine):
+  correlation of synth duration with BRAM % 0.62, LUT % 0.60, FF % 0.41, DSP % -0.15.
+  DSP does not explain it (Xevious 2125 s with 0 DSP; Burger-Time/Burnin-Rubber 4.44 % DSP,
+  about 107 s). MCR family at equal LUT use: Satans-Hollow / Tron (71 % BRAM) 968 / 753 s vs
+  Kick / Solar-Fox (51 %) 278 / 346 s. Surviving `.vds` (Pooyan, Time-Pilot): Cross Boundary
+  and Area Optimization is the largest phase (43 s / 76 s). Hypothesis (unconfirmed): large
+  generated PROM constant arrays dominate that phase. Other machines' run logs were deleted by
+  project regeneration, so `tools/lib/darfpga-bitstream.sh` now records per synth run
+  `synth_elapsed_s`, `xb_opt_s`, `bram_tiles`, `dsp_used` in `build-metrics.csv` and keeps the
+  `.vds` under `build-logs/<game>/` (gitignored). Next: collect data from normal builds, then
+  per-module analysis on Xevious (on request).
 - **Status**: open
 
 ## Fixed
+
+### Tron-by-Dar: bottom horizontal line shows flickering junk
+- **Reported**: 2026-10-01 (user, hardware)
+- **Symptom**: the bottom scan line of the picture shows flickering garbage.
+- **Tried**: monitor AUTOSET (auto-adjust) on the LG Flatron L2000CP (user, 2026-10-07):
+  the junk line no longer appears.
+- **Cause**: monitor geometry/phase not auto-adjusted for this mode (634 x 525 progressive);
+  not a design defect. No RTL or wrapper change.
+- **Status**: closed 2026-10-07 (user). Not re-checked on the Sylvania SF150.
 
 ### Time-Pilot-by-Dar, Pooyan-by-Dar: intermittent sync failure after reset (~50%)
 - **Reported**: 2026-10-01 (user, hardware; builds of 2026-10-01 with the `locked`

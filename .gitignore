@@ -31,6 +31,9 @@
 # Upstream Dar archives are tracked (2026-10-06); romset zips stay ignored.
 !*/dloads/*.zip
 
+# Synthesis .vds copies kept by tools/lib/darfpga-bitstream.sh (build-time study)
+/build-logs/
+
 # Vivado build junk (keep .xpr/.xdc/.vhd sources visible)
 **/.runs/
 **/.cache/

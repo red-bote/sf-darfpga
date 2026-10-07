@@ -42,7 +42,7 @@ filenames:
 | No `tv15Khz_mode`; wrapper drives `vga_hs <= csync` (15 kHz composite sync) | External MiST scandoubler needed | Galaga, Burnin-Rubber |
 | Internal `line_doubler` instantiation | Doubles internally; no external doubler | Bagman, Berzerk |
 | Progressive branch under `tv15Khz_mode='0'`: vcnt counts 524/525, pix_ena ~20 MHz comment | Native progressive 31 kHz | Kick, Popeye, Sky Skipper, Solar Fox |
-| Ships DECA `vga_scandoubler.v` | Ported with that module | Time Pilot, Pooyan |
+| Ships DECA `vga_scandoubler.v` | Ported with that module | none in sf-darfpga since 2026-10-05 (Time Pilot, Pooyan moved to MiST `scandoubler.v`); still in `other/` and `red-bote/` Arcade_Pooyan / Arcade_Zaxxon |
 
 ## Authoring the .xpr
 

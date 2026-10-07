@@ -96,25 +96,25 @@ instead of `prep_roms.sh`.
 | Machine | Core clock | Project / top entity | Patch | Romset(s) |
 |---|---|---|---|---|
 | Berzerk (Stern 1980) | 10 MHz | `basys3/berzerk_basys3.xpr`, `berzerk_basys3` | `berzerk_reset_sensitivity.patch` | `berzerk.zip` |
-| Bagman (Stern 1982) | 12 MHz | `basys3/bagman_basys3.xpr`, `bagman_basys3` | `bagman_xor_width.patch` | `bagman.zip` |
-| Burnin' Rubber (Data East 1982) | 12 + 6 MHz | `basys3/burnin_rubber_basys3.xpr`, `burnin_rubber_basys3` | `burnin_rubber_vsync_before_vblank.patch` | `brubber.zip` |
-| BurgerTime (Data East 1982) | 12 + 6 MHz | `basys3/burger_time_basys3.xpr`, `burger_time_basys3` | — | `btime.zip` |
-| Defender (Williams 1981) | 12 + 3.58 MHz | `basys3/defender_basys3.xpr`, `defender_basys3` | — | `defender.zip` |
-| Galaga (Namco/Midway 1981) | 36 MHz | `basys3/galaga_basys3.xpr`, `galaga_basys3` | `galaga_bgpalette_xor_length_fix.patch`, `galaga_credit_mode_fix.patch`, `galaga_vga_sync.patch` | `galaga.zip` + `galagamw.zip` |
+| Bagman (Stern 1982) | 12.288 MHz | `basys3/bagman_basys3.xpr`, `bagman_basys3` | `bagman_xor_width.patch` | `bagman.zip` |
+| Burnin' Rubber (Data East 1982) | 12 MHz | `basys3/burnin_rubber_basys3.xpr`, `burnin_rubber_basys3` | `burnin_rubber_vsync_before_vblank.patch` | `brubber.zip` |
+| BurgerTime (Data East 1982) | 12 MHz | `basys3/burger_time_basys3.xpr`, `burger_time_basys3` | — | `btime.zip` |
+| Defender (Williams 1981) | 12 + 7.159 MHz (/2 = 3.58) | `basys3/defender_basys3.xpr`, `defender_basys3` | — | `defender.zip` |
+| Galaga (Namco/Midway 1981) | 36.864 MHz | `basys3/galaga_basys3.xpr`, `galaga_basys3` | `galaga_bgpalette_xor_length_fix.patch`, `galaga_credit_mode_fix.patch`, `galaga_vga_sync.patch` | `galaga.zip` + `galagamw.zip` |
 | Kick (Midway MCR 1981) | 40 MHz | `basys3/kick_basys3.xpr`, `kick_basys3` | — | `kick.zip` |
 | Popeye (Nintendo 1982) | 40.32 MHz | `basys3/popeye_basys3.xpr`, `popeye_basys3` | `popeye_linmix_sensitivity.patch` | `popeye.zip` + `popeyeu.zip` |
 | Phoenix (Amstar 1980) | 11 + 50 MHz | `basys3/phoenix_basys3.xpr`, `phoenix_basys3` | `phoenix_expose_hsync_vsync.patch` | `phoenix.zip` |
-| Pooyan (Konami 1982) | 12.288 + 14.318 MHz | `basys3/pooyan_basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch` | `pooyan.zip` |
+| Pooyan (Konami 1982) | 24.574 MHz | `basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch`, `pooyan_single_domain.patch`, `pooyan_vcnt_264_lines.patch` | `pooyan.zip` |
 | Satans/Hollow (Bally Midway MCR 1981) | 40 MHz | `basys3/satans_hollow_basys3.xpr`, `satans_hollow_basys3` | — | `shollow.zip` |
-| Sky Skipper (Nintendo 1981) | 40 MHz | `basys3/sky_skipper_basys3.xpr`, `sky_skipper_basys3` | — | `skyskipr.zip` |
+| Sky Skipper (Nintendo 1981) | 40.32 MHz | `basys3/sky_skipper_basys3.xpr`, `sky_skipper_basys3` | — | `skyskipr.zip` |
 | Solar Fox (Bally Midway 1981) | 40 MHz | `basys3/solar_fox_basys3.xpr`, `solar_fox_basys3` | — | `solarfox.zip` |
-| Time Pilot (Konami 1982) | 12.288 + 14.318 MHz | `basys3/time_pilot_basys3.xpr`, `time_pilot_basys3` | — | `timeplt.zip` |
+| Time Pilot (Konami 1982) | 24.574 MHz | `basys3/time_pilot_basys3.xpr`, `time_pilot_basys3` | `time_pilot_single_domain.patch`, `time_pilot_vcnt_264_lines.patch` | `timeplt.zip` |
 | Tron (Midway MCR 1982) | 40 MHz | `basys3/tron_basys3.xpr`, `tron_basys3` | — | `tron.zip` + `kick.zip` (color PROM) |
-| Traverse USA / Zippy Race (Irem 1983) | 36.86 + 3.58 MHz | `basys3/traverse_usa_basys3.xpr`, `traverse_usa_basys3` | `traverse_usa_expose_video_timing.patch`, `traverse_usa_de10_lite_to_basys3.patch` | `travrusa.zip` |
-| Xevious (Namco 1982) | 18 + 11 MHz | `basys3/xevious_basys3.xpr`, `xevious_basys3` | `xevious_expose_hsync_vsync.patch` | `xevious.zip` |
-| Zaxxon (Gremlin/Sega 1980) | 24 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
-| Computer Space (Nutting Associates 1971) | 6 + 50 MHz | `basys3/computer_space_basys3.xpr`, `computer_space_basys3` | `computer_space_de10_lite_to_basys3.patch`, `computer_space_motion_q_assoc.patch`, `computer_space_rocket_timer_synth_fix.patch` | — (discrete-game core, no romset) |
-| Crazy Kong (Kyoei/Falcon 1981) | 12 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
+| Traverse USA / Zippy Race (Irem 1983) | 36.842 + 7.159 MHz (/2 = 3.58) | `basys3/traverse_usa_basys3.xpr`, `traverse_usa_basys3` | `traverse_usa_expose_video_timing.patch`, `traverse_usa_de10_lite_to_basys3.patch` | `travrusa.zip` |
+| Xevious (Namco 1982) | 18.432 MHz | `basys3/xevious_basys3.xpr`, `xevious_basys3` | `xevious_expose_hsync_vsync.patch` | `xevious.zip` |
+| Zaxxon (Gremlin/Sega 1980) | 24.329 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
+| Computer Space (Nutting Associates 1971) | 48 MHz | `basys3/computer_space_basys3.xpr`, `computer_space_basys3` | `computer_space_de10_lite_to_basys3.patch`, `computer_space_motion_q_assoc.patch`, `computer_space_rocket_timer_synth_fix.patch` | — (discrete-game core, no romset) |
+| Crazy Kong (Kyoei/Falcon 1981) | 12.288 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
 
 Directory naming is not uniform: `Bagman-FPGA-Dar` and `Berzerk-FPGA-by-Dar`
 differ from the `-by-Dar` convention; `Sky-skipper-by-Dar` uses a lowercase `s`.
@@ -186,7 +186,7 @@ Zaxxon's cores
 needed a patch to expose hsync/vsync in the first place, unlike
 Galaga/Burnin-Rubber's native ones — see
 `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md`); Time Pilot and Pooyan
-import `vga_scandoubler.v` (DECA); Bagman and Berzerk instantiate Dar's
+use the same MiST `scandoubler.v` (since 2026-10-05); Bagman and Berzerk instantiate Dar's
 `line_doubler` inside the core; Kick, Popeye, Sky Skipper, Solar Fox, Crazy
 Kong, and Satans/Hollow generate progressive 31 kHz natively in the core
 (`tv15Khz_mode = '0'`).

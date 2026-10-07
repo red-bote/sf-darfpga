@@ -3,7 +3,7 @@
 # darfpga_setup() in sf-darfpga/tools/lib/darfpga-setup.sh.
 
 # --binary: rtl_dar is CRLF; time_pilot_single_domain.patch and
-# time_pilot_vcnt_263_lines.patch must keep their CR bytes.
+# time_pilot_vcnt_264_lines.patch must keep their CR bytes.
 
 set -euo pipefail
 

@@ -49,9 +49,9 @@ Confirmed against `time_pilot_de10_lite.vhd` and the built `time_pilot_basys3.vh
   sprite palette, two RGB palettes) use the address-hold mux.
 - Patch `contrib/code/time_pilot_single_domain.patch` (`rtl_dar/time_pilot.vhd`,
   `time_pilot_sound_board.vhd`, `gen_ram.vhd`; CRLF, `setup_time_pilot.sh --binary`); it sorts
-  and applies before the 263-line patch, both verified in that order.
+  and applies before the 264-line patch, both verified in that order.
 - Reset: `btnC or not mmcm_locked`, released synchronously to `clk_core`; MMCM reset = btnC.
-- Core patch `contrib/code/time_pilot_vcnt_263_lines.patch` (2026-10-01): `vcnt` reload `0x0FC` -> `0x0F9`, 263 lines, V 60.84 Hz (was 61.54 Hz); same as Dar's later Pooyan core. `../../CLOCKING_SPEC.md` 5.7.
+- Core patch `contrib/code/time_pilot_vcnt_264_lines.patch` (2026-10-06): `vcnt` reload `0x0FC` -> `0x0F8`, 264 lines, V 60.61 Hz (pristine 260 lines, 61.54 Hz), per MAME `konami/pooyan.cpp` `set_raw(18.432_MHz_XTAL / 3, 384, 0, 256, 264, 16, 240)` ("measured ~60.6Hz", same Konami video); replaces the 2026-10-01 263-line patch. `../../CLOCKING_SPEC.md` 5.7.
 
 ## 3. Reset polarity
 

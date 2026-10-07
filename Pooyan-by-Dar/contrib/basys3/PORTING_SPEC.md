@@ -87,6 +87,11 @@ CEN-gated logic, so behavior is unchanged.
 
 - `contrib/basys3/code/pooyan_single_domain.patch` (CRLF; `setup_pooyan.sh` applies with `--binary`):
   `rtl_dar/pooyan.vhd`, `rtl_dar/pooyan_sound_board.vhd`, `rtl_dar/gen_ram.vhd`.
+- `contrib/basys3/code/pooyan_vcnt_264_lines.patch` (2026-10-06, applied after the
+  single-domain patch): `vcnt` reload `0x0F9` -> `0x0F8`, 264 lines, V 60.61 Hz (Dar's core:
+  263 lines, 60.84 Hz), per MAME `konami/pooyan.cpp`
+  `set_raw(18.432_MHz_XTAL / 3, 384, 0, 256, 264, 16, 240)` ("measured ~60.6Hz").
+  `../../CLOCKING_SPEC.md` 5.7.
 
 ## 3. Reset polarity
 

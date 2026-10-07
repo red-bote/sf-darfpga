@@ -14,9 +14,14 @@
 # the root AGENTS.md "Tool / path resolution" convention.
 #
 # On a successful run, appends one row to sf-darfpga/build-metrics.csv
-# (machine, mode, wall-clock duration, LUT/FF/BRAM/DSP utilization %, WNS/TNS)
-# for cross-machine build-time/resource comparison. A failed run is not
+# (machine, mode, wall-clock duration, LUT/FF/BRAM/DSP utilization %, WNS/TNS;
+# synth runs also: synthesis elapsed time and Cross Boundary and Area
+# Optimization phase time from the .vds, BRAM tile and DSP counts) for
+# cross-machine build-time/resource comparison, and copies the run's logs to
+# sf-darfpga/build-logs/<game>/ (gitignored): synth runs the .vds, bitstream
+# runs the impl_1 .vdi and routed timing summary (includes check_timing). A failed run is not
 # logged (its duration-to-failure isn't a useful data point for this).
+# Added 2026-10-06 for the KNOWN_ISSUES.md synthesis-duration study.
 darfpga_build_bitstream() {
     local root="" src_dir="" top_entity="" mode=""
     while [ $# -gt 0 ]; do
@@ -105,7 +110,9 @@ TCLEOF
         _darfpga_log_build_metrics \
             --root "$root" --game "$(basename "$root")" --top-entity "$top_entity" \
             --mode "$mode" --run "$metrics_run" --duration "$duration" \
-            --util-rpt "$util_rpt" --stats-file "$stats_file"
+            --util-rpt "$util_rpt" --stats-file "$stats_file" \
+            --vds "$root/$src_dir/basys3/$top_entity.runs/synth_1/$top_entity.vds" \
+            --impl-dir "$root/$src_dir/basys3/$top_entity.runs/impl_1"
     fi
 
     rm -rf "$work"
@@ -132,7 +139,7 @@ TCLEOF
 # (report_utilization's exact table format is tied to Vivado 2020.2; a
 # toolchain upgrade may need the awk patterns below adjusted).
 _darfpga_log_build_metrics() {
-    local root="" game="" top_entity="" mode="" run="" duration="" util_rpt="" stats_file=""
+    local root="" game="" top_entity="" mode="" run="" duration="" util_rpt="" stats_file="" vds="" impl_dir=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --root) root="$2"; shift 2 ;;
@@ -143,6 +150,8 @@ _darfpga_log_build_metrics() {
             --duration) duration="$2"; shift 2 ;;
             --util-rpt) util_rpt="$2"; shift 2 ;;
             --stats-file) stats_file="$2"; shift 2 ;;
+            --vds) vds="$2"; shift 2 ;;
+            --impl-dir) impl_dir="$2"; shift 2 ;;
             *) shift ;;
         esac
     done
@@ -151,12 +160,44 @@ _darfpga_log_build_metrics() {
     # xc7a35tcpg236-1) label in Vivado 2020.2's report_utilization; "CLB
     # LUTs"/"CLB Registers" is the UltraScale+ equivalent, matched too in
     # case the toolchain/part ever changes.
-    local lut_pct="" ff_pct="" bram_pct="" dsp_pct=""
+    local lut_pct="" ff_pct="" bram_pct="" dsp_pct="" bram_tiles="" dsp_used=""
     if [ -f "$util_rpt" ]; then
         lut_pct=$(awk -F'|' '/\| (Slice|CLB) LUTs\*? *\|/{gsub(/ /,"",$6); print $6; exit}' "$util_rpt")
         ff_pct=$(awk -F'|' '/\| (Slice|CLB) Registers\*? *\|/{gsub(/ /,"",$6); print $6; exit}' "$util_rpt")
         bram_pct=$(awk -F'|' '/\| Block RAM Tile *\|/{gsub(/ /,"",$6); print $6; exit}' "$util_rpt")
         dsp_pct=$(awk -F'|' '/\| DSPs *\|/{gsub(/ /,"",$6); print $6; exit}' "$util_rpt")
+        bram_tiles=$(awk -F'|' '/\| Block RAM Tile *\|/{gsub(/ /,"",$3); print $3; exit}' "$util_rpt")
+        dsp_used=$(awk -F'|' '/\| DSPs *\|/{gsub(/ /,"",$3); print $3; exit}' "$util_rpt")
+    fi
+
+    # Synth runs: phase times from the .vds ("Finished <phase> : Time (s): cpu =
+    # ... ; elapsed = hh:mm:ss", elapsed is cumulative). synth_elapsed_s = last
+    # elapsed value; xb_opt_s = elapsed delta ending at "Finished Cross Boundary
+    # and Area Optimization".
+    local synth_elapsed_s="" xb_opt_s=""
+    if [ "$mode" = "synth" ] && [ -f "$vds" ]; then
+        read -r synth_elapsed_s xb_opt_s < <(awk '
+            /^Finished .* : Time \(s\): cpu = .* elapsed = [0-9]+:[0-9]+:[0-9]+/ {
+                e = $0; sub(/.*elapsed = /, "", e); split(e, a, ":")
+                t = a[1] * 3600 + a[2] * 60 + a[3]
+                if ($0 ~ /^Finished Cross Boundary and Area Optimization /) xb = t - prev
+                prev = t; last = t
+            }
+            END { printf "%s %s\n", last, xb }' "$vds")
+        local log_dir="$root/../build-logs/$game"
+        mkdir -p "$log_dir"
+        cp -f "$vds" "$log_dir/$(date -u +%Y%m%dT%H%M%SZ)_synth.vds"
+    fi
+
+    # Bitstream runs: keep the implementation log (.vdi) and the routed timing
+    # summary (WNS/WHS, check_timing) for the build-log warning review.
+    if [ "$mode" = "bitstream" ] && [ -d "$impl_dir" ]; then
+        local log_dir="$root/../build-logs/$game" stamp f
+        stamp=$(date -u +%Y%m%dT%H%M%SZ)
+        mkdir -p "$log_dir"
+        for f in "$impl_dir/$top_entity.vdi" "$impl_dir/${top_entity}_timing_summary_routed.rpt"; do
+            [ -f "$f" ] && cp -f "$f" "$log_dir/${stamp}_impl_$(basename "$f")"
+        done
     fi
 
     local wns="" tns=""
@@ -165,12 +206,18 @@ _darfpga_log_build_metrics() {
         tns=$(sed -n 's/^tns=//p' "$stats_file")
     fi
 
+    # Columns 13-16 added 2026-10-06; an older header is extended in place
+    # (earlier rows simply lack the trailing fields).
     local csv="$root/../build-metrics.csv"
+    local header="timestamp,game,top_entity,mode,run,duration_s,lut_pct,ff_pct,bram_pct,dsp_pct,wns_ns,tns_ns,synth_elapsed_s,xb_opt_s,bram_tiles,dsp_used"
     if [ ! -f "$csv" ]; then
-        echo "timestamp,game,top_entity,mode,run,duration_s,lut_pct,ff_pct,bram_pct,dsp_pct,wns_ns,tns_ns" > "$csv"
+        echo "$header" > "$csv"
+    elif [ "$(head -n 1 "$csv")" != "$header" ]; then
+        sed -i "1s/.*/$header/" "$csv"
     fi
-    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$game" "$top_entity" "$mode" "$run" "$duration" \
-        "$lut_pct" "$ff_pct" "$bram_pct" "$dsp_pct" "$wns" "$tns" >> "$csv"
+        "$lut_pct" "$ff_pct" "$bram_pct" "$dsp_pct" "$wns" "$tns" \
+        "$synth_elapsed_s" "$xb_opt_s" "$bram_tiles" "$dsp_used" >> "$csv"
     echo "Build metrics logged: $csv"
 }

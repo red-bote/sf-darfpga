@@ -35,7 +35,9 @@
   - Tools/paths resolve as `ENV_VAR → project default → interactive prompt`:
     - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
     - roms: `ROMZIP` → `~/roms/`
-   - `contrib/basys3/vga_scandoubler.v` is the canonical cleanroom import — never modify it.
+   - Imported third-party scandoublers (MiST `scandoubler.v`; DECA `vga_scandoubler.v` in the
+     trees that still use it) are cleanroom imports — never modify the tracked copy; Vivado
+     fixes go in a separate patch applied to the project copy (e.g. `scandoubler_fix.patch`).
 
 ## Documentation scope (PORTING_SPEC.md)
 
@@ -67,9 +69,9 @@
   (`CLOCK_CRYSTAL_CATALOG.md`, MAME `XTAL` values), so the main CPU rate is
   exact or as close as practical.
 - Keep VGA output within H 31.0-32.0 kHz and V 56-61 Hz. Acceptance is sync on
-  the Sylvania SF150 and the LG Flatron L2000CP. Machine-native rates outside
-  the window (Phoenix 61.04 Hz, Computer-Space 61.6 Hz) are recorded
-  exceptions.
+  the Sylvania SF150 and the LG Flatron L2000CP. Rates outside the window are
+  recorded exceptions: machine-native Phoenix 61.04 Hz and Computer-Space 61.6
+  Hz.
 - Record the requested and achieved MMCM solve (DIVCLK / MULT_F /
   CLKOUT_DIVIDE) in the machine README. Force a solve in `make_clk_wiz_0.sh`
   only when Vivado's own solve misses the window.

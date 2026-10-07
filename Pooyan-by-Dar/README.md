@@ -46,17 +46,17 @@ derives one clock, `clk_core` = 24.573991 MHz (`DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT
 `CLKOUT0_DIVIDE_F=27.875`), from the 100 MHz oscillator. The former 12.288 MHz, 6.144 MHz
 (and their inverted phases) and 14.318 MHz sound clocks are clock enables from the wrapper
 (2-bit phase counter; 20-bit phase accumulator for the 14.318181 MHz sound rate), applied to
-the core and sound board by `contrib/basys3/code/pooyan_single_domain.patch`. The former
-two-output MMCM plus register-derived clocks left the core-to-scandoubler path untimed and
-failed VGA sync on about half of the resets. MMCM reset is `btnC`; core reset is `btnC or
+the core and sound board by `contrib/basys3/code/pooyan_single_domain.patch`. Frame: 264 lines,
+60.61 Hz (`pooyan_vcnt_264_lines.patch`, 2026-10-06, per MAME `konami/pooyan.cpp`
+`set_raw`; Dar's core has 263 lines, 60.84 Hz). Design rationale:
+`contrib/basys3/PORTING_SPEC.md` section 2. MMCM reset is `btnC`; core reset is `btnC or
 not mmcm_locked`, released synchronously to `clk_core`.
 
 ## VGA
 
 31 kHz VGA uses the MiST scandoubler (`clk_sys = clk_core`, `ce_x1` = 6.1435 MHz pixel
 enable, `ce_x2` = 2x). 15 kHz TV mode is selected by `sw(13)` = 1 (native RGB, `csync` on HS,
-VS high; fleet convention). The DECA `vga_scandoubler.v` used until 2026-10-05 is no longer
-part of this port.
+VS high; fleet convention).
 
 - **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
   <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
@@ -158,8 +158,9 @@ From scratch, to (re)build `pooyan_basys3.xpr` (steps 1–4 are scripted by
    (writes the authored top level from `contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh`
    and emits `contrib/basys3/code/pooyan_de10_lite_to_basys3.patch` as a record of the change;
    see the porting steps).
-7. Apply `contrib/basys3/code/pooyan_t80_xor_width.patch` (`rtl_t80_350/T80.vhd`) and
-   `contrib/basys3/code/pooyan_single_domain.patch` (`rtl_dar/`), both by `make setup`
+7. Apply `contrib/basys3/code/pooyan_t80_xor_width.patch` (`rtl_t80_350/T80.vhd`),
+   `contrib/basys3/code/pooyan_single_domain.patch` and `pooyan_vcnt_264_lines.patch`
+   (`rtl_dar/`), all by `make setup`
    (`--binary`).
 8. Run synthesis/implementation from `/tmp` so `vivado.log` / `vivado.jou` stay outside the repo.
 

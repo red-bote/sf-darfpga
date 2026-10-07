@@ -1,0 +1,12 @@
+diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan.vhd b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan.vhd
+--- a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan.vhd
++++ b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan.vhd
+@@ -294,7 +294,7 @@
+ 				if hcnt = "101111" then -- char from #0 to #47 (one line)
+ 					if vcnt = '1'&X"FF" then -- 511
+ --						vcnt <= '0'&X"FC";    -- 252
+-						vcnt <= '0'&X"F9";    -- 249
++						vcnt <= '0'&X"F8";    -- 248: Basys3 port, 264 lines (60.61 Hz), MAME konami/pooyan.cpp set_raw (measured ~60.6Hz); was X"F9", 263 lines
+ 					else
+ 						vcnt <= vcnt + '1';
+ 					end if;
