@@ -1,172 +1,125 @@
-# Tron DE10-lite → Basys3 porting spec
+# Tron-by-Dar: porting spec
 
-This spec documents the porting process of Dar's Tron (Midway MCR) hardware to the Digilent
-Basys 3, mirroring the reference Pooyan port (`PORTING_SPEC.md`) and the generic workflow
-(root `PORTING_SPEC.md`). Unlike Pooyan/Time-Pilot, Tron follows the sibling
-Kick-Midway-MCR-by-Dar port's conventions where the two families diverge (single core clock,
-no external scandoubler) — both are Midway MCR-1 SSIO-board hardware.
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-Tron is fully scripted (`contrib/tools/`, `contrib/basys3/vivado/`, `Makefile`:
-`setup`/`create_prj`/`clk_wiz`/`patch`/`synth`/`bitstream`). The Vivado project (`.xpr`,
-`clk_wiz_0` IP, authored top level) is generated and opens cleanly with the
-correct top entity, part, and source list.
+## 1. Upstream and reference model
 
-- Top entity: `tron_basys3` (target file `sources_1/new/tron_basys3.vhd`)
-- Part: `xc7a35tcpg236-1`, VHDL target language
-- Sources (per `tron_basys3.xpr`):
-  - `rtl_dar/` — `tron.vhd`, `tron_sound_board.vhd`, `ctc_controler.vhd`, `ctc_counter.vhd`,
-    `cmos_ram.vhd`, `gen_ram.vhd`, `io_ps2_keyboard.vhd`, `kbd_joystick.vhd`
-  - `rtl_t80_304/` — `T80.vhd`, `T80_Pack.vhd`, `T80_ALU.vhd`, `T80_MCode.vhd`, `T80_Reg.vhd`,
-    `T80se.vhd` (a distinct T80 revision from both Pooyan's `rtl_t80_350` and Time-Pilot's
-    `rtl_T80`)
-  - `rtl_mikej/` — `YM2149_linmix_sep.vhd` (same file Time-Pilot uses; two instances, stereo)
-  - `clk_wiz_0` MMCM IP, generated PROM VHDL from `tools/tron_unzip/`
-  - No scandoubler import — see §5.
-  - `decodeur_7_seg.vhd` (DE10-lite hex-display debug decoder) and `tron_de10_lite.vhd`
-    (pristine top, patch-diff base only) are **not** project sources — same convention as
-    Pooyan/Time-Pilot excluding their pristine tops.
-
-## 1. Port list (DE10-lite → Basys3)
-
-Confirmed against `tron_de10_lite.vhd` and the authored `tron_basys3.vhd`
-(`contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh`):
-
-| Basys 3 port | Function |
-|---|---|
-| `clk` (W5) | 100 MHz into `clk_wiz_0` MMCM |
-| `btnC` | reset (active-high) |
-| `sw(15:0)` | see §6 (audio); no dip switches (none on the core — see §7) |
-| `ps2_dat` / `ps2_clk` (JB1/JB3) | PS/2 keyboard |
-| `JA(4:0)` (JA1-4, JA7) | joystick (active-low); movement/fire/coin/start only — no
-  spinner equivalent (see §7) |
-| `O_PMODAMP2_AIN/GAIN/SHUTD` (JC1/2/4) | PWM audio (PmodAMP2), left channel only |
-| `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB, dual-mode (31 kHz VGA / 15 kHz TV) |
+- Archive `vhdl_tron_rev_0_3_2019_11_22.zip` (SourceForge `darfpga/files/Software
+  VHDL/tron/`), SHA-256 in `contrib/tools/setup_tron.sh`; extracted to
+  `vhdl_tron_rev_0_3_2019_11_22/`. Core `rtl_dar/tron.vhd`; DE10 top `tron_de10_lite.vhd`
+  (patch base only; `decodeur_7_seg.vhd` not a project source).
+- Project sources (`tron_basys3.xpr`): `rtl_dar/` `tron.vhd`, `tron_sound_board.vhd`,
+  `ctc_controler.vhd`, `ctc_counter.vhd`, `cmos_ram.vhd`, `gen_ram.vhd`,
+  `io_ps2_keyboard.vhd`, `kbd_joystick.vhd` (unreferenced); `rtl_t80_304/` (T80 revision
+  distinct from Pooyan's `rtl_t80_350` and Time-Pilot's `rtl_T80`; no xor-width fix needed,
+  synthesis clean 2026-10-02); `rtl_mikej/YM2149_linmix_sep.vhd` (two instances, stereo);
+  `clk_wiz_0`; the six generated PROM files.
+- MAME driver: `bally/mcr.cpp` (`tron`), MCR-1 + SSIO.
+- Top entity `tron_basys3`; part `xc7a35tcpg236-1`.
+- Closest existing port used as model: Kick-Midway-MCR-by-Dar (same MCR family, same
+  `max10_pll_40M` source PLL).
 
 ## 2. Clocking
 
-- The core uses a **single 40 MHz** clock (core + sound board), derived from the 100 MHz
-  Basys 3 oscillator by `clk_wiz_0` — unlike Pooyan/Time-Pilot's dual-clock cores. Matches the
-  sibling Kick port's MMCM exactly (same DE10-lite `max10_pll_40M` source IP, confirmed by
-  identical header comments carried into both Dar top levels).
-- Solved MMCM constants (generated and verified in this environment):
-  `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.000`, `CLKOUT0_DIVIDE_F=25.000`; `clk_out1` =
-  40.000 MHz. `locked` was left open (as the DE10-lite top); since 2026-10-01 the wrapper uses the
-  standard `reset <= btnC or not mmcm_locked` with MMCM reset = btnC (`../../CLOCKING_SPEC.md` section 6).
+- Original: main Z80 19.968 MHz crystal /8 = 2.496 MHz; SSIO 16 MHz.
+- `clk_wiz_0`: request 40.000 MHz, achieved 40.000 MHz (1 / 10.000 / 25.000); signal
+  `clock_40`, one domain for core and sound board. Main CPU +0.16% vs 19.968 MHz (39.9356 MHz
+  retune skipped, user 2026-10-01).
+- Enables: inside Dar's core; `clock_div` gates the PWM accumulators.
+- Video (MCR scanner 634 x 525): progressive H = 31.546 kHz, V = 60.09 Hz; TV H =
+  15.773 kHz, V = 59.75 Hz.
 
-## 3. Reset polarity
+## 3. Reset
 
-- **Basys 3:** `reset <= btnC` (active-high button), mirroring Pooyan/Time-Pilot/Kick.
-- **DE10-lite (confirmed):** `reset_n` aliases the active-low `key(0)`; `reset <= not reset_n`.
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC` (2026-10-01,
+`../../../CLOCKING_SPEC.md` section 6; the DE10 top left `locked` open and used
+`reset <= not key(0)`).
 
 ## 4. Core instantiation
 
-- Keep the `tron` core port map unchanged (video r/g/b/csync/blankn/hs/vs, dual audio_out_l/r,
-  coin/start/movement/fire/angle, cocktail/continue/service, dbg_cpu_addr).
-- `tv15Khz_mode` (F8, `fn_toggle(7)`) is a **live core input**, not a synthesis-time constant —
-  the core generates true progressive 31 kHz *or* interlaced 15 kHz timing internally depending
-  on its value (confirmed in `tron.vhd`'s `hcnt`/`vcnt` generation logic), unlike a scandoubler
-  bolted onto a fixed-rate core.
-- Cocktail-mode ports (`*_c` suffix) are tied to `'0'`/constants, matching the DE10-lite top
-  exactly — the core has no genuine "player 2" port set (only cocktail-mode duplicates), and
-  cocktail mode is explicitly unsupported per the archive's own header ("Cocktail mode: NO").
-- **T80:** Tron uses `rtl_t80_304`, a third distinct T80 revision (Pooyan uses `rtl_t80_350`,
-  Time-Pilot uses `rtl_T80`). Whether this revision needs an equivalent to Pooyan's xor-width
-  fix: **not needed** — synthesis completes with no errors (`synth_1/runme.log`, 2026-10-02). Standalone
-  VHDL analysis (`xvhdl`) of the full RTL chain (T80-304, YM2149, CTC, cmos_ram/gen_ram,
-  keyboard/joystick, `tron`, `tron_sound_board`, and the authored wrapper) against black-box
-  PROM stubs completed with **zero errors** — a first signal the core and wrapper are
-  structurally sound, but not a substitute for real synthesis.
+- Dar's `tron` port map kept (video r/g/b/csync/blankn/hs/vs, `audio_out_l/r`,
+  coin/start/movement/fire/angle, cocktail/continue/service, `dbg_cpu_addr`). Inputs through
+  signals (no expression actuals).
+- Cocktail-mode ports (`*_c`) tied off as in the DE10 top; `angle_c => "0000000"`. The
+  archive header states "Cocktail mode: NO".
+- `angle => spin_count(9 downto 3)`: the spinner counter process copied from the DE10 top,
+  driven by keys (§7).
+- `separate_audio => '0'`; `service` (F2) and `continue` (F6) from wrapper toggles;
+  `cocktail` and `coin_meters` from the DIP signals (§8).
 
-## 5. Video (dual-mode: 31 kHz VGA / 15 kHz TV, no scandoubler)
+## 5. Video path
 
-- Unlike Pooyan/Time-Pilot, **no external scandoubler is imported**. The core generates its
-  own progressive/interlaced timing natively based on `tv15Khz_mode` — same convention as the
-  sibling Kick port and the pattern AGENTS.md documents for Popeye/Sky Skipper/Solar Fox
-  (`tv15Khz_mode` driven directly, not hardcoded).
-- Unlike those other machines, Tron's DE10-lite top wires `tv15Khz_mode` to a **live F8 toggle**
-  (`not fn_toggle(7)`) rather than a hardcoded `'0'`, so both video modes are switchable at
-  runtime — carried over unchanged into the Basys3 wrapper.
-- Output: `vga_r/g/b <= <core color> & '0'` when `blankn='1'` else `"0000"` (3-bit core color
-  padded to 4 bits, no doubler-driven narrowing); `vga_hs <= csync when tv15Khz_mode='1' else
-  hsync`; `vga_vs <= '1' when tv15Khz_mode='1' else vsync` — verbatim from the DE10-lite top.
+No external scandoubler: the core generates progressive 31 kHz or interlaced 15 kHz timing
+from `tv15Khz_mode` (`tron.vhd` `hcnt`/`vcnt`). `tv15Khz_mode <= sw(13)` (2026-09-29;
+pristine `not fn_toggle(7)`, the F8 key). Output copied from the DE10 top:
+`vga_r/g/b <= color & '0'` when `blankn = '1'` else `"0000"`; `vga_hs <= csync` and
+`vga_vs <= '1'` when `tv15Khz_mode = '1'`, else `hsync` / `vsync`.
 
-## 6. Audio (stereo in the core, mono on PmodAMP2)
+## 6. Audio
 
-- The core outputs **stereo** PWM-ready audio (`audio_out_l`/`audio_out_r`, two independent PWM
-  accumulator processes) — unlike Pooyan/Time-Pilot's mono core. PmodAMP2 (JC) is mono, so
-  `O_PMODAMP2_AIN` is driven from the **left channel only**; the right-channel accumulator is
-  still computed (parity with the DE10-lite top) but unused on Basys3. Same choice as the
-  sibling Kick port.
-- `sw(15)` → `O_PMODAMP2_GAIN`: gain 0 = 12 dB, 1 = 6 dB
-- `sw(14)` → `O_PMODAMP2_SHUTD`: shutdown 0 = off, 1 = on
-- `separate_audio` (core input, stereo/mono mix mode) stays wired to `fn_toggle(4)` (F5),
-  carried over unchanged from the DE10-lite top.
+Stereo core (`audio_out_l/r`), two 18-bit accumulators on `clock_40` (parity with the DE10
+top); `O_PMODAMP2_AIN <= pwm_accumulator_l(17)` (left channel, as Kick).
+`separate_audio => '0'` (mixed, 2026-10-20; was `fn_toggle(4)` (F5), which on the mono amp
+would drop right-channel sounds). `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
 
 ## 7. Inputs
 
-- PS/2 keyboard on JB (`ps2_dat`/`ps2_clk`) OR-merged with the JA joystick for
-  movement/fire/coin/start, same convention as Pooyan/Time-Pilot/Galaga.
-- JA joystick, active-low (switch to GND): `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Fire`.
-  Invert (`not JA`) to active-high to match the core boundary.
-- Coin 1 = keyboard F1 OR `btnU`; Coin 2 = `btnD`; Start 1 = F2 OR `btnL`; Start 2 = F3 OR
-  `btnR`. No JA fire+direction combos (removed 2026-10-02).
-- **Spinner (angle) is keyboard-only, matching the DE10-lite top exactly — this is not a
-  functional regression from porting.** The core's `angle`/`angle_c` ports are a 7-bit analog
-  rotation value with no discrete-switch equivalent; the DE10-lite top itself only ever drove
-  it from a keyboard-simulated counter (`f`=spin left, `g`=spin right, `t`=speed toggle,
-  carried over verbatim into the wrapper's `spin_count` process). JA has no analog output to
-  offer here, so it is left unconnected to `angle`, same as upstream.
-- **No dip switches**: unlike Pooyan/Time-Pilot/Galaga, the `tron` entity exposes no
-  `dip_switch_*` ports at all (confirmed against `rtl_dar/tron.vhd`'s port list) — `sw(13:0)`
-  is unused/reserved on this port, matching the sibling Kick port (also dip-switch-free).
-- `btnC` = reset.
+- Keyboard: `io_ps2_keyboard` on `clock_40`, wrapper decoder (MAME keys, MAME driver
+  `tron`, `../../../PORTING_SPEC.md` §3.1, §4.3), replaces `kbd_joystick` (2026-10-20;
+  `kbd_joystick.vhd` stays in the project, unreferenced). Arrows = 8-way move, Left Ctrl =
+  fire, Z / X = spin left / right, Left Alt = spin faster (held), 1/2 = start, 5/6 = coin
+  1/2, F2 = service toggle, F6 = continue toggle (Dar's F6 kept; toggles flip on press).
+- Spinner: `angle` is a 7-bit rotation value with no discrete-switch equivalent. Dar's top
+  drives it from a key-simulated counter (Dar keys `f` left, `g` right, `t` faster; here
+  Z / X / Left Alt, `spin_count` process). JXADC has no analog output, so `angle` is
+  keyboard-only, as upstream.
+- JXADC (active-low, inverted): JXADC1/2/3/4 = right/left/down/up, JXADC7 = fire.
+- Buttons: btnU = coin 1, btnD = coin 2, btnL/btnR = start 1/2, OR-merged with the keys.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_40`. The former
+  `clock_40`/6 fabric clock `clock_kbd` (`clock_div_kbd`) is removed (one clock domain).
+- Debounce: none. Combos: none.
 
-## 8. PROM VHDL generation (required; never distributed)
+## 8. Switches and DIPs
 
-- Two source zips per the archive's own `README.txt`: `tron.zip` provides the CPU/sound/
-  graphics ROMs (`pro0.d2`, `scpu_pg[b-f].d[3-7]`, `ssi_0[a-c].a[7-9]`, `scpu_bg[g,h].g[3,4]`,
-  `vga.e1`/`vgb.dc1`/`vgc.cb1`/`vga.a1`); a second archive (nominally `midssio.zip`) provides
-  the shared Midway SSIO color PROM `midssio_82s123.12d`.
-- **Confirmed: `tron.zip` does not carry the shared Midway color PROM.** Per user
-  confirmation, `contrib/tools/prep_roms.sh` pulls `82s123.12d` from `$ROMZIP2` (default
-  `~/roms/kick.zip`) instead — the same color PROM the sibling Kick port copies out of its own
-  romset — and renames it to `midssio_82s123.12d` (the name `make_tron_proms.bat` expects).
-  Verified in this environment: `~/roms/kick.zip` contains `82s123.12d` (32 bytes), and the
-  extract-and-rename step produces a correct `midssio_82s123.12d`. `prep_roms.sh` still checks
-  `tron.zip` itself first (harmless, in case a future revision changes this) before falling
-  back to `$ROMZIP2`, and fails loudly if the PROM is still missing afterward.
-- `contrib/tools/prep_roms.sh` compiles `make_vhdl_prom`, converts `make_tron_proms.bat` →
-  `.sh`, and runs it to generate: `tron_cpu.vhd`, `tron_sound_cpu.vhd`, `tron_bg_bits_1.vhd`,
-  `tron_bg_bits_2.vhd`, `tron_sp_bits.vhd` (merged from `vga.e1`+`vgb.dc1`+`vgc.cb1`+`vga.a1`,
-  per rev 03's release note "use merged sprite 8bits roms"), `midssio_82s123.vhd`.
-- The `.xpr` references these paths in place (`tools/tron_unzip/*.vhd`) even though they do
-  not exist until `make setup` runs with a real `$ROMZIP` — Vivado reports them as missing
-  sources until then (confirmed: opening the project today reports exactly these six files
-  missing, nothing else).
-- Roms and the generated PROM VHDL are copyrighted MAME-derived content — never commit or
-  distribute them.
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw12 | `cocktail` | 1 | `'0'` (Dar) | `COCKTAIL_DEFAULT xor sw(12)` (2026-10-20, §3.2); cocktail not supported per Dar's top |
+| sw11 | `coin_meters` | 1 | `'1'` (Dar) | `COIN_METERS_DEFAULT xor sw(11)` |
+| sw13 | `tv15Khz_mode` | | 31 kHz VGA | up = 15 kHz TV |
+| sw14 / sw15 | PmodAMP2 GAIN / SHUTD | | gain low / audio on | |
 
-## 9. Build / project setup
+No `dip_switch_*` ports in the `tron` entity; settings via the service menu. sw10-0 spare.
 
-- Fully scripted, mirroring Time-Pilot/Kick: `make setup` (`contrib/tools/setup_tron.sh` —
-  download/extract, apply synthesis-fix patches if any, rom-prep), `make create_prj`
-  (`contrib/basys3/vivado/create_project.sh` — lays down the flat, non-nested project tree:
-  `.xpr` directly in `basys3/`), `make clk_wiz` (`contrib/basys3/vivado/make_clk_wiz_0.sh`),
-  `make patch` (`contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh` — authors
-  `tron_basys3.vhd` and its record patch), `make synth` / `make bitstream`
-  (`contrib/basys3/tools/make_tron_basys3_bitstream.sh`).
-- The tracked `contrib/basys3/vivado/tron_basys3.xpr` was generated (not hand-authored) via a
-  one-time Vivado batch Tcl `create_project`/`add_files` pass against the real RTL tree plus
-  the real generated `clk_wiz_0` IP and authored top level, with the six not-yet-existing PROM
-  VHDL paths declared using temporary black-box placeholder files (deleted afterward) so
-  Vivado would record their expected `tools/tron_unzip/*.vhd` paths — the same declarative
-  approach every other machine's committed `.xpr` uses, just produced without GUI access.
-  Reproduced end-to-end in this environment (`create_project.sh` → `make_clk_wiz_0.sh` →
-  `make_de10_lite_to_basys3_patch.sh` → re-open in Vivado) with the expected result: correct
-  top/part, 24 sources, only the six ROM-gated PROM files reported missing.
-- No scandoubler import step (§5) — `create_project.sh` only stages the `.xpr` and
-  `Basys-3-Master.xdc`.
-- Run synthesis/implementation from `/tmp` so `vivado.log`/`vivado.jou` stay outside the repo.
-  Tool resolution: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`; roms: `ROMZIP` →
-  `~/roms/tron.zip`, `ROMZIP2` → `~/roms/kick.zip` (source of the shared `82s123.12d` color
-  PROM, §8).
+## 9. Patches
+
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/basys3/code/tron_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
+
+No fix patches to Dar's core.
+
+## 10. PROM generation
+
+`contrib/tools/prep_roms.sh`: `make_tron_proms.bat` → shell. `tron.zip` (`ROMZIP`) provides
+CPU, sound and graphics ROMs (`pro0.d2`, `scpu_pg[b-f].d[3-7]`, `ssi_0[a-c].a[7-9]`,
+`scpu_bg[g,h].g[3,4]`, `vga.e1`/`vgb.dc1`/`vgc.cb1`/`vga.a1`). It lacks the Midway SSIO
+PROM: `prep_roms.sh` checks `tron.zip` first, then extracts `82s123.12d` from `ROMZIP2`
+(default `~/roms/midssio.zip`) and renames it `midssio_82s123.12d`; it fails if still
+missing. Output: `tron_cpu.vhd`, `tron_sound_cpu.vhd`, `tron_bg_bits_1.vhd`,
+`tron_bg_bits_2.vhd`, `tron_sp_bits.vhd` (merged sprite ROMs, rev 03), `midssio_82s123.vhd`.
+Until `make setup` runs, Vivado reports exactly these six files missing.
+
+## 11. Build
+
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. The `.xpr` lives
+at `vhdl_tron_rev_0_3_2019_11_22/basys3/tron_basys3.xpr`. The tracked `.xpr` was created by
+a one-time batch `create_project`/`add_files` run against the real tree, with placeholder
+files for the six PROM paths (removed afterwards). `create_project.sh` stages only the
+`.xpr` and XDC (no scandoubler).
+
+## 12. Open items
+
+- Optional JXADC approximation of the spinner.
+- Core-internal HDL 9-3240 at `rtl_dar/tron.vhd:945` (pre-existing; left as is, user
+  decision pending).

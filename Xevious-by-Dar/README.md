@@ -1,122 +1,106 @@
-# Xevious-by-Dar (Basys 3 port)
+# Xevious-by-Dar
 
-Xevious (Namco, 1982) by Dar (`darfpga@aol.fr`,
-http://darfpga.blogspot.fr). Basys 3 (Artix-7) port. See `README.txt` in the
-extracted source archive for the original Dar release notes.
+Basys 3 port of Xevious (Namco, 1982), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_xevious_de2_de10_lite_2017_05_01.zip`
+(2017-05-01), `dloads/`. Upstream release notes: `README.txt` in the extracted archive.
 
-- Vivado 2020.2 project: `basys3/xevious_basys3.xpr` (top entity
-  `xevious_basys3`)
-- Core clock: 18.432 MHz (the original crystal; pixel 6.144 MHz,
-  `ena_vidgen`; CPUs 3.072 MHz); the PS/2 keyboard decoder runs on the same
-  clock (single domain) — from the 100 MHz Basys 3 oscillator via `clk_wiz_0`;
-  see `../CLOCKING_SPEC.md`
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): single output `clk_out1` =
-  18.43196 MHz (signal `clock_18`). Solved MMCM: `DIVCLK_DIVIDE=7`,
-  `CLKFBOUT_MULT_F=61.125`, `CLKOUT0_DIVIDE_F=47.375`. VGA 32.000 kHz /
-  60.61 Hz (was 18.000 MHz + 11.000 MHz keyboard output: 31.25 kHz /
-  59.19 Hz, -2.34% speed). See `contrib/basys3/PORTING_SPEC.md`.
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20: picture (31 kHz VGA via MiST scandoubler), sound, keyboard
+(MAME keys), JXADC joystick (no fire debounce needed; no double shots), buttons. sw12 test
+mode hardware-verified 2026-10-21. Open items: none.
 
-- **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`). The core produces genuine separate
-  hsync/vsync (exposed by `contrib/code/xevious_expose_hsync_vsync.patch`),
-  so the scandoubler is fed directly. sw(13) switches to 15 kHz TV mode
-  (native RGB + composite sync on HS, reproducing the pristine DE10-lite
-  top's own output path). See `contrib/basys3/PORTING_SPEC.md` for the full
-  design record.
-- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
-  tracked as `contrib/code/scandoubler.v`, copied into the project by
-  `create_project.sh`.
-- **Sound**: mono PWM audio on PmodAMP2; `sw(14)` = AMP shutdown/enable,
-  `sw(15)` = AMP gain.
-- **Controls**: JA joystick + PS/2 keyboard (onboard USB HID host), OR-merged.
-  Hardware-confirmed 2026-09-25: USB-HID keyboard working. Xevious has an
-  up/down movement (core `buttons` input); JA3 (stick down) drives both down
-  and bomb (2026-10-01; previously bomb only). Dedicated buttons: btnU = coin, btnL = start1, btnR = start2.
-  Keyboard, JA and buttons pass through 2-FF synchronizers (2026-10-02, fixes
-  stuck/missed inputs; see `contrib/basys3/PORTING_SPEC.md`).
+## Features (Basys 3)
 
-| Input | JA pin | Keyboard |
-|-------|--------|----------|
-| Right | JA1 | Right arrow |
-| Left | JA2 | Left arrow |
-| Up | JA4 | Up arrow |
-| Down | JA3 | Down arrow |
-| Fire | JA7 | Space |
-| Bomb | JA3 (with down) | Ctrl |
-| Coin | btnU | F3 |
-| Start 1 | btnL | F1 |
-| Start 2 | btnR | F2 |
+- Video: 31 kHz VGA via the MiST scandoubler; the core's own hsync/vsync are exposed by
+  `contrib/code/xevious_expose_hsync_vsync.patch`. sw13 up = 15 kHz TV (native RGB, csync
+  on HS, VS high, as the DE10 top).
+- Keyboard: onboard USB-HID port, MAME default keys.
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/fire, active
+  low, pull-ups in the XDC. 8-way.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
+- Single clock domain (18.432 MHz, the original crystal).
 
-JA is active-low (pressed shorts to ground); the wrapper inverts each signal
-so a press reads active-high, matching the core boundary, and OR-merges with
-the keyboard.
+## Controls
+
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| move | arrows | pins 1-4 | |
+| fire | Left Ctrl | pin 7 | |
+| bomb | Left Alt | pin 3 (with down); pin 4 + pin 7 (up + fire) | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin | 5 / 6 | | btnU / btnD |
+| reset | | | btnC |
+
+Player 2 mirrors player 1. JXADC3 drives down and bomb (2026-10-01). The up+fire combo
+also passes up and fire through. Buttons are debounced (14.2 ms); JXADC fire is not (the
+core passes fire to the CPU as a level).
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| sw12 | `b_test` | Dar default `'1'` (off) | test/service mode |
+
+The core's DIP banks `dip_a`/`dip_b` are constants inside `rtl_dar/xevious.vhd:410-411`
+(not wireable without a core patch); `b_svce` is fixed `'1'`.
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / start1 / start2 (debounced ~14 ms since 2026-10-02) |
-| JA1-4,7 | `JA(0..4)` | right, left, down + bomb, up, fire |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown/enable: 0 = off, 1 = on |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC`, `btnU`, `btnD`, `btnL`, `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:0) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | right, left, down + bomb, up, fire |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
+| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
-Dip switches are hardcoded in the core (no `sw` mapping), matching the
-pristine DE10 top's `b_test => '1'`, `b_svce => '1'`.
+## Clocking
 
-## Scripted setup
+`clk_wiz_0`: 18.43196 MHz (D 7 / M 61.125 / O 47.375), single domain, signal `clock_18`;
+original 18.432 MHz crystal. Pixel 6.144 MHz (`ena_vidgen`), CPUs 3.072 MHz. VGA H 32.000
+kHz, V 60.61 Hz. Details: `contrib/basys3/PORTING_SPEC.md` §2,
+`../CLOCK_CRYSTAL_CATALOG.md`.
 
-`contrib/tools/setup_xevious.sh` automates the manual steps: it fetches the
-Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
-matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_xevious_de2_de10_lite_2017_05_01/`, applies
-the fix patches, then runs `contrib/tools/prep_roms.sh` to compile
-`make_vhdl_prom`, reconstruct `make_xevious_proms.sh` from the upstream
-`make_xevious_proms.bat`, stage the romset from `$ROMZIP` (default
-`~/roms/xevious.zip`), rename the color/sound PROMs to the Dar names the
-`.bat` expects, and generate the PROM VHDL. Run it via `make setup`.
+## Required ROMs
 
-## ROM set required
+`xevious.zip` (MAME romset; `ROMZIP`, default `~/roms/xevious.zip`). Not included.
+`prep_roms.sh` unzips it into `tools/xevious_unzip/roms/` (distinct from the archive's
+`tools/xevious_unzip_win64/`), renames the 9 color/sound PROMs to the names Dar's `.bat`
+expects (e.g. `xvi-8*.6a` → `xvi_8bpr.6a`) and generates the PROM VHDL, including
+`xevious_cpu_gfx_8bits.vhd` (CPU + graphics ROM).
+**Do not redistribute roms or anything generated from them.**
 
-MAME ROM set `xevious.zip`, unzipped into `tools/xevious_unzip/roms/`
-(a build dir created by `make setup`, distinct from the archive-shipped
-`tools/xevious_unzip_win64/` Windows staging dir):
+## Building
 
-```
-~/roms/xevious.zip   ->   tools/xevious_unzip/roms/
-```
+Requires gcc, unzip, Vivado 2020.2 (`VIVADO` overrides the path), openFPGALoader.
+`make help`; `make` (setup, create_prj, clk_wiz, patch), `make check` (parse-only),
+`make bitstream`, `make load`. Project
+`vhdl_xevious_de2_de10_lite_2017_05_01/basys3/xevious_basys3.xpr` (top `xevious_basys3`).
+`make check` reports one CRITICAL WARNING (HDL 9-3240, `r2_port_in`) inside Dar's core
+(`rtl_dar/xevious.vhd:1469`); it is pre-existing and does not stop synthesis.
 
-`prep_roms.sh` renames the 9 color/sound PROMs to the Dar names the upstream
-`make_xevious_proms.bat` expects (e.g. `xvi-8*.6a` -> `xvi_8bpr.6a`). Then
-`make_xevious_proms.sh` (reconstructed from the `.bat`) generates the PROM
-VHDL (including `xevious_cpu_gfx_8bits.vhd`, the CPU + graphics ROM). The
-Vivado project references these generated files in place, so the build needs
-only the staged ROMs + the script.
+## Known issues
 
-machine ROMs are copyrighted — never commit or redistribute them.
+None open.
 
-## Fix patches
+## Issues addressed for Basys 3
 
-### `xevious_expose_hsync_vsync.patch`
+- `rtl_dar/xevious.vhd`: `video_hs`/`video_vs` brought out from `gen_video` for the
+  scandoubler (`contrib/code/xevious_expose_hsync_vsync.patch`; check:
+  `grep -c video_hs .../rtl_dar/xevious.vhd` gives 2).
+- `rtl_dar/xevious.vhd`: sprite address `xor spflips` width mismatch, Vivado rejects it
+  (`contrib/code/xevious_synth_fix_xor_spflips.patch`).
+- MiST `scandoubler.v`: unpacked array range Vivado rejects (`contrib/code/scandoubler_fix.patch`).
 
-Realizes the pristine `xevious` entity's commented-out `video_hs`/`video_vs`
-ports, relaying them from the internally-generated `hsync`/`vsync` of the
-`gen_video` instance. This gives the scandoubler genuine separate sync signals.
+## Third-party sources
 
-Verify it took:
-
-```
-grep -c video_hs vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd   # expect 2 (port decl + output assignment)
-```
-
-## Build status
-
-See root `README.md` §Status.
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |

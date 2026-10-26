@@ -1,115 +1,108 @@
-# Defender-by-Dar (Basys 3 port)
+# Defender-by-Dar
 
-Defender (Williams, 1981) by Dar (`darfpga@aol.fr`,
-http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
-`README.txt` in the extracted source archive for the original Dar release
-notes.
+Basys 3 port of Defender (Williams, 1981), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_defender_rev_0_0_2017_10_15.zip` (rev 0.0,
+2017-10-15), `dloads/`. Upstream release notes: `README.txt` in the extracted archive.
 
-- Vivado 2020.2 project: `basys3/defender_basys3.xpr` (top entity
-  `defender_basys3`)
-- Main CPU: 1 MHz E (original rate) via `contrib/code/defender_cpu_1mhz.patch`;
-  pristine core runs 2 MHz (2026-10-02; `contrib/basys3/PORTING_SPEC.md`
-  §"Main CPU rate").
-- Core clock: 12 MHz; sound-board clock: 3.5795454 MHz (from the 100 MHz
-  Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.000 MHz
-  (core + scandoubler `clk_sys`) + `clk_out2` = 7.159091 MHz (D 1 / M 7.875 /
-  O0 65.625 / O1 110, VCO 787.5 MHz), **divided by 2 in fabric** to
-  3.5795454 MHz for the sound board and the PWM audio accumulator. MMCM
-  outputs cannot go below VCO / 128, so the 3.58 MHz rate is made in fabric;
-  the result equals the 3.579545 MHz (315/88) colorburst crystal to rounding.
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20: picture (31 kHz VGA via MiST scandoubler), sound, keyboard
+(MAME keys), JXADC joystick, buttons. JXADC smart bomb (down + fire) and hyperspace
+(up + fire) hardware-verified 2026-10-21; sw12 cocktail 2026-10-21. Open items: none.
 
-- **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`, tracked under `contrib/code/scandoubler.v`).
-  The scandoubler's 6 MHz `ce_x1` (Defender's native pixel rate) is produced in
-  fabric as `clk_out1 / 2`. sw(13) switches to 15 kHz TV mode (native RGB +
-  composite sync on HS).
-- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
-  tracked as `contrib/code/scandoubler.v`, copied into the project by
-  `create_project.sh`.
-- **Scan doubler wiring**: see `contrib/basys3/PORTING_SPEC.md` (same core
-  family wiring as Burnin-Rubber / BurgerTime).
-- **Sound**: mono PWM audio on PmodAMP2 (8-bit core `audio_out`).
-- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged) for
-  move/fire; buttons btnU = coin-in, btnL/btnR = start 1/2, btnC = reset. **No
-  fire+direction combos** for coin/start (root `PORTING_SPEC.md` policy). Smart bomb,
-  hyperspace and service stay keyboard-only (the 5-pin JA header can't carry the full
-  Defender button set). Hardware-confirmed 2026-09-25: USB-HID keyboard and controls
-  working.
+## Features (Basys 3)
 
-| Input | Keyboard |
-|-------|----------|
-| Up / Down | Up / Down arrows |
-| Thrust | Right arrow |
-| Reverse ship | Left arrow |
-| Fire | Space |
-| Smart bomb | Ctrl |
-| Hyperspace | W |
-| Coin | F3 |
-| Start 1 | F1 |
-| Start 2 | F2 |
-| Service: advance / auto-up / high-score reset | A / U / H |
+- Video: 31 kHz VGA via the MiST scandoubler; sw13 up = 15 kHz TV (native RGB, csync on
+  HS, VS high).
+- Keyboard: onboard USB-HID port, MAME default keys.
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/fire, active
+  low, pull-ups in the XDC. Right = thrust, left = reverse.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono (8-bit core `audio_out`).
+- Main CPU at the original 1 MHz E clock (`contrib/code/defender_cpu_1mhz.patch`; Dar's
+  core runs 2 MHz).
 
-JA joystick (active-low, switch to GND):
-- JA1 = Thrust (right), JA2 = Reverse (left), JA3 = Down, JA4 = Up, JA7 = Fire
+## Controls
 
-Buttons (active-high):
-- btnU = coin-in, btnL = start 1, btnR = start 2, btnC = reset
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| up / down | up / down arrows | pin 4 / pin 3 | |
+| thrust | Left Alt | pin 1 (right) | |
+| reverse | Z | pin 2 (left) | |
+| fire | Left Ctrl | pin 7 | |
+| smart bomb | Space | pin 3 + pin 7 (down + fire) | |
+| hyperspace | Left Shift | pin 4 + pin 7 (up + fire) | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin | 5 / 6 | | btnU / btnD |
+| auto-up (toggle) | 9 | | |
+| advance (held) | F2 | | |
+| high-score reset (held) | F1 | | |
+| reset | | | btnC |
 
-Coin/start come only from the keyboard (F3/F1/F2) or the dedicated buttons
-(btnU/btnL/btnR) — no joystick fire+direction combos.
+Player 2 mirrors player 1. In a JXADC combo the direction passes through and fire does
+not: no shot while up or down is held (2026-10-21; with fire passed through the game
+dropped the combo). JXADC fire is debounced (10.9 ms). Toggles flip on key press and
+ignore typematic repeat. No joystick combos for coin/start.
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| sw12 | `sw_coktail_table` | Dar default `'1'` (upright) | cocktail |
+
+No DIP bank: game settings are stored in CMOS and changed with advance (F2), auto-up (9)
+and high-score reset (F1).
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnU | `btnU` | coin-in, OR-merged with keyboard F3 |
-| btnL / btnR | `btnL` / `btnR` | start 1 / start 2, OR-merged with F1 / F2 |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC`, `btnU`, `btnD`, `btnL`, `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:0) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
+| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
 
-## Scripted setup
+## Clocking
 
-`contrib/tools/setup_defender.sh` automates the manual steps below: it fetches
-the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
-matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_defender_rev_0_0_2017_10_15/`, then runs
-`contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
-`make_defender_proms.bat`, stage the romset from `$ROMZIP` (default
-`~/roms/defender.zip`) and generate the PROM VHDL. Run it via `make setup`.
-Note: the source archive was already downloaded and extracted in this repo; the
-setup script uses the cached copy in `dloads/`.
+`clk_wiz_0` (D 1 / M 7.875 / O0 65.625 / O1 110, VCO 787.5 MHz): `clk_out1` = 12.000 MHz
+(`clock_12`, core and scandoubler) and `clk_out2` = 7.159091 MHz (`clock_7p16`), divided
+by 2 in fabric to 3.5795454 MHz (`clock_3p58`) for the sound board and PWM (an MMCM output
+cannot go below VCO / 128). Pixel 6 MHz, line 64 us (384 × 260). Details:
+`contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
 
-## ROM set required
+## Required ROMs
 
-MAME ROM set `defender.zip`, unzipped into `tools/defender_unzip/`:
+`defender.zip` (MAME romset; `ROMZIP`, default `~/roms/defender.zip`). Not included.
+`prep_roms.sh` unzips it into `tools/defender_unzip/` and generates `defender_prog.vhd`
+(11 program ROMs concatenated; `copy /B a + b ...` becomes `cat a b ...`),
+`defender_decoder_2.vhd`, `defender_decoder_3.vhd`, `defender_sound.vhd`.
+**Do not redistribute roms or anything generated from them.**
 
-```
-~/roms/defender.zip   ->   tools/defender_unzip/
-```
+## Building
 
-Then run `./make_defender_proms.sh` from that directory to generate the PROM
-VHDL (`defender_prog.vhd`, `defender_decoder_2.vhd`, `defender_decoder_3.vhd`,
-`defender_sound.vhd`). The Vivado project references these generated files in
-place, so the build needs only the staged ROMs + the script.
+Requires gcc, unzip, Vivado 2020.2 (`VIVADO` overrides the path), openFPGALoader.
+`make help`; `make` (setup, create_prj, clk_wiz, patch), `make check` (parse-only),
+`make bitstream`, `make load`. Project
+`vhdl_defender_rev_0_0_2017_10_15/basys3/defender_basys3.xpr` (top `defender_basys3`).
 
-The `.bat` concatenates 11 program ROMs into `defender_prog.bin`; the Linux
-conversion turns that `copy /B a + b + ...` into `cat a b ...`.
+## Known issues
 
-machine ROMs are copyrighted — never commit or redistribute them.
+None open.
 
-## Build status
+## Issues addressed for Basys 3
 
-The port is fully scripted (`make setup create_prj clk_wiz patch synth
-bitstream`). Hardware bring-up is complete: a bitstream has been built and
-the port runs correctly on the Basys 3 board.
+- `rtl_dar/defender.vhd`: main CPU E clock 2 MHz → 1 MHz, the original rate
+  (`contrib/code/defender_cpu_1mhz.patch`, 2026-10-02, hardware-confirmed).
+- MiST `scandoubler.v`: unpacked array range Vivado rejects (`contrib/code/scandoubler_fix.patch`).
+
+## Third-party sources
+
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |

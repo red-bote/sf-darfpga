@@ -1,7 +1,7 @@
 diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd
 --- a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd
 +++ b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite.vhd
-@@ -1,363 +1,340 @@
+@@ -1,363 +1,354 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for computer_space by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
@@ -393,13 +393,13 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +--  - Keyboard input is the Basys 3's onboard USB-A "USB HID" host port
 +--    (C17/B17): the onboard PIC24 USB-HID host presents a plugged-in USB
 +--    keyboard to the FPGA fabric over the same PS/2 protocol/pins a direct
-+--    PS/2 device uses, so io_ps2_keyboard.vhd / kbd_joystick.vhd are
-+--    unchanged -- a pin remap in Basys-3-Master.xdc, not a logic change
-+--    (same approach as vhdl_congo_bongo and Arcade-Zaxxon).
++--    PS/2 device uses, so io_ps2_keyboard.vhd is unchanged -- a pin remap
++--    in Basys-3-Master.xdc, not a logic change (same approach as
++--    vhdl_congo_bongo and Arcade-Zaxxon).
 +--  - Keyboard clock = clk_core (48 MHz); ps2_clk/ps2_dat pass a 2-FF
 +--    synchronizer first (was game_clk 6 MHz, unsynchronized).
-+--  - Mono (left-channel) PWM audio on PmodAMP2 (JC); sw14 = shutdown,
-+--    sw15 = gain select. audio_out/wav_out from the core are unused (the
++--  - Mono (left-channel) PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled,
++--    sw14 up = gain. audio_out/wav_out from the core are unused (the
 +--    sound ROMs and the computer_space_sound simulator both feed the same
 +--    internal audio bus; only `audio` is driven by the top).
 +--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
@@ -413,16 +413,17 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +--    forced to black while blank.
 +--  - Composite sync via the core's composite_sync entity (as the DE10 top).
 +--  - btnC = reset (active-high; also resets MMCM; core held until lock).
-+--  - Controls: rotate left/right, thrust, fire, start. Keyboard: left / right
-+--    arrows, up arrow (thrust), space (fire), F2 (start) -- decoded by the
-+--    unmodified kbd_joystick joyPCFRLDU bits 2/3/0/4/6.
-+--  - JA header doubles as a joystick, OR-merged with the keyboard (same
++--  - Controls: rotate left/right, thrust, fire, start. Keyboard (decoded in
++--    this wrapper, MAME-style keys, 2026-10-20; F0 = release, E0 ignored): left /
++--    right arrows, up arrow (thrust), Left Ctrl (fire), 1 / 2 (start); replaces
++--    kbd_joystick (space / F2).
++--  - JXADC header doubles as a joystick, OR-merged with the keyboard (same
 +--    active-high core boundary). Physical map (Congo Bongo convention):
-+--    JA1=right/CW, JA2=left/CCW, JA4=up/thrust, JA7=fire, i.e. JA(0)=right,
-+--    JA(1)=left, JA(2)=spare, JA(3)=up, JA(4)=fire. JA is active-low (press
++--    JXADC1=right/CW, JXADC2=left/CCW, JXADC4=up/thrust, JXADC7=fire, i.e. JXADC(0)=right,
++--    JXADC(1)=left, JXADC(2)=spare, JXADC(3)=up, JXADC(4)=fire. JXADC is active-low (press
 +--    shorts to ground; XDC PULLUP true); invert 'not' so a press reads
 +--    active-high like the keyboard/buttons. There is no core "down" input, so
-+--    JA3 is unconnected/spare.
++--    JXADC3 is unconnected/spare.
 +--  - Pushbuttons btnU/btnD/btnL/btnR are active-high (board pull-down) and are
 +--    OR'd into start, so any of the four starts a round alongside F2.
 +--  - No ROMs / no PROM generation: Computer Space is a discrete TTL game.
@@ -453,13 +454,13 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + btnL            : in  std_logic;          -- pushbutton left (also start)
 + btnR            : in  std_logic;          -- pushbutton right (also start)
 +
-+ JA              : in  std_logic_vector(4 downto 0);   -- optional joystick
++ JXADC              : in  std_logic_vector(4 downto 0);   -- optional joystick
 + ps2_dat         : in  std_logic;          -- USB HID data  (B17)
 + ps2_clk         : in  std_logic;          -- USB HID clock (C17)
 +
 + O_PMODAMP2_AIN   : out std_logic;         -- PWM audio
-+ O_PMODAMP2_GAIN  : out std_logic;         -- AMP gain  (sw15)
-+ O_PMODAMP2_SHUTD : out std_logic;         -- AMP shutdown (sw14)
++ O_PMODAMP2_GAIN  : out std_logic;         -- AMP gain  (sw14)
++ O_PMODAMP2_SHUTD : out std_logic;         -- AMP shutdown (sw15)
 +
 + vgaRed   : out std_logic_vector(3 downto 0);
 + vgaGreen : out std_logic_vector(3 downto 0);
@@ -517,7 +518,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + signal pwm_accumulator : std_logic_vector(16 downto 0);
 +
 + signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
-+ -- JA(4 downto 0) & btnU/D/L/R, 2-FF synchronized (index 1 = output).
++ -- JXADC(4 downto 0) & btnU/D/L/R, 2-FF synchronized (index 1 = output).
 + type sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
 + signal in_s : sync_t := (others => (others => '0'));
 + attribute ASYNC_REG : string;
@@ -526,7 +527,8 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +
 + signal kbd_intr     : std_logic;
 + signal kbd_scancode : std_logic_vector(7 downto 0);
-+ signal joyPCFRLDU   : std_logic_vector(7 downto 0);
++ signal kbd_rel      : std_logic := '0';
++ signal joyPCFRLDU   : std_logic_vector(7 downto 0) := (others => '0');
 +
 +begin
 +
@@ -556,23 +558,23 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +  end if;
 + end process;
 +
-+ -- PS/2 (USB HID), JA and pushbutton inputs: 2-FF synchronizer into clk_core.
++ -- PS/2 (USB HID), JXADC and pushbutton inputs: 2-FF synchronizer into clk_core.
 + process(clk_core)
 + begin
 +  if rising_edge(clk_core) then
 +   ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
 +   ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
-+   in_s(0)   <= btnR & btnL & btnD & btnU & JA;
++   in_s(0)   <= btnR & btnL & btnD & btnU & JXADC;
 +   in_s(1)   <= in_s(0);
 +  end if;
 + end process;
 +
-+ -- Keyboard OR JA (active-low) OR buttons; in_s(1)(4 downto 0) = JA.
-+ ctl_ccw    <= joyPCFRLDU(2) or not in_s(1)(1);  -- left arrow / JA2 = rotate CCW
-+ ctl_cw     <= joyPCFRLDU(3) or not in_s(1)(0);  -- right arrow / JA1 = rotate CW
-+ ctl_thrust <= joyPCFRLDU(0) or not in_s(1)(3);  -- up arrow / JA4 = thrust
-+ ctl_fire   <= joyPCFRLDU(4) or not in_s(1)(4);  -- space / JA7 = fire
-+ ctl_start  <= joyPCFRLDU(6) or in_s(1)(5) or in_s(1)(6) or in_s(1)(7) or in_s(1)(8); -- F2 or any pushbutton
++ -- Keyboard OR JXADC (active-low) OR buttons; in_s(1)(4 downto 0) = JXADC.
++ ctl_ccw    <= joyPCFRLDU(2) or not in_s(1)(1);  -- left arrow / JXADC2 = rotate CCW
++ ctl_cw     <= joyPCFRLDU(3) or not in_s(1)(0);  -- right arrow / JXADC1 = rotate CW
++ ctl_thrust <= joyPCFRLDU(0) or not in_s(1)(3);  -- up arrow / JXADC4 = thrust
++ ctl_fire   <= joyPCFRLDU(4) or not in_s(1)(4);  -- left ctrl / JXADC7 = fire
++ ctl_start  <= joyPCFRLDU(6) or in_s(1)(5) or in_s(1)(6) or in_s(1)(7) or in_s(1)(8); -- 1 / 2 or any pushbutton
 +
 + -- get scancode from keyboard (USB HID -> PS/2 via onboard PIC24).
 + keyboard : entity work.io_ps2_keyboard
@@ -584,14 +586,26 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 +  scancode  => kbd_scancode
 + );
 +
-+ -- translate scancode to joystick
-+ joystick : entity work.kbd_joystick
-+ port map (
-+  clk           => clk_core,
-+  kbdint        => kbd_intr,
-+  kbdscancode   => std_logic_vector(kbd_scancode),
-+  joyPCFRLDU    => joyPCFRLDU
-+ );
++ -- translate scancode to joystick (PS/2 set 2 codes), replaces kbd_joystick.
++ -- F0 marks a release; E0 is ignored (keypad 8/4/6 alias the arrows, Right Ctrl
++ -- aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
++ process(clk_core)
++ begin
++  if rising_edge(clk_core) then
++   if kbd_intr = '1' then
++    if kbd_scancode = x"F0" then
++     kbd_rel <= '1';
++    elsif kbd_scancode /= x"E0" then
++     kbd_rel <= '0';
++     if kbd_scancode = x"75" then joyPCFRLDU(0) <= not kbd_rel; end if; -- up arrow : thrust
++     if kbd_scancode = x"6B" then joyPCFRLDU(2) <= not kbd_rel; end if; -- left arrow : CCW
++     if kbd_scancode = x"74" then joyPCFRLDU(3) <= not kbd_rel; end if; -- right arrow : CW
++     if kbd_scancode = x"14" then joyPCFRLDU(4) <= not kbd_rel; end if; -- left ctrl : fire
++     if kbd_scancode = x"16" or kbd_scancode = x"1E" then joyPCFRLDU(6) <= not kbd_rel; end if; -- 1 / 2 : start
++    end if;
++   end if;
++  end if;
++ end process;
 +
 + -----------------------------------------------------------------------
 + -- Computer Space core
@@ -701,7 +715,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_de10_lite
 + end process;
 +
 + O_PMODAMP2_AIN   <= pwm_accumulator(16);
-+ O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-+ O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
++ O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
++ O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 +
 +end struct;

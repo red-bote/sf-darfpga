@@ -1,17 +1,17 @@
-# Generic Makefile template — copy to <Machine>-by-Dar/Makefile and substitute:
-#   <game>         snake_case name (setup_<game>.sh, make_<game>_basys3_bitstream.sh)
-#   <src_dir>      extracted archive dir that `clean` removes (e.g. vhdl_<game>_rev_<ver>_<date>)
-#   <TOP_ENTITY>   Basys3 top entity, usually <game>_basys3
-#   <io_summary>   printed by `make help`; empty if none
-#   <display_hint> printed by `make help` and at the end of `make all`/`make bitstream`; empty if none
+# Generic Makefile template.
 #
-# All 8 standard targets (setup create_prj clk_wiz patch synth bitstream
-# clean help) are defined once in sf-darfpga/tools/mk/machine.mk and
-# included here — see that file for what each target does.
+# Substitute: <game> (snake_case), <src_dir> (extracted archive dir that `clean`
+# removes), <TOP_ENTITY> (usually <game>_basys3), <display_name> (for `make help`),
+# <io_summary> (keys, JXADC, buttons, sw13/14/15, DIP switches).
+# Copy to <Machine>-by-Dar/Makefile.
+#
+# All targets (setup create_prj clk_wiz patch check synth bitstream load
+# rebuild-load clean help) are defined once in sf-darfpga/tools/mk/machine.mk.
 GAME         := <game>
 SRC_DIR      := <src_dir>
 TOP_ENTITY   := <TOP_ENTITY>
+DISPLAY_NAME := <display_name>
 IO_SUMMARY   := <io_summary>
-DISPLAY_HINT := <display_hint>
+DISPLAY_HINT := sw(13): 0 = 31 kHz VGA, 1 = 15 kHz TV
 
 include ../tools/mk/machine.mk

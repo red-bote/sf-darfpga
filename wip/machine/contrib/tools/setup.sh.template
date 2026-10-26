@@ -3,10 +3,10 @@
 #
 # Setup wrapper for the <game> Basys3 port. Delegates to the shared
 # darfpga_setup() in sf-darfpga/tools/lib/darfpga-setup.sh (fetch/verify the
-# SourceForge archive, extract it, apply fix patches — excluding the
-# *_de10_lite_to_basys3.patch and *scandoubler_fix.patch provenance/timing
-# patches, which that shared function hardcodes as never-apply-to-pristine
-# — then run contrib/tools/prep_roms.sh).
+# SourceForge archive into dloads/, extract it, apply contrib/code/*.patch, except
+# *_de10_lite_to_basys3.patch and *scandoubler_fix.patch, which that shared function
+# never applies to the pristine tree; then run contrib/tools/prep_roms.sh).
+# Add --binary when the fix patches must keep CRLF line endings.
 #
 # Roms and the generated PROM VHDL stay local (never distributed).
 #

@@ -30,8 +30,10 @@ mean one shared device, not independent copies.
 - Shared color PROM inside the game zips (Midway MCR hardware): `82s123.12d`
   (renamed `midssio_82s123.12d` by the ports) ships inside kick.zip,
   solarfox.zip, and several other MCR sets - all byte-identical. Result: no
-  separate midssio.zip dependency; each prep script unzips only its own
+  separate midssio.zip dependency for those; each prep script unzips only its own
   machine's set and renames the file (guarded, so reruns are idempotent).
+  Exception: tron.zip lacks the PROM; Tron's `prep_roms.sh` takes it from
+  `ROMZIP2` (default `~/roms/midssio.zip`).
 - darfpga-vs-MAME filename mismatches: the Dar archive's `.bat` may expect
   upstream names while local romsets use different ones. Fix by renaming
   during prep, with the full old->new mapping table documented in the

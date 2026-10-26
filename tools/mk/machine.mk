@@ -26,7 +26,7 @@ define display_reminder
 	$(if $(DISPLAY_HINT),$(DISPLAY_REMINDER))
 endef
 
-.PHONY: all setup create_prj clk_wiz patch synth bitstream load rebuild-load clean help
+.PHONY: all setup create_prj clk_wiz patch check synth bitstream load rebuild-load clean help
 
 all: setup clk_wiz patch
 	$(display_reminder)
@@ -44,6 +44,11 @@ clk_wiz: setup create_prj
 # contrib/basys3/code/$(TOP_ENTITY).vhd into the Vivado project.
 patch: setup
 	$(BASYS3_TOOLS)/make_de10_lite_to_basys3_patch.sh
+
+# Parse-only Vivado check_syntax of the project (no synthesis); fails on any
+# ERROR / CRITICAL WARNING beyond the expected scandoubler/clk_wiz messages.
+check: clk_wiz patch
+	../tools/check-syntax.sh $(SRC_DIR) $(TOP_ENTITY)
 
 # Run synthesis only (resets synth_1 first).
 synth: setup clk_wiz patch
@@ -72,5 +77,5 @@ DISPLAY_NAME ?= $(GAME)
 
 help:
 	@echo "$(DISPLAY_NAME) Basys 3 port. External IO used: $(IO_SUMMARY)"
-	@echo "Steps: setup create_prj clk_wiz patch synth bitstream load (program existing bit) rebuild-load clean (default: all)"
+	@echo "Steps: setup create_prj clk_wiz patch check (parse-only) synth bitstream load (program existing bit) rebuild-load clean (default: all)"
 	$(display_reminder)

@@ -1,147 +1,101 @@
-# Phoenix-by-Dar (Basys 3 port)
+# Phoenix-by-Dar
 
-Phoenix (Amstar, 1980) by Dar (`darfpga@aol.fr`, http://darfpga.blogspot.fr).
-Basys 3 (Artix-7) port by Red~Bote. See `README.txt` in the extracted source
-archive for the original Dar release notes.
+Basys 3 port of Phoenix (Amstar, 1980), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_phoenix_DE10_lite.zip`, `dloads/`. Basys 3 port
+by Red~Bote. Dar's release notes: `README.txt` in the extracted archive (upstream: "TV mode
+only RGB 15kHz").
 
-- Vivado 2020.2 project: `basys3/phoenix_basys3.xpr` (top entity
-  `phoenix_basys3`)
-- Core clock: 11 MHz (pixel clock 5.5 MHz internally); audio effect/music
-  blocks run on 50 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 11.000 MHz +
-  `clk_out2` = 50.000 MHz; reset active-high (btnC), `locked` used. Solved
-  MMCM: `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=11.000`, `CLKOUT0_DIVIDE_F=100.000`,
-  `CLKOUT1_DIVIDE=22`.
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20: picture (31 kHz VGA), sound, keyboard (MAME keys), JXADC
+joystick, buttons. Reset silences the sound since 2026-10-07. JXADC and
+buttons through `ext_joy` hardware-confirmed 2026-10-02.
 
-- **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`) fed by real hsync/vsync exposed from the
-  core (`contrib/code/phoenix_expose_hsync_vsync.patch` — the pristine core
-  otherwise exposes only composite sync). sw(13) switches to 15 kHz TV mode
-  (native RGB + composite sync on HS, reproducing the pristine DE10-lite
-  top's own output path). See `contrib/basys3/PORTING_SPEC.md` for the full
-  design record.
-- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
-  tracked as `contrib/code/scandoubler.v`, copied into the project by
-  `create_project.sh`.
-- **Sound**: mono PWM audio on PmodAMP2; `audio_select` (3-bit, sw(10:8))
-  selects effect1/effect2/effect3/melody solo or the default mix.
-- **Controls**: PS/2 keyboard (decoded inside the core) OR-merged with the JA
-  joystick and dedicated buttons (third attempt, 2026-10-02): JA1 = right,
-  JA2 = left, JA4 = up (protection), JA7 = fire; btnU/btnD = coin, btnL = 1P
-  start, btnR = 2P start. The core patch `phoenix_external_inputs.patch` adds
-  an active-high `ext_joy` input merged before the core's inversion to the
-  CPU's active-low inputs. Hardware-confirmed 2026-10-02.
+## Features (Basys 3)
 
-| Input | Keyboard |
-|-------|----------|
-| Move (right/left) | Arrow keys |
-| Shield | Up arrow |
-| Fire | Space |
-| Coin | F3 |
-| Start 1 | F1 |
-| Start 2 | F2 |
+- Video: 31 kHz VGA via the MiST scandoubler, fed by real hsync/vsync exposed from the
+  core (`phoenix_expose_hsync_vsync.patch`; the pristine core produces composite sync
+  only); sw13 up = 15 kHz TV (native RGB, composite sync on HS, as the DE10 top).
+- Keyboard: onboard USB-HID port, MAME default keys, decoded in the wrapper into the
+  core's `ext_joy` (2026-10-20; the core's internal `kbd_joystick` is idle, its PS/2 pins
+  tied `'1'`; F0 = release, E0 ignored; `../PORTING_SPEC.md` §3.1).
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/4/7 = right/left/shield/fire, active low,
+  pull-ups in the XDC.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono; `audio_select` on sw10-8.
+
+## Controls
+
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| left / right | Left / Right arrows | pin 2 / pin 1 | |
+| fire | Left Ctrl | pin 7 | |
+| shield | Left Alt | pin 4 (up), up+fire, down+fire | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin | 5 / 6 | | btnU / btnD |
+| reset | | | btnC |
+
+Shield combos pass fire through. Buttons debounced (11.9 ms).
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| sw10-8 | `audio_select` | `000` = mix all | `100`/`101`/`110`/`111` = effect1/effect2/effect3/melody solo |
+| sw7-0 | `dip_switch`: Lives(1-0) / Bonus(3-2) / Coin(4) / unknown(6-5) / Cocktail(7) | `0` | `1` (direct, as the DE10 top) |
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnU / btnD / btnL / btnR | `btnU`/`btnD`/`btnL`/`btnR` | coin / coin / 1P start / 2P start (debounced ~12 ms) |
-| JA1 / JA2 / JA4 / JA7 | `JA(0)`/`JA(1)`/`JA(3)`/`JA(4)` | right / left / up (protection) / fire (JA3 unused) |
-| sw(7:0) | `sw(7 downto 0)` | dip switches (lives, bonus life, coin mode, upright/cocktail) |
-| sw(10:8) | `sw(10 downto 8)` | `audio_select`: solo effect1/2/3/melody or mixed |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown/enable: 0 = off, 1 = on |
-| sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC` ... `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:0) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
+| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
 
-## Scripted setup
+## Clocking
 
-`contrib/tools/setup_phoenix.sh` automates the manual steps below: it
-fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
-SHA-256 matches the hash embedded in the script; re-downloaded when missing
-or tampered), extracts it as `vhdl_phoenix_DE10_lite/` (the archive has no
-internal top-level folder, unlike every other machine's), applies the fix
-patches (see "Fix patches" below), then runs
-`contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, run the
-reconstructed `make_phoenix_proms.sh` (the upstream archive ships no
-`.bat`/`tools_prom_src`), stage the romset from `$ROMZIP` (default
-`~/roms/phoenix.zip`), and generate the PROM VHDL. Run it via `make setup`.
-The MiST `scandoubler.v` (see Features above) is tracked in `contrib/code/`
-and copied into the project by `create_project.sh`.
+`clk_wiz_0`: `clk_out1` 11.000 MHz (core; pixel 5.5 MHz inside the core) and `clk_out2`
+50.000 MHz (audio effect/music blocks), DIVCLK 1 / MULT_F 11.000 / CLKOUT0 100.000 /
+CLKOUT1 22. Details: `contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
 
-## ROM set required
+## Required ROMs
 
-MAME ROM set `phoenix.zip`, unzipped into `tools/phoenix_unzip/`:
+`phoenix.zip` (MAME romset; `ROMZIP`, default `~/roms/phoenix.zip`). Not included.
+**Do not redistribute roms or anything generated from them.**
 
-```
-~/roms/phoenix.zip   ->   tools/phoenix_unzip/
-```
+## Building
 
-Then run `./make_phoenix_proms.sh` from that directory to generate the PROM
-VHDL (`phoenix_prog.vhd`, `prom_ic39.vhd`, `prom_ic40.vhd`, `prom_ic23.vhd`,
-`prom_ic24.vhd`, `prom_palette_ic40.vhd`, `prom_palette_ic41.vhd`). The
-Vivado project references these generated files in place, so the build
-needs only the staged ROMs + the script.
-
-machine ROMs are copyrighted — never commit or redistribute them.
-
-## Fix patches
-
-### `phoenix_external_inputs.patch`
-
-Adds `ext_joy : in std_logic_vector(7 downto 0) := (others => '0')` (active-high,
-`JoyPCFRLDU` bit order) to the `phoenix` entity and OR-merges it into each of the
-seven player-input assignments before their inversion, e.g.
-`coin <= not (JoyPCFRLDU(7) or ext_joy(7));` (2026-10-02). Verify:
-`grep -c 'or ext_joy' vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd` prints `7`.
-
-### `phoenix_sound_reset.patch`
-
-Ties the four sound modules' `reset` to the core `reset` (pristine: `'0'`) and clears
-`sound_a`/`sound_b` while `reset = '1'`, so btnC also silences the sound (2026-10-07).
-Verify: `grep -c "btnC did not reset the sound" vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd`
-prints `4`.
-
-### `phoenix_expose_hsync_vsync.patch`
-
-Two-file patch exposing real hsync/vsync end-to-end (the pristine core
-otherwise only produces composite sync):
-
-- Adds `hsync`/`vsync` output ports to the pristine `phoenix_video` entity
-  (`rtl_dar/phoenix_video.vhd`), assigned from its already-internal
-  `pulse_a` (per-line hsync pulse) and `vblank_n` (active-low vsync window)
-  signals.
-- Realizes the pristine `phoenix` entity's commented-out `video_hs`/
-  `video_vs` ports (`rtl_dar/phoenix.vhd`), relaying them from
-  `phoenix_video`'s new `hsync`/`vsync` outputs.
-
-Verify it took:
-
-```
-grep -n "hsync <= pulse_a" vhdl_phoenix_DE10_lite/rtl_dar/phoenix_video.vhd
-grep -c video_hs vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd   # expect 2 (port decl + output assignment)
-```
+Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
+clk_wiz, patch), `make check` (parse-only), `make bitstream`, `make load`. The archive has
+no top-level folder and no PROM `.bat`; `prep_roms.sh` runs a reconstructed
+`make_phoenix_proms.sh`.
 
 ## Known issues
 
-- JA joystick / dedicated buttons: two earlier attempts (2026-09-22, 2026-09-25)
-  registered no input and were reverted (root `KNOWN_ISSUES.md`). Third attempt
-  2026-10-02 merges the inputs before the core's inversion (see Fix patches);
-  hardware-confirmed 2026-10-02.
+- Scandoubler `ce_x1` is the core's register-derived `video_clk` (untimed,
+  `../KNOWN_ISSUES.md`); no hardware symptom.
 
-Fixed 2026-09-23: keyboard moved from the legacy JB1/JB3 Pmod header onto
-the onboard USB-HID host (C17/B17), matching the project default. Pure XDC
-pin swap, no clock-divider work needed. Hardware-confirmed 2026-09-23.
+## Issues addressed for Basys 3
 
-Fixed 2026-09-23: reset (`btnC`) hardware-confirmed working.
+- Composite sync only: `contrib/code/phoenix_expose_hsync_vsync.patch` exposes `pulse_a`
+  (hsync) and `vblank_n` (vsync) from `phoenix_video` through `phoenix`.
+- No discrete input ports (PS/2 decoded inside the core): `contrib/code/phoenix_external_inputs.patch`
+  adds `ext_joy`, OR-merged before the CPU inversion (third attempt, 2026-10-02; two earlier
+  attempts reverted, PORTING_SPEC §7).
+- btnC did not reset the sound: `contrib/code/phoenix_sound_reset.patch` (2026-10-07).
+- Keyboard moved from JB1/JB3 to the onboard USB-HID host (2026-09-23, XDC only).
+- MiST `scandoubler.v`: unpacked array declared with a full range; Vivado rejects the
+  single-value size (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
 
-## Build status
+## Third-party sources
 
-See root `README.md` §Status.
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |

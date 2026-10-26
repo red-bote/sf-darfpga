@@ -1,7 +1,7 @@
 diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 --- a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
 +++ b/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd
-@@ -1,354 +1,329 @@
+@@ -1,354 +1,357 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Pooyan by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
@@ -369,15 +369,17 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +--    edges are clock enables from a 2-bit phase counter; the former 14.318 MHz
 +--    sound clock is a phase-accumulator enable (ce14). Core and sound board are
 +--    patched to use them (contrib/basys3/code/pooyan_single_domain.patch).
-+--  - Atari-style joystick on JA, OR-merged with the PS/2 keyboard (onboard USB-HID)
-+--  - Mono PWM audio on PmodAMP2 (JC); sw14 = sound enable, sw15 = gain select
++--  - Atari-style joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
++--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
 +--  - 31 kHz VGA via the MiST scandoubler (clk_sys = clk_core, ce_x1 = ce6,
 +--    ce_x2 = ce12); sw(13) = 1 selects 15 kHz TV (native RGB, csync on HS,
 +--    VS high)
-+--  - PS/2, JA and pushbuttons pass a 2-FF synchronizer into clk_core (PS/2
++--  - PS/2, JXADC and pushbuttons pass a 2-FF synchronizer into clk_core (PS/2
 +--    synchronizer re-instated 2026-10-05 after a raw-input evaluation, PORTING_SPEC
 +--    section 7)
-+--  - btnC = reset
++--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
++--    E0 ignored): arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin
++--  - btnC = reset, btnU/btnD = coin, btnL/btnR = start
 +---------------------------------------------------------------------------------
 +-- Educational use only
 +-- Do not redistribute synthetized file with roms
@@ -398,10 +400,11 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + sw             : in  std_logic_vector(15 downto 0);
 + btnC           : in  std_logic;
 + btnU           : in  std_logic;  -- coin
++ btnD           : in  std_logic;  -- coin
 + btnL           : in  std_logic;  -- 1P start
 + btnR           : in  std_logic;  -- 2P start
 +
-+ JA             : in  std_logic_vector(4 downto 0);  -- joystick
++ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
 + ps2_dat        : in  std_logic;
 + ps2_clk        : in  std_logic;
 +
@@ -484,22 +487,30 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + signal video_gi  : std_logic_vector(5 downto 0);
 + signal video_bi  : std_logic_vector(5 downto 0);
 +
-+ -- PS/2, JA(4 downto 0) and btnR/btnL/btnU, 2-FF synchronized (index 1 = output).
++ -- PS/2, JXADC(4 downto 0) and btnD/btnR/btnL/btnU, 2-FF synchronized (index 1 = output).
 + signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
-+ type in_sync_t is array (1 downto 0) of std_logic_vector(7 downto 0);
++ type in_sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
 + signal in_s : in_sync_t := (others => (others => '1'));
 + attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
 + signal ja_s      : std_logic_vector(4 downto 0);
-+ signal btnU_s, btnL_s, btnR_s : std_logic;
++ signal btnU_s, btnL_s, btnR_s, btnD_s : std_logic;
 +
 + signal kbd_intr      : std_logic;
 + signal kbd_scancode  : std_logic_vector(7 downto 0);
-+ signal kbd_joy       : std_logic_vector(7 downto 0);
++ signal kbd_rel       : std_logic := '0';
++ signal kbd_joy       : std_logic_vector(7 downto 0) := (others => '0');
 + signal joyPCFRLDU    : std_logic_vector(7 downto 0);
 +
 + signal dbg_cpu_addr : std_logic_vector(15 downto 0);
 +
++ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
++ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
++ -- dip_switch_1: Coinage_A (bits 3-0) on sw11-8; Coinage_B (bits 7-4) fixed.
++ constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := X"FF";
++ signal dip1 : std_logic_vector(7 downto 0);
 +begin
++
++dip1 <= DIP1_DEFAULT xor (x"0" & sw(11 downto 8));  -- Coinage_A on sw11-8
 +
 +-- 100 MHz -> clk_core 24.573991 MHz (single output)
 +clocks : entity work.clk_wiz_0
@@ -563,7 +574,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 + video_vs     => vsync,
 + audio_out    => audio,
 +
-+ dip_switch_1 => X"FF", -- Coinage_B / Coinage_A
++ dip_switch_1 => dip1, -- Coinage_B (fixed) / Coinage_A (sw11-8)
 + dip_switch_2 => sw(7 downto 0), -- Sound(8)/Difficulty(7-5)/Bonus(4)/Cocktail(3)/lives(2-1)
 +
 + start2      => joyPCFRLDU(7),
@@ -622,7 +633,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +	if rising_edge(clk_core) then
 +		ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
 +		ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
-+		in_s(0)   <= btnR & btnL & btnU & JA;
++		in_s(0)   <= btnD & btnR & btnL & btnU & JXADC;
 +		in_s(1)   <= in_s(0);
 +	end if;
 +end process;
@@ -631,6 +642,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +btnU_s <= in_s(1)(5);
 +btnL_s <= in_s(1)(6);
 +btnR_s <= in_s(1)(7);
++btnD_s <= in_s(1)(8);
 +
 +-- get scancode from keyboard
 +keyboard : entity work.io_ps2_keyboard
@@ -642,28 +654,44 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +  scancode  => kbd_scancode
 +);
 +
-+-- translate scancode to joystick
-+joystick : entity work.kbd_joystick
-+port map (
-+  clk           => clk_core,
-+  kbdint        => kbd_intr,
-+  kbdscancode   => std_logic_vector(kbd_scancode),
-+  joyPCFRLDU    => kbd_joy
-+);
++-- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
++-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
++-- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
++-- kbd_joy bit order matches joyPCFRLDU below: 5 = coin, 6 = start 1, 7 = start 2.
++process (clk_core)
++begin
++	if rising_edge(clk_core) then
++		if kbd_intr = '1' then
++			if kbd_scancode = x"F0" then
++				kbd_rel <= '1';
++			elsif kbd_scancode /= x"E0" then
++				kbd_rel <= '0';
++				if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up arrow
++				if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
++				if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
++				if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
++				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
++				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6 : coin
++				if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1 : start 1
++				if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2 : start 2
++			end if;
++		end if;
++	end if;
++end process;
 +
-+-- OR-merge the Atari-style joystick on JA with the PS/2 keyboard joystick.
-+-- JA physical map (matches the sibling port): JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire,
-+-- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
-+-- JA is active-low (pressed shorts to ground); invert so a press reads active-high, matching the
++-- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
++-- JXADC physical map (matches the sibling port): JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire,
++-- i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire.
++-- JXADC is active-low (pressed shorts to ground); invert so a press reads active-high, matching the
 +-- core's active-high input boundary and the keyboard path.
-+-- Coin/start come from the keyboard and btnU/btnL/btnR
-+-- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
-+joyPCFRLDU(0) <= kbd_joy(0) or not ja_s(3);               -- up    (JA4)
-+joyPCFRLDU(1) <= kbd_joy(1) or not ja_s(2);               -- down  (JA3)
-+joyPCFRLDU(2) <= kbd_joy(2) or not ja_s(1);               -- left  (JA2)
-+joyPCFRLDU(3) <= kbd_joy(3) or not ja_s(0);               -- right (JA1)
-+joyPCFRLDU(4) <= kbd_joy(4) or not ja_s(4);               -- fire  (JA7)
-+joyPCFRLDU(5) <= kbd_joy(5) or btnU_s; -- coin   = btnU
++-- Coin/start come from the keyboard and btnU/btnD/btnL/btnR
++-- (JXADC fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
++joyPCFRLDU(0) <= kbd_joy(0) or not ja_s(3);               -- up    (JXADC4)
++joyPCFRLDU(1) <= kbd_joy(1) or not ja_s(2);               -- down  (JXADC3)
++joyPCFRLDU(2) <= kbd_joy(2) or not ja_s(1);               -- left  (JXADC2)
++joyPCFRLDU(3) <= kbd_joy(3) or not ja_s(0);               -- right (JXADC1)
++joyPCFRLDU(4) <= kbd_joy(4) or not ja_s(4);               -- fire  (JXADC7)
++joyPCFRLDU(5) <= kbd_joy(5) or btnU_s or btnD_s; -- coin = btnU / btnD
 +joyPCFRLDU(6) <= kbd_joy(6) or btnL_s; -- start1 = btnL
 +joyPCFRLDU(7) <= kbd_joy(7) or btnR_s; -- start2 = btnR
 +
@@ -681,7 +709,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan_de10_lite.vhd b/vhdl_
 +end process;
 +
 +O_PMODAMP2_AIN   <= pwm_accumulator(12);
-+O_PMODAMP2_SHUTD <= sw(14);  -- sound enable (down = enable, up = disable)
-+O_PMODAMP2_GAIN  <= sw(15);  -- gain select (up = enable gain, down = disable gain)
++O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
++O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 +
 +end struct;

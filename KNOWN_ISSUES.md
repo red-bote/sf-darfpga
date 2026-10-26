@@ -56,19 +56,13 @@ Entry format:
 - **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
 - **Symptom**: the MiST scandoubler `clk_sys` comes from a fabric register (Traverse-USA `traverse_usa_basys3.vhd:224-236,288`; Zaxxon `zaxxon_basys3.vhd:336-339`, core `clock_cnt(0)`), so the core-to-scandoubler path is untimed (`check_timing` no_clock: Traverse-USA 829, Zaxxon 104). Traverse-USA also runs the sound board and PWM on `clock_3p58_reg`. Same class as the Pooyan/Time-Pilot sync failure fixed 2026-10-05; no hardware symptom reported.
 - **Tried**: n/a (by inspection).
-- **Status**: open; candidate fix: single-domain conversion (Pooyan pattern: `clk_sys` = core clock, `ce_x1`/`ce_x2` enables). The Zaxxon wrapper header states a fast `clk_sys` "does not work"; Pooyan runs the same scandoubler that way (needs a hardware test).
+- **Status**: open (rechecked 2026-10-22; the keyboard-clock part of these wrappers was fixed 2026-10-20, the scandoubler `clk_sys` was not); candidate fix: single-domain conversion (Pooyan pattern: `clk_sys` = core clock, `ce_x1`/`ce_x2` enables). The Zaxxon wrapper header states a fast `clk_sys` "does not work"; Pooyan runs the same scandoubler that way (needs a hardware test).
 
 ### Phoenix-by-Dar: scandoubler `ce_x1` is the register-derived `hclk` clock net
 - **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
 - **Symptom**: `ce_x1 => video_clk` (`phoenix_basys3.vhd:228`) with `video_clk <= hclk` (`rtl_dar/phoenix.vhd:273`), a register-derived clock used as logic in the `clk_sys` domain (no_clock 718 pins incl. `clk10`, `hclk_i`, `hstb_i`). Same structure as the Burger-Time/Computer-Space `ce_x1` issue fixed 2026-10-02; here untimed rather than failing (inference).
 - **Tried**: n/a (by inspection).
 - **Status**: open; candidate fix: core patch exposing an `hclk` enable, or single-domain conversion.
-
-### Popeye-by-Dar, Zaxxon-by-Dar, Traverse-USA-by-Dar: wrapper `clock_kbd` is a register-derived clock
-- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
-- **Symptom**: the keyboard clock `clock_kbd_reg` is a fabric divider output (untimed; same class as the MCR `clock_kbd`). No keyboard symptom reported.
-- **Tried**: n/a (by inspection).
-- **Status**: open; options: keyboard on the core clock with 2-FF `ps2_*` synchronizers (Xevious pattern), or accept and record.
 
 ### Computer-Space-by-Dar: rocket missile timer keeps an async preset that depends on its own output
 - **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
@@ -110,9 +104,15 @@ Entry format:
 - **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
 - **Symptom**: `check_timing` no_input_delay 9-22 and no_output_delay 9-15 on every machine.
 - **Tried**: n/a (by inspection).
-- **Status**: open; candidate fix: `set_false_path` from the synchronized asynchronous inputs (`btn*`, `sw*`, `JA*`, `ps2_*`), optional output constraints for VGA/PWM.
+- **Status**: open; candidate fix: `set_false_path` from the synchronized asynchronous inputs (`btn*`, `sw*`, `JXADC*`, `ps2_*`), optional output constraints for VGA/PWM.
 
 ## Fixed
+
+### Popeye-by-Dar, Zaxxon-by-Dar, Traverse-USA-by-Dar: wrapper `clock_kbd` is a register-derived clock
+- **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
+- **Symptom**: the keyboard clock `clock_kbd_reg` is a fabric divider output (untimed; same class as the MCR `clock_kbd`). No keyboard symptom reported.
+- **Tried**: n/a (by inspection).
+- **Status**: fixed 2026-10-20: `io_ps2_keyboard` and the wrapper key decoder run on the core clock on all 20 machines (also Galaga `clock_9`; Kick, Solar-Fox, Tron `clock_kbd`), 2-FF `ps2_*` synchronizers; hardware-verified 2026-10-20/21.
 
 ### Phoenix-by-Dar: btnC reset does not reset the sound
 - **Reported**: 2026-10-02 (user, hardware)
@@ -157,7 +157,7 @@ Entry format:
 - **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)
 - **Symptom**: `popeye_linmix_sensitivity.patch` added `ioa_inreg` but not `iob_inreg` (`rtl_mikej/ym_2149_linmix.vhd:295`). Same upstream gap in Bagman, Crazy-Kong, Sky-skipper, Traverse-USA (not patched there). Simulation only.
 - **Tried**: n/a (by inspection).
-- **Status**: fixed in source 2026-10-07 for Popeye: patch extended to `ioa_inreg, iob_inreg`; rebuild pending. Other machines: record only.
+- **Status**: fixed 2026-10-07 for Popeye: patch extended to `ioa_inreg, iob_inreg`; rebuilt and hardware-confirmed 2026-10-08 (user). Other machines: record only.
 
 ### Tron-by-Dar: bottom horizontal line shows flickering junk
 - **Reported**: 2026-10-01 (user, hardware)
@@ -200,14 +200,6 @@ Entry format:
   - **Status** (superseded, see above): open, todo -- needed further hardware investigation to characterize
     the intermittency (e.g. cold-start vs. warm reset, sw(13) 31 kHz/15 kHz mode
     correlation, `clock_12`/`clock_6`/`clock_14` MMCM lock timing).
-
-### Bagman, Berzerk, Galaga-Midway, Kick-Midway-MCR, Popeye, Solar-Fox, Tron, Zaxxon: video columns clipping on Eyoyo EM08F
-- **Reported**: 2026-09-25 (user, hardware; eight separate entries, merged here)
-- **Symptom**: several columns of video clipped on the Eyoyo EM08F monitor only.
-- **Tried**: n/a (not investigated).
-- **Status**: closed 2026-10-02 without a fix: Eyoyo EM08F retired from use (user).
-  Reference displays are the Sylvania SF150 and LG Flatron L2000CP
-  (`CLOCKING_SPEC.md` section 2).
 
 ### Burger-Time-by-Dar, Burnin-Rubber-by-Dar, Computer-Space-by-Dar: routed timing not met
 - **Reported**: 2026-10-02 (routed timing summaries, by inspection)
@@ -279,9 +271,7 @@ Entry format:
      `ps2_clk`/`ps2_dat`. Verified via fresh `make clean && make setup && make create_prj
      && make clk_wiz && make patch` (no errors) and Vivado `check_syntax` (no
      errors/critical warnings). `make patch` re-run confirms idempotent provenance-patch
-     regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard working (video
-     columns clipping also observed on this build -- see the cross-machine clipping
-     entry below).
+     regeneration. Hardware-confirmed 2026-09-25: USB-HID keyboard working.
 - **Tried**: n/a -- both are by-inspection gaps vs. convention, not hardware faults.
 - **Status**: controls fixed 2026-10-01 (btnU = coin, btnL = 1P start, btnR = 2P
   start, OR-merged; XDC lines enabled); hardware-confirmed 2026-10-02 (user sweep).

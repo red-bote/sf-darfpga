@@ -5,9 +5,10 @@ to the Digilent Basys 3 (Artix-7, part `xc7a35tcpg236-1`), by Red~Bote. Each
 machine is an independent project under its own `<Machine>-by-Dar/` directory,
 built with Vivado 2020.2.
 
-Operational rules live in `.opencode/rules.md` and `AGENTS.md` (terminology,
-git, filesystem scope, tool paths). Each machine's `README.md` is the single
-source of truth for that machine's design and build.
+Porting a new Dar core: `PORTING_SPEC.md` (procedure, conventions, templates in
+`wip/machine/`, reference machine `Pooyan-by-Dar`). Operational rules: `.opencode/rules.md`
+(authoritative for Dar work) and `AGENTS.md`. Each machine's `README.md` carries its
+status, controls and IO; its `contrib/basys3/PORTING_SPEC.md` the design detail.
 
 ## Status
 
@@ -34,12 +35,12 @@ Xevious-by-Dar
 Zaxxon-by-Dar
 
 Computer Space is a discrete-game core (no romset); see its README for the
-dedicated controls (JA fire / pushbutton start) and rocket-missile fire fix.
+dedicated controls (JXADC fire / pushbutton start) and rocket-missile fire fix.
 
 Phoenix-by-Dar is fully scripted, synthesized, and bitstream-built
 (0 critical warnings/errors through implementation). Hardware bring-up has
 confirmed PS/2 keyboard, sound, and VGA display all working; keyboard is on
-the onboard USB-HID host (C17/B17), hardware-confirmed. JA joystick and
+the onboard USB-HID host (C17/B17), hardware-confirmed. JXADC joystick and
 btnU/D/L/R are wired through `contrib/code/phoenix_external_inputs.patch`
 (core `ext_joy` port), hardware-confirmed 2026-10-02. See
 `Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` and root `KNOWN_ISSUES.md`
@@ -53,7 +54,7 @@ tree).
 
 Traverse-USA-by-Dar is fully scripted, documented, and hardware-brought-up
 on the Basys 3. Unlike the DE10 original (keyboard only), the Basys3 port
-adds a JA joystick OR-merged with the keyboard and dedicated coin/start
+adds a JXADC joystick OR-merged with the keyboard and dedicated coin/start
 buttons; keyboard is on the onboard USB-HID connector, hardware-confirmed.
 See the machine `README.md`/`PORTING_SPEC.md` for the scandoubler wiring,
 patch, and clock-rate detail.
@@ -71,7 +72,7 @@ post-route WNS = 21.853 ns; 1906 LUTs / 815 FFs / 18.5 BRAM tiles, no black
 boxes). One closure bug surfaced at implementation -- an initially-incomplete
 source list left the modular T80 CPU as a black box (`[DRC INBB-3]`); fixed
 by listing all 25 sources (see `PORTING_SPEC.md`). Hardware-verified
-(31 kHz VGA + USB-HID keyboard + JA joystick + PWM audio) with the default
+(31 kHz VGA + USB-HID keyboard + JXADC joystick + PWM audio) with the default
 `sw(13)=0` bitstream; `sw(13)` alone is the display-mode control. See the
 machine `README.md`/`PORTING_SPEC.md` for controls and design detail.
 
@@ -105,11 +106,11 @@ instead of `prep_roms.sh`.
 | Popeye (Nintendo 1982) | 40.32 MHz | `basys3/popeye_basys3.xpr`, `popeye_basys3` | `popeye_linmix_sensitivity.patch` | `popeye.zip` + `popeyeu.zip` |
 | Phoenix (Amstar 1980) | 11 + 50 MHz | `basys3/phoenix_basys3.xpr`, `phoenix_basys3` | `phoenix_expose_hsync_vsync.patch` | `phoenix.zip` |
 | Pooyan (Konami 1982) | 24.574 MHz | `basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch`, `pooyan_single_domain.patch`, `pooyan_vcnt_264_lines.patch` | `pooyan.zip` |
-| Satans/Hollow (Bally Midway MCR 1981) | 40 MHz | `basys3/satans_hollow_basys3.xpr`, `satans_hollow_basys3` | — | `shollow.zip` |
+| Satan's Hollow (Bally Midway MCR 1981) | 40 MHz | `basys3/satans_hollow_basys3.xpr`, `satans_hollow_basys3` | — | `shollow.zip` |
 | Sky Skipper (Nintendo 1981) | 40.32 MHz | `basys3/sky_skipper_basys3.xpr`, `sky_skipper_basys3` | — | `skyskipr.zip` |
 | Solar Fox (Bally Midway 1981) | 40 MHz | `basys3/solar_fox_basys3.xpr`, `solar_fox_basys3` | — | `solarfox.zip` |
 | Time Pilot (Konami 1982) | 24.574 MHz | `basys3/time_pilot_basys3.xpr`, `time_pilot_basys3` | `time_pilot_single_domain.patch`, `time_pilot_vcnt_264_lines.patch` | `timeplt.zip` |
-| Tron (Midway MCR 1982) | 40 MHz | `basys3/tron_basys3.xpr`, `tron_basys3` | — | `tron.zip` + `kick.zip` (color PROM) |
+| Tron (Midway MCR 1982) | 40 MHz | `basys3/tron_basys3.xpr`, `tron_basys3` | — | `tron.zip` + `midssio.zip` (SSIO board PROM `82s123.12d`, `ROMZIP2`) |
 | Traverse USA / Zippy Race (Irem 1983) | 36.842 + 7.159 MHz (/2 = 3.58) | `basys3/traverse_usa_basys3.xpr`, `traverse_usa_basys3` | `traverse_usa_expose_video_timing.patch`, `traverse_usa_de10_lite_to_basys3.patch` | `travrusa.zip` |
 | Xevious (Namco 1982) | 18.432 MHz | `basys3/xevious_basys3.xpr`, `xevious_basys3` | `xevious_expose_hsync_vsync.patch` | `xevious.zip` |
 | Zaxxon (Gremlin/Sega 1980) | 24.329 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
@@ -160,8 +161,8 @@ interactive prompt` convention — see `AGENTS.md` §"Tool / path resolution".
 
 Each machine Makefile prints a display-mode reminder via its `make help` target and
 at the end of `make all` / `make bitstream`: if nothing appears on the display after
-loading the bitstream, first try toggling the display mode (F8 on the USB-HID keyboard,
-or sw(13); per-machine detail in the machine README) before troubleshooting further.
+loading the bitstream, first try toggling the display mode (sw(13); per-machine detail in the machine
+README) before troubleshooting further.
 `make all-<machine>` / `make bitstream-<machine>` show it too, because they delegate
 to the machine `all` / `bitstream`. Machines with no display-mode toggle print no
 reminder.
@@ -170,30 +171,20 @@ reminder.
 
 All ports share the same IO convention (see each machine README for the wrapper
 port map): USB-HID keyboard on the onboard connector (`ps2_clk` = C17, `ps2_dat`
-= B17), JA joystick (active-low, switch to GND)
-OR-merged with it, mono (or left-channel) PWM audio on PmodAMP2 at JC, 4-4-4 RGB
-VGA, and `btnC` = reset (active-high). `sw14` = sound enable, `sw15` = AMP gain.
-All 20 machines are on the onboard USB-HID connector (none remain on the
-legacy JB PS/2 header) as of 2026-09-29. Several needed a new, independent
-keyboard-clock divider to meet the onboard host's ≥ 6 MHz `io_ps2_keyboard`
-floor — see each machine README for the specific divider used.
-Video is 31 kHz progressive VGA; scan doubling is either built into the core or
-added via an imported scandoubler. Per machine: Galaga, Burnin' Rubber,
-Phoenix, Computer Space, Xevious, Traverse-USA, and Zaxxon import
-`mist/scandoubler.v`
-(their cores output 15 kHz only; Phoenix's, Xevious's, Traverse-USA's, and
-Zaxxon's cores
-needed a patch to expose hsync/vsync in the first place, unlike
-Galaga/Burnin-Rubber's native ones — see
-`Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md`); Time Pilot and Pooyan
-use the same MiST `scandoubler.v` (since 2026-10-05); Bagman and Berzerk instantiate Dar's
-`line_doubler` inside the core; Kick, Popeye, Sky Skipper, Solar Fox, Crazy
-Kong, and Satans/Hollow generate progressive 31 kHz natively in the core
-(`tv15Khz_mode = '0'`).
-Of these, all six (Kick, Popeye, Sky Skipper, Solar Fox, Crazy Kong, and
-Satans/Hollow) select the mode via `sw(13)` alone (0 = 31 kHz VGA default,
-1 = 15 kHz TV) — changed 2026-09-29 from a mix of F8-only and `sw(13)`-XOR-F8
-toggles to a single consistent convention.
+= B17), JXADC joystick (active-low, switch to GND)
+OR-merged with it, mono (or left-channel) PWM audio on PmodAMP2 at JA, 4-4-4 RGB
+VGA, and `btnC` = reset (active-high). sw15 up = audio disabled, sw14 up = gain active.
+IO scheme changed 2026-10-20 (joystick JA -> JXADC, PmodAMP2 JC -> JA, sw15/sw14 as above;
+`PORTING_SPEC.md` §3; MAME keyboard map decoded in each wrapper, btnU/btnD = coin, §3.1):
+all 20 machines re-verified on hardware 2026-10-20 (Zaxxon and Galaga JXADC fire with a
+CX40-type joystick; an earlier joystick was faulty). DIP switches on 11 machines
+(§3.2) and the Traverse-USA keyboard on `clock_36`: hardware-verified 2026-10-21.
+All 20 machines use the onboard USB-HID connector; `io_ps2_keyboard` and the wrapper's
+key decoder run on each machine's core clock (2026-10-20; the former separate keyboard
+clock dividers are removed).
+Video is 31 kHz progressive VGA, with sw(13) up selecting 15 kHz TV on every machine.
+The video path per machine (core-native progressive, Dar's `line_doubler`, or the
+imported MiST `scandoubler.v`) is listed in `PORTING_SPEC.md` §4.5.
 
 ## Backlog
 

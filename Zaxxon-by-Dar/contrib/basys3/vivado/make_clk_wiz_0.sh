@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate the clk_wiz_0 MMCM IP (100 MHz -> 24 MHz core) for the
+# Generate the clk_wiz_0 MMCM IP (100 MHz -> 24.33 MHz core, solved 24.32900 MHz) for the
 # Basys3 port and place its Verilog wrappers where zaxxon_basys3.xpr expects them.
 #
 # The main project's .xpr references two imported files (zaxxon_basys3.xpr):

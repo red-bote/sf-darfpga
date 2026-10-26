@@ -1,71 +1,93 @@
-# Popeye-by-Dar — Porting spec
+# Popeye-by-Dar: porting spec
 
-## 1. Reference model
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-- Source archive: `vhdl_popeye_rev_0_3_2020_01_27.zip` (SourceForge folder `popeye`, per the
-  repo-root `downloads.md`) → `vhdl_popeye_rev_0_3_2020_01_27/` at the machine root.
-- Top entity: `popeye_basys3` (target file `sources_1/new/popeye_basys3.vhd`).
-- Part: `xc7a35tcpg236-1`, VHDL target language.
-- Status: built and hardware-verified (root `README.md` Status section). Sections below were
-  first written as design intent before the top level existed; where they differ,
-  `contrib/basys3/code/popeye_basys3.vhd` is authoritative.
+## 1. Upstream and reference model
+
+- Archive `vhdl_popeye_rev_0_3_2020_01_27.zip` (SourceForge `darfpga/files/Software
+  VHDL/popeye/`), SHA-256 in `contrib/tools/setup_popeye.sh`; extracted to
+  `vhdl_popeye_rev_0_3_2020_01_27/`. Core `rtl_dar/popeye.vhd`; YM2149 `rtl_mikej/`.
+- MAME driver: `nintendo/popeye.cpp` (board TNX-1).
+- Top entity `popeye_basys3`; part `xc7a35tcpg236-1`.
+- Closest existing port used as model: Bagman-FPGA-Dar (`tv15Khz_mode` on sw13).
 
 ## 2. Clocking
 
-- Single core clock: **40.32 MHz**, derived from the 100 MHz Basys 3 oscillator by `clk_wiz_0`.
-- Solved MMCM (per machine `README.md`): `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=31.5`,
-  `CLKOUT0_DIVIDE_F=15.625`. Reset active-high (`btnC`), `locked` used.
+- Original: single 8.000 MHz crystal; Z80 XTAL/2 = 4 MHz, AY-3-8910 XTAL/4 = 2 MHz.
+- `clk_wiz_0`: request 40.32 MHz, achieved 40.320 MHz (5 / 31.5 / 15.625, VCO 630 MHz);
+  signal `clock_40`.
+- Enables: `clock_cnt2` (after the width patch) CPU f/10 = 4.032 MHz (+0.8%), AY f/20 =
+  2.016 MHz; `clock_div` (0-9) gates the PWM accumulator.
+- Video (scanner 640 x 526): progressive pixel `clock_40`/2 = 20.16 MHz, H = 31.500 kHz,
+  V = 59.886 Hz; TV pixel 10.08 MHz, H = 15.750 kHz, V = 59.886 Hz (263 lines).
 
-## 3. Reset polarity
+## 3. Reset
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Berzerk/Bagman/Pooyan pattern), implemented.
-- Core patch `contrib/code/popeye_clock_cnt2_width.patch` (2026-10-01): widens the 4-bit `clock_cnt2` to 5 bits so the `"10011"` reload fires (CPU f/10 = 4.032 MHz, AY f/20); the pristine counter ran mod 16 (CPU f/8, +26%). `../../CLOCKING_SPEC.md` 5.6.
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC`.
 
-## 4. Video (31 kHz VGA / 15 kHz TV, switch-selectable)
+## 4. Core instantiation
 
-- No external scandoubler: the core doubles scanlines internally. `sw(13)` → core's
-  `tv15Khz_mode` input, selecting 31 kHz VGA (`'0'`) / 15 kHz TV (`'1'`) — same runtime-switch
-  convention as Bagman, unlike Kick/Sky-skipper/Solar-Fox's keyboard-only (F8) toggle.
+Dar's `popeye` entity unchanged. `sw1`, `sw2`, `service` and the player inputs through
+signals (no expression actuals).
 
-## 5. Audio (mono PWM on PmodAMP2)
+## 5. Video path
 
-- Mono PWM accumulator pattern (Berzerk/Burnin'-Rubber convention); `sw(15)` → AMP gain,
-  `sw(14)` → AMP shutdown.
+No external scandoubler: the core generates 31 kHz progressive or 15 kHz TV.
+`tv15Khz_mode => sw(13)`.
 
-## 6. Inputs
+## 6. Audio
 
-- PS/2 keyboard + `kbd_joystick`, OR-merged with the JA joystick (active-low, invert to
-  active-high, "verified working" per machine `README.md`): `JA1=Right, JA2=Left, JA3=Down,
-  JA4=Up, JA7=Punch`.
-- Coin = keyboard F1 OR `btnU`; Start 1 = keyboard F2 OR `btnL`; Start 2 = keyboard F3 OR
-  `btnR`; Service = keyboard F7. No JA fire+direction combos (removed 2026-10-02). Player 2
-  mirrors player 1.
+Dar's mono 18-bit PWM accumulator, updated when `clock_div = "0000"`, on `clock_40`;
+`O_PMODAMP2_AIN <= pwm_accumulator(17)`. `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
 
-## 7. LEDs
+## 7. Inputs
 
-- No LEDs: the implemented `popeye_basys3` entity has no `led` port and the XDC constrains
-  none (the earlier design intent to wire `led(15:0)` was not implemented).
+- Keyboard: `io_ps2_keyboard` on `clock_40`, wrapper decoder (MAME keys,
+  `../../../PORTING_SPEC.md` §3.1, §4.3), replaces `kbd_joystick` (2026-10-20;
+  `kbd_joystick.vhd` stays in the project, unreferenced). Arrows, Left Ctrl = punch,
+  1/2 = start, 5/6 = coin, 9 = service (held, MAME service 1). Mapping as the
+  hardware-verified `rb-fpga/ref-repos` Popeye port.
+- JXADC (active-low, inverted): JXADC1/2/3/4 = right/left/down/up, JXADC7 = punch.
+- Buttons: btnU/btnD = coin, btnL/btnR = start 1/2. Player 2 mirrors player 1.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_40`. The former
+  `clock_40`/6 fabric clock `clock_kbd` (`clock_div_kbd`) is removed (single domain, as
+  rework).
+- Debounce: none. Combos: none.
 
-## 8. Synthesis-fix patch
+## 8. Switches and DIPs
 
-- `popeye_linmix_sensitivity.patch` (flat `contrib/code/`): adds `ioa_inreg` to the pristine
-  YM2149 mixer's (`rtl_mikej/ym_2149_linmix.vhd`) `p_rdata` process sensitivity list. Applied
-  automatically by `setup_popeye.sh`. Full mechanics and verify-grep documented in machine
-  `README.md` §"Applying the linmix sensitivity fix" — not duplicated here.
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw7-0 | `sw2` | 7-0 | `not sw` = `x"FF"` | cocktail / music / bonus (2) / difficulty (2) / lives (2); `not sw(7:0)` as rework, hardware 2026-10-19; Dar's DE10 value `"00111101"` |
+| sw11-8 | `sw1` | 3-0 coinage | Dar's value | `SW1_DEFAULT xor ("000" & sw(11:8))`, `SW1_DEFAULT = not("10" & '1' & "1111")` (2026-10-20, §3.2) |
+| sw13 | `tv15Khz_mode` | | 31 kHz VGA | up = 15 kHz TV |
+| sw14 / sw15 | PmodAMP2 GAIN / SHUTD | | gain low / audio on | |
 
-## 9. Shared conventions & hard rules
+Fixed: `sw1` copyright (bits 6-5) and N.U. (bit 4) at Dar's value (no spare switches for
+a whole field; sw12 spare).
 
-- **Non-nested project layout**: the `.xpr` will live directly in `basys3/` as
-  `basys3/popeye_basys3.xpr`, with the sources tree at `basys3/popeye_basys3.srcs/`.
-- **Vivado build scripts run from `/tmp`** so `vivado.log`/`vivado.jou` stay out of the repo.
-- **Tool/path resolution** is `ENV_VAR → project default → interactive prompt`:
-  - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-  - roms: `ROMZIP`/`ROMZIP2` → `~/roms/popeye.zip` / `~/roms/popeyeu.zip` (two romsets; the
-    `popeyeu` set provides the `7a`/`7b`/`7c`/`7e` speech ROMs absent from the plain set).
-- **Roms and generated PROM VHDL are copyrighted content** — never commit or distribute them.
+## 9. Patches
 
-## 10. Open items
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/code/popeye_clock_cnt2_width.patch` | `rtl_dar/popeye.vhd` | 4-bit `clock_cnt2` never reached the `"10011"` reload; CPU f/8, AY f/16 (+26%); widened to 5 bits (2026-10-01, `../../../CLOCKING_SPEC.md` 5.6) |
+| `contrib/code/popeye_linmix_sensitivity.patch` | `rtl_mikej/ym_2149_linmix.vhd` | `p_rdata` sensitivity list lacked `ioa_inreg`, `iob_inreg` (`iob_inreg` added 2026-10-07); a port-input change left `O_DA` stale |
+| `contrib/basys3/code/popeye_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
-- `.xdc`/`.xpr` (contrib/basys3/vivado/), `make_clk_wiz_0.sh`, the top-level wrapper
-  (`make_de10_lite_to_basys3_patch.sh`), and the synth/bitstream driver script all remain to be
-  authored before `make create_prj`/`clk_wiz`/`patch`/`synth`/`bitstream` can run.
+Verify the linmix fix: `grep -n "busctrl_re, addr, reg, ioa_inreg, iob_inreg"
+vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd`.
+
+## 10. PROM generation
+
+`contrib/tools/prep_roms.sh`: `make_popeye_proms.bat` → shell; romsets `popeye.zip`
+(`ROMZIP1`) + `popeyeu.zip` (`ROMZIP2`, the `7a`/`7b`/`7c`/`7e` ROMs).
+
+## 11. Build
+
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. The `.xpr` lives
+at `vhdl_popeye_rev_0_3_2020_01_27/basys3/popeye_basys3.xpr`.
+
+## 12. Open items
+
+None.

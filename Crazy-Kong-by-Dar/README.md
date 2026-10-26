@@ -1,127 +1,100 @@
-# Crazy-Kong-by-Dar (Basys 3 port)
+# Crazy-Kong-by-Dar
 
-Crazy Kong (Crazy-Climber-derived hardware, Kyoei/Falcon, 1981; per MAME's
-`cclimber.cpp` driver and Dar's `README.txt`, the core plays Crazy Kong
-Part II / Falcon) by Dar (`darfpga@aol.fr`,
-http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
-`README.txt` in the extracted source archive for the original Dar release
-notes.
+Basys 3 port of Crazy Kong (Crazy Climber hardware, Kyoei/Falcon, 1981; per MAME
+`cclimber.cpp` and Dar's `README.txt` the core plays Crazy Kong Part II / Falcon),
+original core by Dar (darfpga@aol.fr), <http://darfpga.blogspot.fr>. Source:
+`vhdl_ckong_rev_0_1_2018_06_06.zip` (rev 0.1, 06/06/2018), `dloads/`. Basys 3 port by
+Red~Bote; Dar's release notes: `README.txt` in the extracted archive.
 
-- Vivado 2020.2 project: `basys3/ckong_basys3.xpr` (top entity `ckong_basys3`)
-- Core clock: 12.288 MHz (18.432 MHz crystal x 2/3; CPU 3.072 MHz as the
-  original), from the 100 MHz Basys 3 oscillator via `clk_wiz_0`; see
-  `../CLOCKING_SPEC.md`
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 12.288 MHz
-  (`clock_12`), used for everything (core, sound, PWM audio, keyboard).
-  Reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=5`,
-  `CLKFBOUT_MULT_F=48.000`, `CLKOUT0_DIVIDE_F=78.125` (VCO 960 MHz). VGA
-  32.000 kHz / 60.61 Hz (was 12.000 MHz: 31.25 kHz / 59.19 Hz, -2.34%).
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20 (IO scheme of 2026-10-20, MAME keys): picture (31 kHz VGA),
+sound, keyboard, JXADC joystick, buttons. First bitstream 2026-09-07 (0 critical
+warnings/errors through implementation, post-route WNS 36.461 ns). Open items: none.
 
-- **Video**: native 31 kHz progressive VGA. Unlike Galaga/Traverse-USA there
-  is **no external scandoubler** — the pristine core instantiates its own
-  `line_doubler` and drives real `video_hs`/`video_vs` in
-  `tv15Khz_mode = '0'` (see `PORTING_SPEC.md` §3). sw(13) switches to 15 kHz
-  TV mode (native RGB + composite sync on HS).
-- **Sound**: mono PWM audio on PmodAMP2. Reproduces the pristine top's 13-bit
-  accumulator on `clock_12` feeding bits `audio(15 downto 4)`.
-- **Controls**: USB-HID keyboard + JA joystick (OR-merged); dedicated buttons
-  for coin/start (btnU/btnD = coin, btnL = start 1, btnR = start 2), btnC =
-  reset.
+## Features (Basys 3)
 
-> **Keyboard is always on the Basys3 onboard USB-HID connector** (`ps2_clk` =
-> C17, `ps2_dat` = B17) — plug the keyboard into the board's onboard USB-A
-> port. This port does **not** use the JB PMOD (unlike Galaga/Popeye/Tron/
-> Defender). The onboard USB-HID host needs a ≥ 6 MHz keyboard sampling clock;
-> the pristine top already clocks `io_ps2_keyboard` at `clock_12` = 12 MHz, so
-> this port needs **no divider** (unlike Traverse-USA, whose shared pristine
-> divider was ~3 MHz).
+- Video: native 31 kHz progressive VGA from the core's own `line_doubler` (no external
+  scandoubler); sw13 up = 15 kHz TV (native RGB, composite sync on HS, VS high).
+- Keyboard: onboard USB-HID port, MAME default keys.
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/jump, active
+  low, pull-ups in the XDC.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono (YM2149 and samples).
 
-| Input | Keyboard |
-|-------|----------|
-| Move left / right | Left / Right arrows |
-| Jump (fire) | Space |
-| Additional fire | Ctrl / W |
-| Coin | F3 |
-| Start 1 | F1 |
-| Start 2 | F2 |
+## Controls
 
-JA joystick (active-low, switch to GND):
-- JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire (jump)
-- No coin/start combos on JA — dedicated buttons handle that (see below).
-- Player 2 mirrors player 1 inputs (the core has no genuine second control
-  set, only cocktail-mode duplicates).
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| move (4-way) | arrows | pins 1-4 | |
+| jump | Left Ctrl | pin 7 | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin | 5 / 6 | | btnU / btnD |
+| reset | | | btnC |
 
-Buttons (active-high, Basys3 board pull-down, same convention as btnC):
-- btnU = coin-in, btnD = coin-in (this core has a single coin input; both
-  buttons trigger it)
-- btnL = start 1, btnR = start 2, btnC = reset
+Player 2 mirrors player 1 (the core has only cocktail-mode duplicates). No joystick combos.
+No debounce. Keyboard decoded in the wrapper (F0 = release, E0 ignored). Dar's
+`kbd_joystick` extra fire keys (Ctrl / W, bits 8/9) were never used by the merge and are
+not decoded.
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+
+The DIP byte is a constant inside the core (`ckong.vhd:295`, `"10000000"`, upright
+cabinet); not on board switches.
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnU / btnD | `btnU` / `btnD` | coin-in |
-| btnL / btnR | `btnL` / `btnR` | start 1 / start 2 |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA (internal line doubler), 1 = 15 kHz TV |
-| Onboard USB HID host C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard — always on the onboard USB-HID connector (not JB) |
-| JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (mono; JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC` / `btnU` / `btnD` / `btnL` / `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:13) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
+| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
 
-## Scripted setup
+## Clocking
 
-`contrib/tools/setup_ckong.sh` automates the manual steps below: it fetches
-the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
-matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_ckong_rev_0_1_2018_06_06/`, then runs
-`contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
-`make_ckong_proms.bat`, stage the romset from `$ROMZIP` (default
-`~/roms/ckong.zip`) and generate the PROM VHDL. The one synthesis-fix patch
-(`contrib/code/ckong_xor_width.patch`) is applied idempotently: a 13-bit vs
-5-bit `xor` length mismatch in `ckong.vhd:405-408`, fixed exactly like
-`bagman_xor_width.patch` (same video-addressing code, constants zero-padded to
-13 bits — no behavior change). No video-path patch is needed (native
-progressive video, keyboard already at 12 MHz). Run it via `make setup`.
+`clk_wiz_0`: 12.288 MHz (5 / 48 / 78.125, VCO 960 MHz), single domain; original
+18.432 MHz crystal × 2/3 (CPU 3.072 MHz). Video H 32.000 kHz / V 60.61 Hz. Details:
+`contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
 
-The remaining steps are wrapped by the machine `Makefile`: `make create_prj`
-(copies `ckong_basys3.xpr` and `Basys-3-Master.xdc` into the extracted tree —
-no scandoubler import), `make clk_wiz` (generates the `clk_wiz_0` MMCM IP
-wrappers), `make patch` (regenerates `ckong_de10_lite_to_basys3.patch` and
-places `ckong_basys3.vhd`), then `make synth` / `make bitstream` (Vivado
-batch runs; logs stay outside the repo). `make load` programs the bitstream
-into the Basys 3 SRAM with openFPGALoader.
+## Required ROMs
 
-## ROM set required
+`ckong.zip` (MAME romset; `ROMZIP`, default `~/roms/ckong.zip`), unzipped by
+`prep_roms.sh` into `<SRC_DIR>/tools/ckong_unzip/`; generates `ckong_program.vhd`,
+`ckong_tile_bit0/1.vhd`, `ckong_big_sprite_tile_bit0/1.vhd`, `ckong_palette.vhd`,
+`ckong_big_sprite_palette.vhd`, `ckong_samples.vhd`. Dar's `README.txt` suggests the
+`ckongpt2` contents; all 17 files the `.bat` reads are in the `ckong` parent set. Not
+included. **Do not redistribute roms or anything generated from them.**
 
-MAME ROM set `ckong.zip`, unzipped into `tools/ckong_unzip/`:
+## Building
 
-```
-~/roms/ckong.zip   ->   tools/ckong_unzip/
-```
+Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
+patch), `make check` (parse-only), `make bitstream`, `make load`. `make setup` verifies and
+extracts `dloads/vhdl_ckong_rev_0_1_2018_06_06.zip`, applies
+`contrib/code/ckong_xor_width.patch` and runs `contrib/tools/prep_roms.sh`.
 
-Then run `./make_ckong_proms.sh` from that directory to generate the PROM
-VHDL (all 8, with the exact entity names the core references):
-`ckong_program.vhd`, `ckong_tile_bit0.vhd`, `ckong_tile_bit1.vhd`,
-`ckong_big_sprite_tile_bit0.vhd`, `ckong_big_sprite_tile_bit1.vhd`,
-`ckong_palette.vhd`, `ckong_big_sprite_palette.vhd`, `ckong_samples.vhd`.
-The Vivado project references these generated files in place, so the build
-needs only the staged ROMs + the script.
+## Known issues
 
-Dar's `README.txt` suggests the ckongpt2 (Crazy Kong Part II / Falcon)
-contents; the `.bat`'s 17 input file names are all present in the `ckong`
-parent set (`~/roms/ckong.zip`), which this port stages.
+None open. `make check` shows a pre-existing HDL 9-3240 CRITICAL WARNING inside Dar's core
+(`ckong_sound.vhd`); left as is.
 
-ROMs are copyrighted — never commit or redistribute them.
+## Issues addressed for Basys 3
 
-## Build status
+- `rtl_dar/ckong.vhd:405-408`: four sprite-address XORs of the 13-bit
+  `tile_graph_rom_addr` driver with 5-bit literals; Vivado rejects the length mismatch.
+  `contrib/code/ckong_xor_width.patch` zero-pads them to 13 bits (same fix as
+  `bagman_xor_width.patch`; no behaviour change).
 
-Hardware-verified on the Basys 3 (bitstream 2026-09-07; 0 critical
-warnings/errors through implementation; post-route WNS = 36.461 ns). See the
-root `README.md` Status section, which is the current record of each machine's
-verified state.
+## Third-party sources
+
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |

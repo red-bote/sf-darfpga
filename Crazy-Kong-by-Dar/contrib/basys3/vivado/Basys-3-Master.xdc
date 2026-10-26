@@ -5,7 +5,7 @@
 ##   Switch 13: display mode (0 = 31 kHz VGA, 1 = 15 kHz TV)
 ##   Switch 14: AMP shutdown | Switch 15: AMP gain
 ##   Buttons: btnC reset, btnU/btnD coin, btnL P1 start, btnR P2 start
-##   JA joystick: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire (jump)
+##   JXADC joystick: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire (jump)
 
 ## Clock signal
 set_property -dict { PACKAGE_PIN W5   IOSTANDARD LVCMOS33 } [get_ports clk]
@@ -36,17 +36,17 @@ set_property -dict { PACKAGE_PIN W19  IOSTANDARD LVCMOS33 } [get_ports btnL]
 set_property -dict { PACKAGE_PIN T17  IOSTANDARD LVCMOS33 } [get_ports btnR]
 set_property -dict { PACKAGE_PIN U17  IOSTANDARD LVCMOS33 } [get_ports btnD]
 
-## Pmod Header JA  (active-low joystick on active bank)
-set_property -dict { PACKAGE_PIN J1   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[0]}];#Sch name = JA1 = right
-set_property -dict { PACKAGE_PIN L2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[1]}];#Sch name = JA2 = left
-set_property -dict { PACKAGE_PIN J2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[2]}];#Sch name = JA3 = down
-set_property -dict { PACKAGE_PIN G2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[3]}];#Sch name = JA4 = up
-set_property -dict { PACKAGE_PIN H1   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[4]}];#Sch name = JA7 = fire (jump)
+## Pmod Header JXADC  (active-low joystick on active bank)
+set_property -dict { PACKAGE_PIN J3   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[0]}];#Sch name = JXADC1 = right
+set_property -dict { PACKAGE_PIN L3   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[1]}];#Sch name = JXADC2 = left
+set_property -dict { PACKAGE_PIN M2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[2]}];#Sch name = JXADC3 = down
+set_property -dict { PACKAGE_PIN N2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[3]}];#Sch name = JXADC4 = up
+set_property -dict { PACKAGE_PIN K3   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[4]}];#Sch name = JXADC7 = fire (jump)
 
-## Pmod Header JC  (PmodAMP2 audio)
-set_property -dict { PACKAGE_PIN K17  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_AIN]
-set_property -dict { PACKAGE_PIN M18  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_GAIN]
-set_property -dict { PACKAGE_PIN P18  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_SHUTD]
+## Pmod Header JA  (PmodAMP2 audio)
+set_property -dict { PACKAGE_PIN J1  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_AIN]
+set_property -dict { PACKAGE_PIN L2  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_GAIN]
+set_property -dict { PACKAGE_PIN G2  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_SHUTD]
 
 ## VGA Connector
 set_property -dict { PACKAGE_PIN G19  IOSTANDARD LVCMOS33 } [get_ports {vgaRed[0]}]

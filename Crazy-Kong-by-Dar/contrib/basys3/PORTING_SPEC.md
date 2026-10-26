@@ -1,135 +1,98 @@
-# Crazy-Kong-by-Dar — Porting spec
+# Crazy-Kong-by-Dar — porting spec
 
-## 1. Reference model
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-- Source archive: `vhdl_ckong_rev_0_1_2018_06_06.zip` (SourceForge folder
-  `crazy_kong`) → `vhdl_ckong_rev_0_1_2018_06_06/` at the machine root.
-  SHA-256 `953bd4fdfaaad1cfcb1b9c5adee41636056b2353910664321e7422ae515a0700`
-  (baked into `contrib/tools/setup_ckong.sh`).
-- Core: `rtl_dar/ckong.vhd` (entity `ckong`); off-core support
-  `rtl_dar/{ckong_sound, video_gen, line_doubler, gen_ram, io_ps2_keyboard,
-  kbd_joystick}.vhd`, `rtl_dar/ym_2149_linmix.vhd` (entity `ym2149`, used by
-  the sound), `rtl_T80/*` (T80s Z80-family CPU, instantiated here as
-  `T80s` with `Mode => 0`).
-- Top entity: `ckong_basys3` (target file `sources_1/new/ckong_basys3.vhd`).
-- Part: `xc7a35tcpg236-1`, VHDL target language. Design is 100% VHDL; the
-  only non-pristine RTL is the `clk_wiz_0` MMCM IP Netlist/Verilog wrapper
-  (Vivado 2020.2-generated, no parser fixes needed).
+## 1. Upstream and reference model
+
+- Archive `vhdl_ckong_rev_0_1_2018_06_06.zip` (SourceForge `darfpga/files/Software
+  VHDL/crazy_kong/`), SHA-256
+  `953bd4fdfaaad1cfcb1b9c5adee41636056b2353910664321e7422ae515a0700`
+  (`contrib/tools/setup_ckong.sh`); extracted to `vhdl_ckong_rev_0_1_2018_06_06/`. Core
+  `rtl_dar/ckong.vhd` (entity `ckong`); DE10 top `rtl_dar/ckong_de10_lite.vhd`.
+- Support sources: `rtl_dar/{ckong_sound, video_gen, line_doubler, gen_ram,
+  io_ps2_keyboard, kbd_joystick}.vhd` (`kbd_joystick` unreferenced),
+  `rtl_dar/ym_2149_linmix.vhd` (entity `ym2149`), `rtl_T80/*` (`T80s`, `Mode => 0`).
+  100% VHDL plus the generated `clk_wiz_0` wrapper.
+- MAME driver: `ckong` (`nichibutsu/cclimber.cpp`).
+- Model: Bagman-FPGA-Dar (same video-addressing code, core-internal line doubler).
+- Top entity `ckong_basys3`; project `vhdl_ckong_rev_0_1_2018_06_06/basys3/ckong_basys3.xpr`.
 
 ## 2. Clocking
 
-- **Single core clock: 12 MHz** (`clock_12`). On DE10-lite this came from
-  `max10_pll_12M` (50 MHz in); on Basys 3 the `clk_wiz_0` MMCM derives it
-  from the 100 MHz board oscillator (DIVCLK_DIVIDE=5, CLKFBOUT_MULT_F=49.875,
-  CLKOUT0_DIVIDE_F=83.125 → VCO 997.5 MHz → 12.0 MHz; clk_out1).
-  - Clock revision 2026-10-01 (`../../CLOCKING_SPEC.md` section 4): retargeted to 12.288 MHz (DIVCLK 5 / MULT_F 48 / CLKOUT0_DIVIDE_F 78.125) so the CPU runs at the original 3.072 MHz (was -2.34%); the 12.0 MHz solve above is superseded. Frequencies quoted elsewhere in this spec for derived clocks scale by the same ratio.
-- Everything runs on `clock_12`: the `ckong` core, `ckong_sound`/`ym2149`,
-  the PWM audio accumulator, and the PRMSG keyboard chain — mirroring the
-  pristine DE10 top exactly.
-- The core derives its own internal sub-clocks from `clock_12` via
-  `video_gen`: `ena_pixel` (÷2 → 6 MHz pixel rate) and `cpu_clock`
-  (`not hcnt(0)` gated → ~3 MHz CPU clock, `T80s` CLK).
-- Reset active-high (`btnC`), `locked` used — see §3.
+- Original: 18.432 MHz crystal; Z80 3.072 MHz, pixel 6.144 MHz.
+- `clk_wiz_0`: request 12.288 MHz, achieved 12.288 MHz (5 / 48 / 78.125, VCO 960 MHz);
+  signal `clock_12`. Speed error 0. Retargeted 2026-10-01 from 12.000 MHz (5 / 49.875 /
+  83.125, -2.34%, `../../../CLOCKING_SPEC.md` §4). DE10 original: `max10_pll_12M`.
+- Enables: inside the core (`video_gen`: `ena_pixel` = `clock_12`/2; `cpu_clock` from
+  `not hcnt(0)`). Core, `ckong_sound`/`ym2149`, PWM and keyboard all on `clock_12`, as the
+  DE10 top.
+- Video: pixel 6.144 MHz, h_total 384, v_total 264 → native H 16.000 kHz, V 60.61 Hz;
+  31 kHz output H 32.000 kHz.
 
-## 3. Reset polarity
+## 3. Reset
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Bagman/Berzerk/Pooyan
-  pattern) — core held in reset while `btnC` is pressed or the MMCM has not
-  locked. `clk_wiz_0`'s own `reset` port is driven directly by `btnC`.
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC`.
 
-## 4. Video (native 31 kHz progressive — no external scandoubler)
+## 4. Core instantiation
 
-This core belongs in the **Kick/Popeye category** from the
-`xpr-dependency-closure` skill's classification table: the core instantiates
-its own `line_doubler` (ckong.vhd:634) and drives **real** `video_hs`/
-`video_vs` — `video_hs <= hsync_o`, `video_vs <= vsync_o` are active drivers
-(ckong.vhd:219-220), no expose patch needed (unlike the
-Phoenix/Xevious/Traverse-USA family). There is **no imported scandoubler**,
-no `contrib/code/scandoubler.v` copy, and no `--board_vga`-style generation in
-`create_project.sh`.
+Dar's `ckong` entity unchanged; `tv15Khz_mode => sw(13)` (DE10 `sw(0)`). `dbg_cpu_addr`
+`open` (DE10 7-segment chain not ported). No `led` port.
 
-- `tv15Khz_mode` (DE10's sw(0), here sw(13)) selects the output:
-  - `'0'` → 31 kHz progressive VGA: core's internal `line_doubler` drives
-    `hsync_o`/`vsync_o`, which the core output as `video_hs`/`video_vs`; the
-    wrapper drives the VGA sync pins directly.
-  - `'1'` → 15 kHz TV: composite sync `video_csync` on HS, VS held high
-    (needs a 15 kHz RGB monitor or an RGB→composite converter).
-- RGB is 3/3/2 (`video_r`/`video_g`/`video_b`), padded to 4/4/4 the same way
-  in both modes, exactly as the pristine `vga_r/g/b` assignments:
-  `vgaRed <= r & '0'; vgaGreen <= g & '0'; vgaBlue <= b & "00";`.
-- No intermediate signals, no scanline attenuation, no blanking mux (the core
-  output is intrinsically blank-aware via the board pipeline).
+## 5. Video path
 
-## 5. Audio (mono PWM on PmodAMP2)
+Core-internal `line_doubler` (`ckong.vhd:634`) with real `video_hs <= hsync_o`,
+`video_vs <= vsync_o` (`ckong.vhd:219-220`); no expose patch, no scandoubler import. RGB
+3/3/2 padded in both modes as the DE10 top: `r & '0'`, `g & '0'`, `b & "00"`; no blanking
+mux. sw13: `0` = `video_hs`/`video_vs`; `1` = `video_csync` on HS, VS `'1'`.
 
-- `audio_out` is 16-bit (`audio(15:0)`), mono.
-- The PWM accumulator is reused verbatim from the pristine DE10 top: a 13-bit
-  accumulator on `clock_12` adding `audio(15 downto 4)`, output bit 12 →
-  `O_PMODAMP2_AIN`. No divider runs the audio (unlike Traverse-USA, whose
-  sound board and accumulator ran on a separate clock).
-- `sw(15)` → AMP gain, `sw(14)` → AMP shutdown (standard convention).
+## 6. Audio
 
-## 6. Inputs
+`audio_out` 16 bits, mono. DE10 accumulator: 13 bits on `clock_12` adding
+`audio(15 downto 4)`; `O_PMODAMP2_AIN` = bit 12. `SHUTD <= not sw(15)`,
+`GAIN <= not sw(14)`.
 
-- **Keyboard is always on the Basys 3 onboard USB HID host** (C17 =
-  `ps2_clk`, B17 = `ps2_dat`) — the onboard USB-A port, never JB and never an
-  external PS/2 connector (Computer-Space / Congo Bongo convention).
-- **No keyboard divider is needed.** The onboard USB-HID host requires a
-  ≥ 6 MHz keyboard sampling clock; the pristine DE10 top already drives
-  `io_ps2_keyboard.clk` directly from `clock_12` (12 MHz). Unlike
-  Traverse-USA's ~3 MHz shared divider (which had to be fixed), the 12 MHz
-  native clock is comfortably above the ≥ 6 MHz threshold, so `kbd_joystick`/
-  `io_ps2_keyboard` are wired unmodified.
-- The `kbd_joystick` here is the **`joyHBCPPFRLDU` (10-bit)** variant:
-  bit0=Up, bit1=Down, bit2=Left, bit3=Right, bit4=Space (fire/jump), bit5=F1
-  (start 1), bit6=F2 (start 2), bit7=F3 (coin), bit8=Ctrl, bit9=W. (Core has
-  no key for UP on US-keyboard layouts except the arrow and W; Space is the
-  sole dedicated fire/jump key.)
-- JA joystick (5-pin, active-low, inverted to active-high like the keyboard
-  path) OR-merged into movement + fire only: JA1=Right, JA2=Left, JA3=Down,
-  JA4=Up, JA7=Fire.
-- **Coin/start: dedicated Basys3 buttons** in addition to the keyboard:
-  `btnU`/`btnD` = coin (both OR the core's single `coin1` with
-  `joyHBCPPFRLDU(7)` F3), `btnL` = start 1 (OR F1), `btnR` = start 2 (OR F2).
-  No JA coin/start combos — the dedicated buttons make them redundant.
-- Player 2 mirrors player 1 inputs (the core has no genuine second control
-  set, only cocktail-mode duplicates — matches the pristine DE10 top).
-- No dip switches are exposed; the core's defaults match the pristine top.
+## 7. Inputs
 
-## 7. LEDs
+- Keyboard: `io_ps2_keyboard` on `clock_12` (DE10 clocking), wrapper decoder (MAME keys,
+  `../../../PORTING_SPEC.md` §3.1, §4.3), 2026-10-20. `kbd_joy(7:0)` keeps Dar's
+  `joyHBCPPFRLDU` order: 0 up, 1 down, 2 left, 3 right (arrows), 4 Left Ctrl (jump), 5 key
+  1, 6 key 2, 7 keys 5/6. Replaces `kbd_joystick` (renamed from `joyHBCPPFRLDU`; Dar's
+  bits 8/9, Ctrl / W, were never merged).
+- Core inputs: active-high; single `coin1`; P2 mirrors P1 (cocktail duplicates only).
+- Merge: `not jxadc_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/jump; coin =
+  keys 5/6, btnU, btnD; start 1 = key 1, btnL; start 2 = key 2, btnR.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_12` (2026-10-20).
+- Debounce: none.
+- Combos: none.
 
-- No `led` port: the pristine top's 7-segment `hex0..3` debug chain
-  (`dbg_cpu_addr`) is not ported; `dbg_cpu_addr` is left `open`.
+## 8. Switches and DIPs
 
-## 8. Synthesis-fix / behavior-fix patches
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw13 | `tv15Khz_mode`, sync mux | 1 | 31 kHz VGA | |
+| sw14 / sw15 | PmodAMP2 GAIN / SHUTD | 1 / 1 | low gain / on | |
 
-- `contrib/code/ckong_xor_width.patch` (`ckong.vhd:405-408`): the four
-  sprite-address cases XOR the 13-bit `tile_graph_rom_addr` driver with 5-bit
-  literals. `&` binds tighter than `xor`, so the whole 13-bit vector is the
-  XOR operand, and Vivado rejects the length mismatch (`bagman_xor_width.patch`
-  is the identical pattern — the same video-addressing code in both cores).
-  The fix zero-pads each constant to 13 bits
-  (`"00000"→"0000000000000"`, `"01000"→"0000000001000"`,
-  `"10111"→"0000000010111"`, `"11111"→"0000000011111"`), preserving the exact
-  parsed semantics — a synthesis width fix, no behavior change. Applied
-  idempotently by `setup_ckong.sh` (guarded by a reverse dry-run) to the
-  pristine CRLF tree.
-- No video-path fix is needed: video is natively progressive with real HS/VS
-  (no expose patch, §4) and the keyboard is already ≥ 6 MHz at `clock_12`
-  (no divider fix, §6).
-- The only other patch in this port is the wrapper generator
-  `contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh`, which emits
-  `contrib/basys3/code/ckong_de10_lite_to_basys3.patch` (the DE10 top →
-  `ckong_basys3` wrapper conversion).
+Fixed: the DIP byte is a constant inside the core (`ckong.vhd:295`, `"10000000"`, upright);
+needs a core patch.
 
-## 9. Shared conventions & hard rules
+## 9. Patches
 
-- **Non-nested project layout**: the `.xpr` lives directly in `basys3/` as
-  `basys3/ckong_basys3.xpr`, sources tree at `basys3/ckong_basys3.srcs/`.
-- **Vivado build scripts run from `/tmp`** so `vivado.log`/`vivado.jou` stay
-  out of the repo.
-- **Tool/path resolution** is `ENV_VAR → project default → interactive prompt`:
-  - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-  - roms: `ROMZIP` → `~/roms/ckong.zip`
-- **Roms and generated PROM VHDL are copyrighted content** — never commit or
-  distribute them.
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/code/ckong_xor_width.patch` | `rtl_dar/ckong.vhd:405-408` | four XOR literals zero-padded to 13 bits (`&` binds tighter than `xor`, so the 13-bit vector is the operand; Vivado rejects the length mismatch); no behaviour change; CRLF tree |
+| `contrib/basys3/code/ckong_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated; name from `TOP_ENTITY` `ckong_basys3`) |
+
+## 10. PROM generation
+
+`contrib/tools/prep_roms.sh`: `make_ckong_proms.bat` → shell; romset `ckong.zip` into
+`tools/ckong_unzip/`; 8 PROM VHDL files with the entity names the core references.
+
+## 11. Build
+
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. `make check`
+reports a pre-existing core-internal HDL 9-3240 (`ckong_sound.vhd`).
+
+## 12. Open items
+
+None.

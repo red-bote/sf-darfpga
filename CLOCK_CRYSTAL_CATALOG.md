@@ -79,6 +79,7 @@ current solves (re-surveyed 2026-10-02 against generated
 | 2026-10-02 | Burger-Time-by-Dar | 12.000 + 6.000 MHz (1 / 7.5 / 62.5 / 125) | 12.000 MHz single output (5 / 49.875 / 83.125) |
 | 2026-10-02 | Burnin-Rubber-by-Dar | 12.000 + 6.000 MHz (1 / 7.5 / 62.5 / 125) | 12.000 MHz single output (5 / 49.875 / 83.125) |
 | 2026-10-02 | Computer-Space-by-Dar | 50 + 6 + 12 MHz (`sed`-forced VCO 600) | 48.000 MHz single output (5 / 49.5 / 20.625); timing met, hardware-confirmed |
+| 2026-10-20 | Galaga, Kick, Popeye, Solar-Fox, Tron, Zaxxon, Traverse-USA | separate fabric keyboard clock (`clock_9` / `clock_kbd`) | keyboard on the core clock (MMCM unchanged); hardware-confirmed 2026-10-20/21 |
 
 ---
 
@@ -390,8 +391,9 @@ current solves (re-surveyed 2026-10-02 against generated
   6.143952 MHz pixel enable); `clock_12` (12.287904 MHz pulse train, 2 of 6
   `clock_36` slots) and `clock_6` (6.143952 MHz toggle) from a mod-6
   counter, used as scandoubler `clk_sys` / `ce_x1` (lines 182-198);
-  `clock_9` = `clock_18`/2 = 9.215928 MHz toggle, keyboard decoder clock
-  (lines 235-244).
+  keyboard (`io_ps2_keyboard` and the wrapper's MAME key decoder) on
+  `clock_18` (2026-10-20; the former `clock_9` = `clock_18`/2 toggle is
+  removed).
 - **VGA mode**: 31 kHz progressive VGA via an imported MiST scandoubler;
   `sw(13)` = 1 selects 15 kHz TV (composite sync on HS, VS held high), per
   the wrapper (the README does not document it). **Note**: the tree contains a file `rtl_dar/galaga_video.vhd` whose
@@ -416,9 +418,8 @@ current solves (re-surveyed 2026-10-02 against generated
 
 - **FPGA achieved clock**: `clk_out1` = 40.000 MHz, single MMCM output.
   `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.0`, `CLKOUT0_DIVIDE_F=25.0`. Source:
-  generated `clk_wiz_0_clk_wiz.v`. Keyboard: `clock_kbd` = `clock_40`/6 =
-  6.667 MHz, a fabric-derived clock net (toggle every 3 `clock_40` cycles,
-  `kick_basys3.vhd:236-251`), not an enable; clocks `io_ps2_keyboard` and `kbd_joystick`.
+  generated `clk_wiz_0_clk_wiz.v`. Keyboard: `io_ps2_keyboard` and the wrapper's MAME key decoder on the core clock (2026-10-20; the former
+  fabric `clock_kbd` = `clock_40`/6 = 6.667 MHz toggle is removed).
 - **VGA mode**: native 31 kHz progressive (no scandoubler); `sw(13)` selects
   31 kHz VGA (0) / 15 kHz TV (1) -- changed 2026-09-29 from the pristine
   core's F8 keyboard toggle (`tv15Khz_mode <= not fn_toggle(7)`) to match this
@@ -539,10 +540,8 @@ current solves (re-surveyed 2026-10-02 against generated
 - **FPGA achieved clock**: `clk_out1` = 40.320 MHz, single MMCM output.
   `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=31.5`, `CLKOUT0_DIVIDE_F=15.625`
   (VCO 630 MHz). Source: generated `clk_wiz_0_clk_wiz.v` (header
-  `clk_out1__40.32000`). Keyboard: `clock_kbd` = `clock_40`/6 = 6.72 MHz, a
-  fabric-derived clock net (toggle every 3 `clock_40` cycles,
-  `popeye_basys3.vhd:189-204`), not an enable; clocks `io_ps2_keyboard` and
-  `kbd_joystick`.
+  `clk_out1__40.32000`). Keyboard: `io_ps2_keyboard` and the wrapper's MAME key decoder on the core clock (2026-10-20; the former
+  fabric `clock_kbd` = `clock_40`/6 = 6.72 MHz toggle is removed).
 - **FPGA CPU/AY rate**: `popeye_clock_cnt2_width.patch` widens `clock_cnt2`
   to 5 bits so the `"10011"` reload fires (pristine 4-bit counter wrapped
   mod 16: CPU f/8, AY f/16, +26%). After the patch: CPU f/10 = 4.032 MHz
@@ -630,9 +629,8 @@ current solves (re-surveyed 2026-10-02 against generated
 
 - **FPGA achieved clock**: `clk_out1` = 40.000 MHz, single MMCM output.
   `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.0`, `CLKOUT0_DIVIDE_F=25.0`. Source:
-  generated `clk_wiz_0_clk_wiz.v`. Keyboard: `clock_kbd` = `clock_40`/6 =
-  6.667 MHz, a fabric-derived clock net (toggle every 3 `clock_40` cycles,
-  `solar_fox_basys3.vhd:226-241`), not an enable; clocks `io_ps2_keyboard` and `kbd_joystick`.
+  generated `clk_wiz_0_clk_wiz.v`. Keyboard: `io_ps2_keyboard` and the wrapper's MAME key decoder on the core clock (2026-10-20; the former
+  fabric `clock_kbd` = `clock_40`/6 = 6.667 MHz toggle is removed).
 - **VGA mode**: native progressive 31 kHz; `sw(13)` selects 31 kHz VGA (0) /
   15 kHz TV (1). **Correction**: this entry previously (incorrectly) stated
   "F8 toggles ... no sw(13) documented" -- direct source inspection
@@ -702,6 +700,8 @@ current solves (re-surveyed 2026-10-02 against generated
   summary line just doesn't spell out that intermediate step the way
   Defender's does. Use 36.84211 MHz as the true achieved core clock per this
   catalog's stated priority (generated file over README nominal figure).
+  Keyboard: `io_ps2_keyboard` and the wrapper's MAME key decoder on `clock_36`
+  (2026-10-20; the former fabric `clock_kbd` = `clock_36`/6 toggle is removed).
 - **VGA mode**: 31 kHz progressive VGA via an imported MiST scandoubler
   (`traverse_usa_expose_video_timing.patch` exposes real hs/vs); `sw(13)`
   switches to 15 kHz TV mode. `rtl_dar/traverse_usa.vhd`: `hcnt` 0x80–0x1FF
@@ -734,10 +734,8 @@ current solves (re-surveyed 2026-10-02 against generated
 
 - **FPGA achieved clock**: `clk_out1` = 40.000 MHz, single MMCM output.
   `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.000`, `CLKOUT0_DIVIDE_F=25.000`.
-  Source: generated `clk_wiz_0_clk_wiz.v`. Keyboard: `clock_kbd` =
-  `clock_40`/6 = 6.667 MHz, a fabric-derived clock net (toggle every 3
-  `clock_40` cycles, `tron_basys3.vhd:239-254`), not an enable; clocks
-  `io_ps2_keyboard` and `kbd_joystick`.
+  Source: generated `clk_wiz_0_clk_wiz.v`. Keyboard: `io_ps2_keyboard` and the wrapper's MAME key decoder on the core clock (2026-10-20; the former
+  fabric `clock_kbd` = `clock_40`/6 = 6.667 MHz toggle is removed).
 - **VGA mode**: dual-mode, generated **natively by the core** (no external
   scandoubler); `sw(13)` selects 31 kHz progressive VGA (0) / 15 kHz TV (1)
   -- changed 2026-09-29 from the pristine core's F8 keyboard toggle
@@ -802,9 +800,8 @@ current solves (re-surveyed 2026-10-02 against generated
   MMCM output. `DIVCLK_DIVIDE=3`, `CLKFBOUT_MULT_F=35.125`,
   `CLKOUT0_DIVIDE_F=48.125` (VCO 1170.8333 MHz). Source: generated
   `clk_wiz_0_clk_wiz.v` (present; header `clk_out1__24.32900`; retarget
-  2026-10-01, was 24.000 MHz, 5 / 50.25 / 41.875). Keyboard: `clock_kbd` =
-  `clock_24`/4 = 6.08225 MHz, a fabric-derived clock net
-  (`zaxxon_basys3.vhd:248-261`).
+  2026-10-01, was 24.000 MHz, 5 / 50.25 / 41.875). Keyboard: `io_ps2_keyboard` and the wrapper's MAME key decoder on the core clock (2026-10-20; the former
+  fabric `clock_kbd` = `clock_24`/4 = 6.08225 MHz toggle is removed).
 - **VGA mode**: 31 kHz progressive VGA via an imported MiST scandoubler
   (the core's own `pix_clk_div` bits, 12.16450 / 6.08225 MHz square waves,
   feed the scandoubler's `clk_sys`/`ce_x1`, `zaxxon_basys3.vhd:265-266`);

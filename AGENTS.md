@@ -3,10 +3,11 @@
 Operational guidance for AI sessions in this repository. See also
 `.opencode/rules.md` for terminology, filesystem scope, and git rules.
 
-Detailed porting/procedure how-tos live in `.opencode/skills/`:
+The porting procedure for a new Dar core is `PORTING_SPEC.md`. The authoritative rule and
+skill set for Dar work is this tree's `.opencode/` (`rules.md`; skills
 `port-dar-machine`, `vivado-batch-build`, `xpr-dependency-closure`,
-`romset-forensics`. Consult them before starting a port or running a Vivado
-build.
+`romset-forensics`); the copies at the workspace top level point here. Consult them before
+starting a port or running a Vivado build.
 
 ## What this repo is
 
@@ -18,26 +19,20 @@ A directory is an actual Basys 3 port if it has `contrib/`, a `Makefile`, and
 a `README.md`. Currently 20 machine dirs qualify, every one listed in the root
 `Makefile` `PORTS` table.
 
-New ports start from the generic templates in `wip/machine/`: the project
-`wip/machine/contrib/basys3/basys3-project-template.xpr`, its in-project
-constraints `basys3-project-template.srcs/constrs_1/imports/
-digilent-xdc-master/Basys-3-Master.xdc`, the per-machine Makefile
-`wip/machine/Makefile.template`, and the tokenized build-script templates
-under `wip/machine/contrib/` (`tools/`, `basys3/tools/`, `basys3/vivado/`).
-The ported `.xpr` and `.xdc` derive from the sample project.
+New ports are scaffolded by `tools/new-port.sh` from the templates in `wip/machine/`
+(Makefile, scripts, XDC, `.xpr`, skeleton wrapper, README and PORTING_SPEC templates);
+reference machine `Pooyan-by-Dar` (`PORTING_SPEC.md` §2).
 
 ## Repo layout
 
 - Each `<Machine>-by-Dar/` owns its own `Makefile`, `contrib/`, `README.md`,
-  and a `PORTING_SPEC.md` (canonical location `contrib/basys3/PORTING_SPEC.md`;
-  Galaga, Pooyan, Time-Pilot still have it at the machine top level).
+  and a `contrib/basys3/PORTING_SPEC.md`.
 - The root `Makefile` delegates to per-machine Makefiles:
   `make <step>-<machine>` (e.g. `make setup-galaga`, `make synth-pooyan`).
 - Root `README.md` is the machine index with clock frequencies, project names,
-  romsets, and the per-machine Status (scripted / synthesized / bitstream /
-  hardware-verified) — the authoritative status record.
-- Each machine's `README.md` is the single source of truth for that machine's
-  design and build (IO pinout, MMCM constants, verify greps).
+  romsets, and a one-line status per machine.
+- Each machine's `README.md` carries its dated `## Status`, controls, switches and IO;
+  its `contrib/basys3/PORTING_SPEC.md` carries the design detail.
 - `tools/vhdl_formatter.py` — stdlib-only VHDL indent/alignment formatter
   (`--check`, `--align`, `--indent N`).
 - Archive URL + SHA-256 for each machine's Dar source are **embedded in
@@ -55,10 +50,14 @@ Steps must run in order. From the machine directory:
    project tree and copies `.xpr`/`.xdc`/scandoubler into it. Every machine
    exposes this step; `setup` does not copy the ported assets.
 3. `make clk_wiz` — generates `clk_wiz_0` MMCM IP (100 MHz → core clocks).
-4. `make patch` — regenerates top-level wrapper and porting patch.
-5. `make synth` — synthesis only (resets `synth_1` first).
-6. `make bitstream` — implementation + `write_bitstream`.
-7. `make clean` — removes the Vivado project/build tree only.
+4. `make patch` — places the tracked wrapper `contrib/basys3/code/<top>.vhd` in the
+   project and regenerates the provenance patch.
+5. `make check` — parse-only Vivado `check_syntax` (`tools/check-syntax.sh`); no
+   synthesis, allowed without a user request.
+6. `make synth` — synthesis only (resets `synth_1` first). User request only.
+7. `make bitstream` — implementation + `write_bitstream`. User request only.
+8. `make load` — program the existing `.bit` into SRAM (`openFPGALoader`).
+9. `make clean` — removes the extracted tree and Vivado project only.
 
 Root-level shorthand: `make all-galaga`, `make bitstream-pooyan`, etc.
 Aggregates over all machines: `make clean` (delegated) and `make bitstream`
@@ -75,8 +74,8 @@ Makefile targets use underscores (`create_prj`, `clk_wiz`).
 
 `ENV_VAR → project default → interactive prompt`:
 - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-- romsets: `ROMZIP` → `~/roms/<set>.zip`; two-romset machines add `ROMZIP2`
-  (Galaga uses `ROMZIP1` + `ROMZIP2`)
+- romsets: `ROMZIP` → `~/roms/<set>.zip`; two-romset machines: Galaga and Popeye
+  `ROMZIP1` + `ROMZIP2`, Tron `ROMZIP` + `ROMZIP2` (`midssio.zip`)
 
 **Vivado builds run from `/tmp`** so `vivado.log`/`vivado.jou` stay outside the
 repo.
@@ -97,8 +96,10 @@ pristine Dar sources.
 
 Run `tools/vhdl_formatter.py` on VHDL files. Dependency-free (stdlib only).
 Idempotent. `--check` for CI, `--align` for column alignment. There is no
-automated test suite; verification is patch dry-runs + formatter `--check` +
-Vivado synthesis/timing (status in root `README.md`).
+automated test suite; verification is `make check` (parse-only `check_syntax`),
+`make patch` run twice (provenance patch unchanged), formatter `--check`, then Vivado
+synthesis/timing and the hardware checklist (`PORTING_SPEC.md` §7, §8) on the user's
+request.
 
 ## Common gotchas
 
@@ -107,8 +108,8 @@ Vivado synthesis/timing (status in root `README.md`).
 - Machines needing two romsets (Galaga, Tron, Popeye) require the extra set for
   color PROMs, CPU/speech ROMs absent from the plain set (resolved via
   `ROMZIP2`).
-- The root `README.md` Status section is the current record of each
-  machine's verified state.
+- Each machine README `## Status` is the current record of its verified state; the
+  root `README.md` Status section summarizes it.
 - Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
   drift; the root `Makefile` `PORTS` list and the present machine dirs are the
   live record (the root `README.md` Status can lag a dir removal).

@@ -12,12 +12,12 @@
 --    (12.288 MHz, CPU 3.072 MHz as the original; sf-darfpga/CLOCKING_SPEC.md)
 --    used for everything: the core, the sound, the PWM audio accumulator
 --    and the keyboard (pristine DE10-lite max10_pll_12M gave 12 MHz).
---  - Joystick on JA (four directions + fire/jump), OR-merged with the
+--  - Joystick on JXADC (four directions + fire/jump), OR-merged with the
 --    PS/2/USB keyboard and, for coin/start, dedicated buttons (btnU/btnD =
 --    coin, btnL = P1 start, btnR = P2 start). Core inputs are active-high;
---    JA is active-low, so a press is inverted to active-high like the
+--    JXADC is active-low, so a press is inverted to active-high like the
 --    keyboard path.
---  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select.
+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain.
 --    Reproduces the pristine process exactly: 13-bit accumulator on
 --    clock_12, adding audio(15 downto 4), output is bit 12.
 --  - Display mode via sw(13), replacing the DE10's sw(0):
@@ -29,20 +29,23 @@
 --    RGB is padded 3/3/2 -> 4/4/4 the same way in both modes (r&'0', g&'0',
 --    b&"00"), exactly as the pristine vga_r/vga_g/vga_b assignments.
 --  - Keyboard on the Basys3 onboard USB-HID connector (ps2_clk = C17,
---    ps2_dat = B17), NOT on a Pmod. io_ps2_keyboard / kbd_joystick run at
+--    ps2_dat = B17), NOT on a Pmod. io_ps2_keyboard and the decoder run at
 --    clock_12 = 12 MHz, which is comfortably above the >= 6 MHz this onboard
 --    host needs (Congo Bongo / Arcade_Zaxxon / Pooyan data) -- no divider is
 --    required (unlike Traverse-USA, whose shared pristine divider was ~3 MHz).
---  - Keyboard map (kbd_joystick -> joyHBCPPFRLDU, 10 bits):
+--  - Keyboard map (wrapper decoder, MAME defaults, 2026-10-20; replaces
+--    kbd_joystick; F0 = release, E0 ignored; kbd_joy keeps the joyHBCPPFRLDU
+--    bit order):
 --      bit0 = Up arrow (0x75)  -> up
 --      bit1 = Down arrow (0x72)-> down
 --      bit2 = Left arrow (0x6B)-> left
 --      bit3 = Right arrow(0x74)-> right
---      bit4 = Space (0x29)     -> fire/jump (no key for it on US keyboards)
---      bit5 = F1 (0x05)        -> start 1          bit8 = Ctrl (0x14)
---      bit6 = F2 (0x06)        -> start 2          bit9 = W (0x1D)
---      bit7 = F3 (0x04)        -> coin
---  - Player 2 mirrors player 1 (kbd_joystick only tracks one set; the core
+--      bit4 = Left Ctrl (0x14) -> jump
+--      bit5 = 1 (0x16)         -> start 1
+--      bit6 = 2 (0x1E)         -> start 2
+--      bit7 = 5 / 6 (0x2E/0x36)-> coin
+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_12.
+--  - Player 2 mirrors player 1 (one keyboard set is decoded; the core
 --    has no independent P2 controls, only cocktail-mode duplicates).
 --  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr) is not ported;
 --    the core's debug output is left open.
@@ -69,7 +72,7 @@ port(
  btnU            : in  std_logic;  -- coin-in
  btnD            : in  std_logic;  -- coin-in
 
- JA              : in  std_logic_vector(4 downto 0);  -- joystick (right/left/down/up/fire)
+ JXADC              : in  std_logic_vector(4 downto 0);  -- joystick (right/left/down/up/fire)
  ps2_dat         : in  std_logic;
  ps2_clk         : in  std_logic;
 
@@ -103,7 +106,17 @@ architecture struct of ckong_basys3 is
 
  signal kbd_intr      : std_logic;
  signal kbd_scancode  : std_logic_vector(7 downto 0);
- signal joyHBCPPFRLDU : std_logic_vector(9 downto 0);
+ signal kbd_rel       : std_logic := '0';
+ signal kbd_joy       : std_logic_vector(7 downto 0) := (others => '0');
+
+ -- PS/2, JXADC and buttons, 2-FF synchronized on the keyboard clock
+ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
+ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
+ signal jxadc_meta, jxadc_s     : std_logic_vector(4 downto 0) := (others => '1');
+ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0'); -- U, D, L, R
+ attribute ASYNC_REG : string;
+ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
+ attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
 
  signal core_up, core_down, core_left, core_right, core_fire    : std_logic;
  signal core_coin1, core_start1, core_start2                    : std_logic;
@@ -158,40 +171,66 @@ begin
  keyboard : entity work.io_ps2_keyboard
  port map (
   clk       => clock_12, -- 12.288 MHz: >= 6 MHz required by the onboard USB-HID host
-  kbd_clk   => ps2_clk,
-  kbd_dat   => ps2_dat,
+  kbd_clk   => ps2_clk_s,
+  kbd_dat   => ps2_dat_s,
   interrupt => kbd_intr,
   scancode  => kbd_scancode
  );
 
- -- translate scancode to joystick / function keys
- joystick : entity work.kbd_joystick
- port map (
-  clk          => clock_12,
-  kbdint       => kbd_intr,
-  kbdscancode  => kbd_scancode,
-  joyHBCPPFRLDU => joyHBCPPFRLDU,
-  keys_HUA     => open
- );
+ -- Input synchronizers (2-FF) into clock_12
+ process (clock_12)
+ begin
+   if rising_edge(clock_12) then
+     ps2_clk_meta <= ps2_clk;                  ps2_clk_s <= ps2_clk_meta;
+     ps2_dat_meta <= ps2_dat;                  ps2_dat_s <= ps2_dat_meta;
+     jxadc_meta   <= JXADC;                    jxadc_s   <= jxadc_meta;
+     btn_meta     <= btnU & btnD & btnL & btnR; btn_s     <= btn_meta;
+   end if;
+ end process;
 
- -- OR-merge the joystick on JA with the PS/2 keyboard joystick. JA physical
- -- map: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire/jump, i.e.
- -- JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire. JA is
+ -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
+ -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
+ -- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+ -- kbd_joy keeps the joyHBCPPFRLDU bit order: 5 = start 1, 6 = start 2, 7 = coin.
+ process (clock_12)
+ begin
+   if rising_edge(clock_12) then
+     if kbd_intr = '1' then
+       if kbd_scancode = x"F0" then
+         kbd_rel <= '1';
+       elsif kbd_scancode /= x"E0" then
+         kbd_rel <= '0';
+         if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up arrow
+         if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
+         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
+         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : jump
+         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
+         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
+       end if;
+     end if;
+   end if;
+ end process;
+
+ -- OR-merge the joystick on JXADC with the PS/2 keyboard joystick. JXADC physical
+ -- map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire/jump, i.e.
+ -- JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire. JXADC is
  -- active-low (pressed shorts to ground); invert so a press reads
  -- active-high, matching the core's active-high input boundary and the
  -- keyboard path.
- core_up    <= joyHBCPPFRLDU(0) or not JA(3);
- core_down  <= joyHBCPPFRLDU(1) or not JA(2);
- core_left  <= joyHBCPPFRLDU(2) or not JA(1);
- core_right <= joyHBCPPFRLDU(3) or not JA(0);
- core_fire  <= joyHBCPPFRLDU(4) or not JA(4);
+ core_up    <= kbd_joy(0) or not jxadc_s(3);
+ core_down  <= kbd_joy(1) or not jxadc_s(2);
+ core_left  <= kbd_joy(2) or not jxadc_s(1);
+ core_right <= kbd_joy(3) or not jxadc_s(0);
+ core_fire  <= kbd_joy(4) or not jxadc_s(4);
 
- -- Coin/start: keyboard (F1/F2/F3) OR-merged with dedicated buttons.
+ -- Coin/start: keyboard (1/2, 5/6) OR-merged with dedicated buttons.
  -- Buttons are active-high (Basys3 board pull-down, same convention as
  -- btnC). This core has a single coin input; btnU and btnD both trigger it.
- core_coin1  <= joyHBCPPFRLDU(7) or btnU or btnD;  -- coin   = F3 or btnU or btnD
- core_start1 <= joyHBCPPFRLDU(5) or btnL;          -- start1 = F1 or btnL
- core_start2 <= joyHBCPPFRLDU(6) or btnR;          -- start2 = F2 or btnR
+ core_coin1  <= kbd_joy(7) or btn_s(3) or btn_s(2);  -- coin   = 5 / 6 or btnU / btnD
+ core_start1 <= kbd_joy(5) or btn_s(1);          -- start1 = 1 or btnL
+ core_start2 <= kbd_joy(6) or btn_s(0);          -- start2 = 2 or btnR
 
  -- Pad native 3/3/2-bit RGB to the VGA connector's 4-bit/channel input by
  -- MSB replication (identical to the pristine vga_r/vga_g/vga_b).
@@ -214,7 +253,7 @@ begin
  end process;
 
  O_PMODAMP2_AIN   <= pwm_accumulator(12);
- O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
- O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
+ O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
+ O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 
 end struct;

@@ -1,19 +1,18 @@
 #!/bin/bash
-# Generic Linux rom-prep script template.
+# Generic Linux rom-prep script template (model: Pooyan-by-Dar/contrib/tools/prep_roms.sh).
 #
 # 1. Compile make_vhdl_prom from the extracted Dar source tree on the host (gcc).
 # 2. Convert make_<game>_proms.bat -> make_<game>_proms.sh.
-# 3. Unzip the romset(s) (~/roms/<romset>.zip) into <src_dir>/tools/<game>_unzip/.
+# 3. Unzip the romset (ROMZIP, default ~/roms/<romset>.zip) into tools/<game>_unzip/.
 # 4. Run make_<game>_proms.sh to generate the PROM VHDL.
 #
-# Requires the pristine Dar source tree (<src_dir>/) to be already extracted;
-# this script does not download or extract it.
+# Requires the pristine Dar source tree (<src_dir>/), extracted by setup_<game>.sh.
 # Roms and the generated PROM VHDL stay local (never distributed).
+# Check the PROM directory name and the .bat name against the extracted tree
+# (some archives use tools/<other>_unzip/ or a different .bat name).
+# Two-romset machines: add ROMZIP2 (Galaga, Popeye pattern) and a second unzip.
 #
-# Substitute: <game> (snake_case), <src_dir> (extracted archive dir),
-# <romset> (romset zip basename in ~/roms/), <ROMZIPs> (the romset env-var
-# block; most machines use a single ROMZIP, two-romset machines like Galaga use
-# ROMZIP/ROMZIP2).
+# Substitute: <game>, <src_dir>, <romset> (MAME romset zip basename).
 # Copy to <Machine>-by-Dar/contrib/tools/prep_roms.sh.
 
 set -euo pipefail
@@ -23,13 +22,18 @@ SRC_DIR="$ROOT/<src_dir>"
 PROM_DIR="$SRC_DIR/tools/<game>_unzip"
 TOOLS_SRC="$SRC_DIR/tools/tools_prom_src/src"
 
-<ROMZIPs>
+ROMZIP="${ROMZIP:-$HOME/roms/<romset>.zip}"
 
 step() { printf '\n==> %s\n' "$1"; }
 
+# Pre-flight checks
 if [ ! -f "$TOOLS_SRC/make_vhdl_prom.c" ]; then
     echo "error: source tree not found: $SRC_DIR" >&2
-    echo "Extract <src_dir>/ first." >&2
+    echo "Run setup_<game>.sh first." >&2
+    exit 1
+fi
+if [ ! -f "$ROMZIP" ]; then
+    echo "error: romset not found: $ROMZIP (set ROMZIP=...)" >&2
     exit 1
 fi
 
@@ -43,9 +47,9 @@ if [ ! -f "$PROM_DIR/make_<game>_proms.bat" ]; then
     echo "error: $PROM_DIR/make_<game>_proms.bat not found" >&2
     exit 1
 fi
-
 sed -E \
     -e 's/\r$//' \
+    -e '/^rem/d' \
     -e 's/^copy \/B (.*) ([^ ]+)$/cat \1 > \2/' \
     -e 's/ \+ / /g' \
     -e 's/^make_vhdl_prom /.\/make_vhdl_prom /' \
@@ -54,14 +58,18 @@ sed -E \
 sed -i '1i #!/bin/bash' "$PROM_DIR/make_<game>_proms.sh"
 chmod +x "$PROM_DIR/make_<game>_proms.sh" "$PROM_DIR/make_vhdl_prom"
 
-step "3/4 Unzipping romsets"
-# Single-romset machines:
-unzip -o "$ROMZIP1" -d "$PROM_DIR"
-# Two-romset machines (e.g. Galaga): also unzip the second set.
-# unzip -o "$ROMZIP2" -d "$PROM_DIR"
+step "3/4 Unzipping romset"
+unzip -o "$ROMZIP" -d "$PROM_DIR"
 
 step "4/4 Generating PROM VHDL"
 ( cd "$PROM_DIR" && ./make_<game>_proms.sh )
+
+# Post-flight check: the generated PROM VHDL must exist (a missing rom file in the
+# zip makes make_vhdl_prom skip silently; see skill romset-forensics).
+if ! ls "$PROM_DIR"/*.vhd >/dev/null 2>&1; then
+    echo "error: no PROM VHDL generated in $PROM_DIR" >&2
+    exit 1
+fi
 
 echo
 echo "Rom-prep complete. PROM VHDL generated in:"

@@ -1,197 +1,168 @@
 ---
 name: port-dar-machine
-description: Checklist for onboarding a new Dar hardware platform as a Basys3 port - authoring contrib/tools/setup_<game>.sh and prep_roms.sh, the machine Makefile, create_project.sh, and README updates. Use when adding or porting a new <Machine>-by-Dar directory or its scripts.
+description: Checklist for porting a new Dar (darfpga) core to Basys 3 in sf-darfpga - scaffold with tools/new-port.sh, setup and rom-prep scripts, clock, tracked .xpr/.xdc, tracked wrapper, make check, docs. Use when adding a new <Machine>-by-Dar directory or changing an existing machine's scripts.
 ---
 
-# Porting a new Dar machine to Basys3
+# Porting a new Dar machine to Basys 3
 
-Procedure only; facts live in each machine's `README.md` and the root
-`README.md`. Terminology and scope rules: `.opencode/rules.md`. Companion
-skills: `xpr-dependency-closure` (.xpr authoring), `romset-forensics`
-(romset availability), `vivado-batch-build` (running builds).
+The procedure, conventions and per-machine tables are in `PORTING_SPEC.md` (this tree);
+this skill is the working checklist and the pitfalls. Rules: `.opencode/rules.md`.
+Companion skills: `xpr-dependency-closure` (.xpr source list), `romset-forensics`
+(romset availability), `vivado-batch-build` (running Vivado). Reference machine:
+`Pooyan-by-Dar`.
 
 ## Work order
 
-1. Identify the upstream archive
-2. `contrib/tools/setup_<game>.sh`
-3. `contrib/tools/prep_roms.sh`
-4. Machine `Makefile`
-5. `contrib/basys3/vivado/create_project.sh` + `.xpr`
-6. Top-level wrapper / patch generator
-7. Docs
-8. Verification ladder
+1. Upstream archive and core reading (`PORTING_SPEC.md` §2 step 1)
+2. Scaffold: `tools/new-port.sh`
+3. `contrib/tools/setup_<game>.sh`, `prep_roms.sh`; `make setup`
+4. Clock: `make_clk_wiz_0.sh` (`PORTING_SPEC.md` §5); `make clk_wiz`
+5. `.xpr` source list, XDC (`xpr-dependency-closure`); `make create_prj`
+6. Wrapper `contrib/basys3/code/<top>.vhd` (`PORTING_SPEC.md` §4); `make patch`
+7. `make check`; smoke test (below)
+8. Docs (`PORTING_SPEC.md` §9)
+9. User: `make bitstream`, `make load`, hardware checklist (`PORTING_SPEC.md` §8)
 
 ## 1. Upstream archive
 
 - darfpga SourceForge pattern:
   `https://sourceforge.net/projects/darfpga/files/Software%20VHDL/<folder>/<archive>.zip/download`
-- The zip's top-level folder equals the archive basename; that name is
-  `SRC_DIR` everywhere (e.g. `vhdl_bagman_rev_0_1_2018_06_05`) - used by every
-  script and the Makefile `clean` target.
-- Download once, compute SHA-256, embed it in the setup script.
+- The zip's top-level folder usually equals the archive basename; that name is
+  `SRC_DIR` (e.g. `vhdl_bagman_rev_0_1_2018_06_05`). A zip without a top folder needs
+  `--flat-archive` (Phoenix).
+- Download once, compute SHA-256, embed it in the setup script; commit the zip in
+  `<machine>/dloads/` (tracked).
 
-## 2. setup_<game>.sh
+## 2. Scaffold
 
-Clone an existing one (`Bagman-FPGA-Dar/contrib/tools/setup_bagman.sh` is the
-minimal reference). Structure:
+`tools/new-port.sh <game> --src-dir <dir> --url <url> --sha256 <sum> --de10-top <file>
+--top-entity <game>_basys3`. It fills the `wip/machine/` templates (Makefile, setup,
+prep_roms, create_project, make_clk_wiz_0, patch and bitstream wrappers, XDC, skeleton
+wrapper, README and PORTING_SPEC templates) and adds the machine to the root `PORTS`.
+Afterwards: `grep -rn '<[a-z_]*>' <Machine>/` must find no leftover tokens.
 
-1. `fetch_zip`: cache into `<machine>/dloads/` (tracked in git for sf-darfpga machines; commit a new archive there); reuse only if the
-   embedded SHA-256 matches; re-download and re-verify otherwise; hard-fail on
-   mismatch after download.
-2. Extract into the repo root as `$SRC_DIR/`.
-3. Patch loop, idempotent (`patch -p1 --forward`), globbing both
-   `contrib/*/code/*.patch` and `contrib/code/*.patch`.
-4. Chain into `prep_roms.sh`.
+## 3. setup_<game>.sh and prep_roms.sh
 
-Patch-loop exclusions (document each in the header comment):
+`setup_<game>.sh` is a thin call to `darfpga_setup()` (`tools/lib/darfpga-setup.sh`):
+SHA-256 checked cache in `dloads/`, extract, apply `contrib/*/code/*.patch` and
+`contrib/code/*.patch` with `patch -p1 --forward`, then `prep_roms.sh`.
 
-- `*_de10_lite_to_basys3.patch`: generated record of the top-level rewrite;
-  it applies to a different target file, never to the pristine tree.
-- `*scandoubler_fix.patch`: applied later by create_project.sh to the imported
-  scandoubler copy, not to the pristine tree.
+Patch-loop exclusions (built into the library): `*_de10_lite_to_basys3.patch`
+(provenance record, different target file) and `*scandoubler_fix.patch` (applied to the
+project copy by `create_project.sh`). A machine with extra provenance-only patches passes
+`--extra-exclude` (Computer-Space); CRLF-sensitive patches need `--binary`.
 
-## 3. prep_roms.sh
+Pitfall: `patch --forward` is not idempotent on its own (it exits 1 and writes a `.rej`
+on an already-applied patch). `darfpga_setup` is safe because `unzip -o` restores the
+pristine files before the patch loop. A script that patches without re-extracting must
+guard each patch with a reverse dry run:
 
-Clone `Bagman-FPGA-Dar/contrib/tools/prep_roms.sh`:
-
-1. Compile the host PROM generator:
-   `gcc "$SRC_DIR/tools/tools_prom_src/src/make_vhdl_prom.c" -lm` (path varies
-   per machine - check the extracted tree).
-2. Convert the `.bat` to `.sh` with sed (table below).
-3. Unzip romset(s) into `$SRC_DIR/tools/<game>_unzip/`; `ROMZIP` env override,
-   default `$HOME/roms/<game>.zip`. Multi-romset machines list several zips
-   (Popeye needs popeyeu.zip for its unprotected speech ROMs).
-4. Run the converted script there.
-
-.bat -> .sh conversion (exact sed rules, order matters):
-
-```
-s/\r$//                                  strip CRLF
-/^rem/d                                  drop remark lines
-s/^copy \/B (.*) ([^ ]+)$/cat \1 > \2/   binary concat -> cat redirect
-s/ \+ / /g                               collapse multiple spaces
-s/^make_vhdl_prom /.\/make_vhdl_prom /
-s/^del /rm /
+```bash
+if (cd "$ROOT" && patch -p1 -R --dry-run --forward < "$p" > /dev/null 2>&1); then
+    echo "==> already applied, skipping $p"
+else
+    (cd "$ROOT" && patch -p1 --forward < "$p")
+fi
 ```
 
-then prepend `#!/bin/bash` and `chmod +x`.
+`prep_roms.sh` (clone `Pooyan-by-Dar/contrib/tools/prep_roms.sh`):
+
+1. `gcc "$SRC_DIR/tools/.../make_vhdl_prom.c" -lm` (path varies; check the tree).
+2. `.bat` → `.sh`, exact sed rules, order matters:
+   ```
+   s/\r$//                                  strip CRLF
+   /^rem/d                                  drop remark lines
+   s/^copy \/B (.*) ([^ ]+)$/cat \1 > \2/   binary concat -> cat redirect
+   s/ \+ / /g                               join operands
+   s/^make_vhdl_prom /.\/make_vhdl_prom /
+   s/^del /rm /
+   ```
+   then prepend `#!/bin/bash` and `chmod +x`.
+3. Unzip the romset(s): `ROMZIP` (default `$HOME/roms/<set>.zip`); two sets use
+   `ROMZIP1` + `ROMZIP2` (Galaga, Popeye) or `ROMZIP` + `ROMZIP2` (Tron, `midssio.zip`).
+4. Run the converted script.
 
 Pitfalls:
 
-- Use `/^rem/d`, NOT `/^rem /d`: bare `rem` lines (no trailing space) survive
-  the spaced pattern and later cause exit 127 when the converted script runs.
-- Verify by diffing the generated `.sh` against the `.bat` before running it.
-- If the `.bat` expects a file the obvious romset lacks, see
-  `romset-forensics` before adding ROMZIP dependencies.
+- `/^rem/d`, not `/^rem /d`: bare `rem` lines survive the spaced pattern (exit 127).
+- Diff the generated `.sh` against the `.bat` before running it.
+- A wrong or incomplete romset fails silently (`cat` writes an empty file;
+  `make_vhdl_prom` writes nothing). Add a pre-flight check (every input file the script
+  names exists in the unzip dir) and a post-flight check (every expected `.vhd` exists and
+  is non-empty), each listing exactly what is missing.
+- Translate the generated script's filenames to the romset's naming rather than renaming
+  rom files. Missing files: `romset-forensics`.
 
-## 4. Machine Makefile
+## 4. Makefile
 
-Clone the Galaga structure exactly - a faithful template even for doc-only
-ports whose deep targets fail until their basys3 assets are ported:
+Variables `GAME`, `SRC_DIR`, `TOP_ENTITY`, `DISPLAY_NAME`, `IO_SUMMARY`, `DISPLAY_HINT`
+(`sw(13) ...`), then `include ../tools/mk/machine.mk`. Targets: `all` (setup clk_wiz
+patch), `setup`, `create_prj`, `clk_wiz`, `patch`, `check`, `synth`, `bitstream`, `load`
+(program existing `.bit` into SRAM with `openFPGALoader -b basys3`, volatile),
+`rebuild-load`, `clean`, `help`. Root `Makefile`: add the directory to `PORTS`
+(`make <step>-<machine>`).
 
-```
-TOOLS        := contrib/tools
-BASYS3_TOOLS := contrib/basys3/tools
-VIVADO       := contrib/basys3/vivado
-```
+## 5. Project (.xpr, XDC)
 
-Targets: `all` (setup clk_wiz patch), `setup`, `create_prj`, `clk_wiz` (needs
-setup + create_prj), `patch`, `synth` (resets synth_1 first), `bitstream`,
-`clean` (removes `$SRC_DIR`). Substitute `<game>` everywhere including the
-clean dir name.
+- Tracked `contrib/basys3/vivado/<top>.xpr` and `Basys-3-Master.xdc`; `create_project.sh`
+  copies both into `<SRC_DIR>/basys3/` (non-nested), imports the MiST scandoubler when the
+  video path needs it (`PORTING_SPEC.md` §4.5) and applies `scandoubler_fix.patch` to the
+  copy.
+- Source list: `xpr-dependency-closure`. Naming: `<game>_basys3` for project, srcs dir,
+  wrapper file and top entity.
+- Declare only ports the XDC constrains; an unconstrained port fails placement with
+  `Place 30-58` inside `Place 30-99 IO Clock Placer failed`. The XDC enables exactly the
+  lines the wrapper uses (JXADC with `PULLUP true`, all five buttons, `sw[0..15]`, USB-HID
+  `ps2_clk`/`ps2_dat`, JA amp pins, VGA, `clk`).
 
-Root `Makefile` delegation uses `<step>-<machine>` (hyphenated at root,
-underscore inside the machine dir) and is added per machine as its tooling
-matures; bare `make` prints help.
+## 6. Wrapper
 
-## 5. create_project.sh + .xpr
+- Start from the skeleton `wip/machine/contrib/basys3/code/TOP_ENTITY.vhd.template` and
+  `Pooyan-by-Dar/contrib/basys3/code/pooyan_basys3.vhd`. Rules: `PORTING_SPEC.md` §4.
+- The wrapper is a tracked file, edited directly. `make patch` places it in the project
+  and regenerates `contrib/basys3/code/<de10top>_de10_lite_to_basys3.patch` (provenance
+  record; name from the DE10 top, e.g. `ckong` for Crazy-Kong). Run `make patch` twice:
+  the patch bytes must not change.
+- Reset: `reset <= btnC or not mmcm_locked`; MMCM `reset => btnC`.
+- Expression actuals through signals; literals into Verilog modules instantiated from
+  VHDL through typed signals (`Synth 8-2398`); concatenations inside a type conversion
+  through a typed signal (`Synth 8-944`). `check_syntax` does not catch the last two.
+- Format: `tools/vhdl_formatter.py`.
 
-Clone an existing variant; the header must state why no external scandoubler
-is imported (or why one is). Steps 1-3: mkdir project dirs, copy
-`<game>_basys3.xpr` into `$SRC_DIR/basys3/`, copy `Basys-3-Master.xdc` into
-`constrs_1/imports/digilent-xdc-master/`. Variants:
-
-- Galaga / Burnin-Rubber: also imports mist/scandoubler.v (+ applies its fix).
-- All others: no scandoubler import (internal doubler or native progressive).
-
-Source-list construction and video-path classification: see
-`xpr-dependency-closure`. Naming: project/top entity `<game>_basys3`
-everywhere (.xpr name, srcs dir, top VHDL, TopModule entries).
-
-## 6. Top-level wrapper / patch generator
-
-Clone Galaga's `contrib/basys3/tools/make_de10_lite_to_basys3_patch.sh`
-(Bagman's is the no-scandoubler reference). Structure:
-
-1. Author the target `<game>_basys3.vhd` as a heredoc in a /tmp scratch dir.
-2. Emit a git-style patch: `diff -u` of pristine
-   `rtl_dar/<game>_de10_lite.vhd` vs target, with `a/...`/`b/...` labels and
-   `|| [ $? -eq 1 ]` to tolerate diff's files-differ exit code.
-3. `mkdir -p "$(dirname "$PATCH")"` before writing - `contrib/basys3/code/`
-   may not exist on first run.
-4. Place the target at
-   `$SRC_DIR/basys3/<game>_basys3.srcs/sources_1/new/<game>_basys3.vhd`
-   (the path the .xpr references).
-
-Constrained-ports rule: the shared `Basys-3-Master.xdc` ships with LEDs and
-btnU/btnL/btnR/btnD commented out (only `btnC` among buttons is active).
-Declare only ports the XDC constrains. Declaring unconstrained ports fails
-placement with `Place 30-58` ("unplaced terminals ... greater than number of
-available sites (0)") wrapped in `Place 30-99 IO Clock Placer failed`; fix by
-dropping the ports, never by editing the shared XDC.
-
-MMCM/reset structure - project standard going forward (Bagman pattern):
-
-```vhdl
-reset <= btnC or not mmcm_locked;   -- core in reset while pressed OR MMCM unlocking
-
-clk_wiz_0 port map( ..., reset => btnC, locked => mmcm_locked );
-```
-
-btnC (active-high) drives both the MMCM reset and, via the `!locked` gating,
-the core reset. Existing ports keep their own patterns (Galaga leaves the
-MMCM unreset); do not retrofit unless asked.
-
-## 7. Docs
-
-Machine `README.md` sections, in order: title `(Basys 3 port)` + header
-bullets (upstream link, project/top entity, clk_wiz MMCM values, video path),
-`Features supported`, `IO mapping` (rows must correspond to XDC-constrained
-ports actually declared), `Scripted setup` (cache / SHA-256 / patch
-chain / prep chain, `$ROMZIP` defaults), `ROM set required`, fix-patch
-sections (each with a verify grep), `Known issues`.
-
-Root `README.md`: Status row, Machine index entry, Common build workflow if
-the workflow changed, video classification note.
-
-Terminology: hardware = FPGA platform; machine = hardware + romset. Say
-roms/romset; describe machines, not games (upstream filenames keep their
-names).
-
-## 8. Verification ladder
+## 7. Verification ladder
 
 1. `bash -n` every touched script.
-2. End-to-end `make setup` with real romsets; confirm generated PROM VHDLs.
-3. Tamper test: corrupt the cached zip, rerun, expect re-download + pass.
-4. `make -n <targets>` dry runs for Makefile wiring.
-5. Timing-equivalence audit, before the first synth, wherever a fix patch
-   or the wrapper replaces a RAM, ROM or primitive in Dar's clock-enable
-   designs (fast `clk` plus enables). Record results in the machine's
-   `PORTING_SPEC.md`.
-   - RAM/ROM port table: per port, clock, enable, write enable, read
-     latency (async / every `clk` / on enable), read-during-write.
-     Compare against the original primitive (often left as a comment)
-     and any sibling port of the same core. A dropped read enable shifts
-     a pipeline by one pixel and shows only on hardware (precedent: the
-     root repo's `pinballwiz/TangNano9K-Pacman` sprite line buffer,
-     vertical bar on sprite right edges).
-   - Registers that ignore the clock enable: classify each as harmless
-     (address stable for the whole enable period) or a defect, with the
-     reason.
-   - Sibling diff: diff each module against a working port of the same
-     core before the first build.
-   - Literals into Verilog modules instantiated from VHDL without a
-     component declaration: route through typed signals (`Synth 8-2398`
-     "N visible types match"). Vivado `check_syntax` is parse-only and
-     does not catch this.
-6. Vivado runs: see `vivado-batch-build`.
+2. `make setup` with the real romset(s); confirm the generated PROM VHDL files.
+3. Tamper test: corrupt the cached zip, rerun, expect re-download and pass.
+4. `make -n <targets>` for Makefile wiring.
+5. `make check` (parse-only, `PORTING_SPEC.md` §7).
+6. Read-only project smoke test (no run launched): open the project, confirm every
+   `get_files` entry exists. Write the Tcl as a file in `/tmp`, run
+   `vivado -mode batch -nolog -nojournal -source smoke.tcl` from `/tmp`:
+   ```tcl
+   open_project /path/to/<top>.xpr
+   set missing 0
+   foreach f [get_files -quiet] {
+       if { ![file exists $f] } { puts "MISSING: $f"; incr missing }
+   }
+   puts "MISSING_COUNT: $missing"
+   close_project
+   ```
+7. Timing-equivalence audit before the first synth, wherever a fix patch or the wrapper
+   replaces a RAM, ROM or primitive in Dar's clock-enable designs (fast `clk` plus
+   enables); record in the machine PORTING_SPEC:
+   - RAM/ROM port table: per port, clock, enable, write enable, read latency (async /
+     every `clk` / on enable), read-during-write; compare with the original primitive and
+     any sibling port. A dropped read enable shifts a pipeline by one pixel and shows only
+     on hardware.
+   - Registers that ignore the clock enable: harmless (address stable for the enable
+     period) or a defect, with the reason.
+   - Sibling diff against a working port of the same core.
+8. Synthesis and bitstream only on the user's explicit request: `vivado-batch-build`.
+
+## 8. Docs
+
+`PORTING_SPEC.md` §9: machine README and PORTING_SPEC from the `wip/machine/` templates,
+Makefile `IO_SUMMARY`/`DISPLAY_HINT`, root README index row and status, root `PORTS`,
+§3.1/§3.2 rows, `CLOCK_CRYSTAL_CATALOG.md`, `CLOCKING_SPEC.md`, `KNOWN_ISSUES.md`.
+Terminology: hardware = FPGA platform; machine = hardware + romset; say roms/romset.

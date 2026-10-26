@@ -1,7 +1,7 @@
 diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd
 --- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd
 +++ b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd
-@@ -1,404 +1,259 @@
+@@ -1,404 +1,278 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Popeye by Dar (darfpga@aol.fr) (26/12/2019)
 --- http://darfpga.blogspot.fr
@@ -414,23 +414,20 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 +--
 +-- Ported from popeye_de10_lite.vhd (DE10-lite rev 03 27/01/2020):
 +--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 40.32 MHz
-+--  - Joystick on JA, OR-merged with PS/2 keyboard (JB)
-+--  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
++--  - Joystick on JXADC, OR-merged with the PS/2 keyboard; keyboard decoded in
++--    this wrapper, MAME default keys (2026-10-20, replaces kbd_joystick; F0 =
++--    release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1), mapping as the
++--    hardware-verified rb-fpga/rework Popeye port: arrows, Left Ctrl = punch,
++--    1/2 = start, 5/6 = coin, 9 = service (held)
++--  - btnU/btnD = coin, btnL/btnR = start; sw7-0 = dip switch 2 (switch up = bit
++--    set in Dar's value, sw2 <= not sw(7 downto 0))
++--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40; keyboard on
++--    clock_40 (2026-10-20, as rework; the former clock_40/6 clock_kbd is removed)
++--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
 +--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (native core rate),
 +--    1 = 15 kHz TV (native rate, composite sync on HS, VS high)
 +--  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
 +--  - No LEDs / 7-segment: the shared Basys-3-Master.xdc leaves them commented.
-+--  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
-+--    project default since 2026-09 (root PORTING_SPEC.md §3). The original
-+--    keyboard clock (clock_kbd, clock_40/20 via clock_div) was ~2.016 MHz and
-+--    shared with the PWM audio gate (clock_div = "0000") -- below the
-+--    onboard USB-HID port's >= 6 MHz floor, and retargeting clock_div's
-+--    threshold would also change the audio rate. Added a new, independent
-+--    clock_div_kbd counter (clock_40/6 = 6.72 MHz) dedicated to clock_kbd
-+--    only; clock_div and the PWM gate it drives are unchanged (same fix as
-+--    the sibling Kick-Midway-MCR/Solar-Fox ports). An initial plain XDC pin
-+--    swap without this divider (2026-09-26) was confirmed non-functional on
-+--    hardware (2026-09-28).
 +---------------------------------------------------------------------------------
 +-- Educational use only
 +-- Do not redistribute synthetized file with roms
@@ -451,10 +448,11 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + sw             : in  std_logic_vector(15 downto 0);
 + btnC           : in  std_logic;
 + btnU           : in  std_logic;  -- coin
++ btnD           : in  std_logic;  -- coin
 + btnL           : in  std_logic;  -- 1P start
 + btnR           : in  std_logic;  -- 2P start
 +
-+ JA             : in  std_logic_vector(4 downto 0);  -- joystick
++ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
 + ps2_dat        : in  std_logic;
 + ps2_clk        : in  std_logic;
 +
@@ -487,15 +485,23 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + signal audio           : std_logic_vector(15 downto 0);
 + signal pwm_accumulator : std_logic_vector(17 downto 0);
 +
++ -- 2-FF synchronizers (clock_40) for the asynchronous inputs
++ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
++ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
++ signal jxadc_meta, jxadc_s     : std_logic_vector(4 downto 0) := (others => '1');
++ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0'); -- U, D, L, R
++ attribute ASYNC_REG : string;
++ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
++ attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
++
 + signal kbd_intr      : std_logic;
 + signal kbd_scancode  : std_logic_vector(7 downto 0);
-+ signal kbd_joy       : std_logic_vector(8 downto 0);
-+ signal fn_pulse      : std_logic_vector(7 downto 0);
-+ signal fn_toggle     : std_logic_vector(7 downto 0);
++ signal kbd_rel       : std_logic := '0';
++ -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++ --           6 '1', 7 '2', 8 '5', 9 '6', 10 '9'
++ signal kbd_key       : std_logic_vector(10 downto 0) := (others => '0');
 +
-+ signal clock_kbd  : std_logic;
 + signal clock_div  : std_logic_vector(3 downto 0);
-+ signal clock_div_kbd : std_logic_vector(1 downto 0);
 +
 + signal joy_up        : std_logic;
 + signal joy_down      : std_logic;
@@ -506,6 +512,12 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + signal joy_start2    : std_logic;
 + signal joy_coin      : std_logic;
 + signal joy_service   : std_logic;
++ signal sw1_in        : std_logic_vector(6 downto 0); -- dip switch 1 (active low)
++ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
++ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
++ -- sw1: coinage (bits 3-0) on sw11-8; copyright (6-5) and N.U. (4) fixed.
++ constant SW1_DEFAULT : std_logic_vector(6 downto 0) := not ("10" & '1' & "1111");  -- Dar's value
++ signal sw2_in        : std_logic_vector(7 downto 0); -- dip switch 2 (active low)
 +
 +begin
 +
@@ -554,8 +566,8 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 +  down2          => joy_down,
 +  fire2          => joy_fire,
 +
-+  sw1            => not ( "10"  & '1' & "1111"), -- Copyright (2b) / N.U.(1b) / coinage (4b)
-+  sw2            => not ( "00111101"),            -- Cocktail(1b) / Music(1b) / Bonus(2b) / diff(2b) / life(2b)
++  sw1            => sw1_in, -- Dar: "10" & '1' & "1111" Copyright (2b) / N.U.(1b) / coinage (4b)
++  sw2            => sw2_in, -- sw7-0 (Dar: "00111101") Cocktail(1b) / Music(1b) / Bonus(2b) / diff(2b) / life(2b)
 +
 +  service        => joy_service,
 +
@@ -576,7 +588,7 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + vga_vs <= '1'   when sw(13) = '1' else vsync;
 +
 + -- clock_div: unchanged, still gates the PWM accumulator below
-+ -- (clock_div = "0000"). No longer drives clock_kbd -- see below.
++ -- (clock_div = "0000").
 + process (reset, clock_40)
 + begin
 +  if reset = '1' then
@@ -592,62 +604,69 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 +  end if;
 + end process;
 +
-+ -- Independent keyboard clock divider (clock_40 / 6 = 6.72 MHz), dedicated
-+ -- to clock_kbd only -- see header comment above.
-+ process (reset, clock_40)
++ -- synchronize asynchronous inputs to the core clock
++ process (clock_40)
 + begin
-+  if reset = '1' then
-+   clock_div_kbd <= (others => '0');
-+   clock_kbd  <= '0';
-+  else
-+   if rising_edge(clock_40) then
-+    if clock_div_kbd = "10" then
-+     clock_div_kbd <= (others => '0');
-+     clock_kbd <= not clock_kbd;
-+    else
-+     clock_div_kbd <= clock_div_kbd + '1';
-+    end if;
-+   end if;
++  if rising_edge(clock_40) then
++   ps2_clk_meta <= ps2_clk;      ps2_clk_s <= ps2_clk_meta;
++   ps2_dat_meta <= ps2_dat;      ps2_dat_s <= ps2_dat_meta;
++   jxadc_meta   <= JXADC;        jxadc_s   <= jxadc_meta;
++   btn_meta     <= btnU & btnD & btnL & btnR;
++   btn_s        <= btn_meta;
 +  end if;
 + end process;
 +
 + -- get scancode from keyboard
 + keyboard : entity work.io_ps2_keyboard
 + port map (
-+  clk       => clock_kbd,
-+  kbd_clk   => ps2_clk,
-+  kbd_dat   => ps2_dat,
++  clk       => clock_40,
++  kbd_clk   => ps2_clk_s,
++  kbd_dat   => ps2_dat_s,
 +  interrupt => kbd_intr,
 +  scancode  => kbd_scancode
 + );
 +
-+ -- translate scancode to joystick + function keys
-+ joystick : entity work.kbd_joystick
-+ port map (
-+  Clk           => clock_kbd,
-+  KbdInt        => kbd_intr,
-+  KbdScanCode   => kbd_scancode,
-+  joy_BBBBFRLDU => kbd_joy,
-+  fn_pulse      => fn_pulse,
-+  fn_toggle     => fn_toggle
-+ );
++ -- translate scancode to keys (MAME default keys, PS/2 set 2 codes), replaces
++ -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the
++ -- arrows, Right Ctrl/Alt alias Left Ctrl/Alt).
++ process (clock_40)
++ begin
++  if rising_edge(clock_40) then
++   if kbd_intr = '1' then
++    if kbd_scancode = x"F0" then
++     kbd_rel <= '1';
++    elsif kbd_scancode /= x"E0" then
++     kbd_rel <= '0';
++     if kbd_scancode = x"75" then kbd_key(0)  <= not kbd_rel; end if; -- up arrow
++     if kbd_scancode = x"72" then kbd_key(1)  <= not kbd_rel; end if; -- down arrow
++     if kbd_scancode = x"6B" then kbd_key(2)  <= not kbd_rel; end if; -- left arrow
++     if kbd_scancode = x"74" then kbd_key(3)  <= not kbd_rel; end if; -- right arrow
++     if kbd_scancode = x"14" then kbd_key(4)  <= not kbd_rel; end if; -- left ctrl
++     if kbd_scancode = x"11" then kbd_key(5)  <= not kbd_rel; end if; -- left alt
++     if kbd_scancode = x"16" then kbd_key(6)  <= not kbd_rel; end if; -- 1
++     if kbd_scancode = x"1E" then kbd_key(7)  <= not kbd_rel; end if; -- 2
++     if kbd_scancode = x"2E" then kbd_key(8)  <= not kbd_rel; end if; -- 5
++     if kbd_scancode = x"36" then kbd_key(9)  <= not kbd_rel; end if; -- 6
++     if kbd_scancode = x"46" then kbd_key(10) <= not kbd_rel; end if; -- 9
++    end if;
++   end if;
++  end if;
++ end process;
 +
-+ -- OR-merge the joystick on JA with the PS/2 keyboard joystick.
-+ -- JA physical map: JA1=right, JA2=left, JA3=down, JA4=up, JA7=punch/fire,
-+ -- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
-+ -- JA is active-low (pressed shorts to ground); invert so a press reads
-+ -- active-high, matching the core's active-high input boundary and the
-+ -- keyboard path. Player 2 mirrors player 1 inputs. Coin/start come from the
-+ -- keyboard and btnU/btnL/btnR (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
-+ joy_up     <= kbd_joy(0) or not JA(3);    -- up    (JA4)
-+ joy_down   <= kbd_joy(1) or not JA(2);    -- down  (JA3)
-+ joy_left   <= kbd_joy(2) or not JA(1);    -- left  (JA2)
-+ joy_right  <= kbd_joy(3) or not JA(0);    -- right (JA1)
-+ joy_fire   <= kbd_joy(4) or not JA(4);    -- punch (JA7)
-+ joy_coin   <= fn_pulse(0) or btnU; -- coin   = F1 / btnU
-+ joy_start1 <= fn_pulse(1) or btnL; -- start1 = F2 / btnL
-+ joy_start2 <= fn_pulse(2) or btnR;                        -- start2 = F3 / btnR
-+ joy_service<= fn_toggle(6);                               -- service = F7 toggle
++ -- merge keyboard, buttons and JXADC joystick (active low, inverted).
++ -- JXADC(0)=right (JXADC1), JXADC(1)=left (JXADC2), JXADC(2)=down (JXADC3),
++ -- JXADC(3)=up (JXADC4), JXADC(4)=punch (JXADC7). Player 2 mirrors player 1.
++ joy_up      <= kbd_key(0) or not jxadc_s(3);  -- up    (JXADC4)
++ joy_down    <= kbd_key(1) or not jxadc_s(2);  -- down  (JXADC3)
++ joy_left    <= kbd_key(2) or not jxadc_s(1);  -- left  (JXADC2)
++ joy_right   <= kbd_key(3) or not jxadc_s(0);  -- right (JXADC1)
++ joy_fire    <= kbd_key(4) or not jxadc_s(4);  -- punch : left ctrl (JXADC7)
++ joy_coin    <= kbd_key(8) or kbd_key(9) or btn_s(3) or btn_s(2); -- 5, 6, btnU, btnD
++ joy_start1  <= kbd_key(6) or btn_s(1);        -- 1 or btnL
++ joy_start2  <= kbd_key(7) or btn_s(0);        -- 2 or btnR
++ joy_service <= kbd_key(10);                   -- 9 (MAME service 1)
++ sw1_in      <= SW1_DEFAULT xor ("000" & sw(11 downto 8));  -- coinage (bits 3-0) on sw11-8
++ sw2_in      <= not sw(7 downto 0);            -- dip switch 2 from sw7-0
 +
 + -- pwm sound output (18-bit accumulator, updating once per clock_div cycle,
 + -- same as the DE10 top)
@@ -661,7 +680,7 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + end process;
 +
 + O_PMODAMP2_AIN   <= pwm_accumulator(17);
-+ O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-+ O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
++ O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
++ O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 +
 +end struct;

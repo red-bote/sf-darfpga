@@ -22,7 +22,7 @@ is kept for the record.
   to the main-CPU clock ratio.
 - VGA output close to 640x480@60: design window **H 31.0-32.0 kHz,
   V 56-61 Hz**; acceptance = sync on both reference displays, **Sylvania
-  SF150** and **LG Flatron L2000CP** (Eyoyo EM08F dropped).
+  SF150** and **LG Flatron L2000CP**.
 - Keyboard (PS/2) sampling in the same domain.
 - Where one clock cannot satisfy CPU accuracy and the VGA window, record
   the trade-off in the machine's `PORTING_SPEC.md`.
@@ -115,7 +115,8 @@ hardware-confirmed 2026-10-05.
   `Computer-Space-by-Dar/contrib/basys3/PORTING_SPEC.md` §Clocking.
   Timing met (WNS 4.025, WHS 0.122), hardware-confirmed 2026-10-02.
 - Xevious: `clk_out2` (11 MHz) clocks only the keyboard. Proposal: clock
-  the keyboard from the core clock (18.432 MHz), drop `clk_out2`.
+  the keyboard from the core clock (18.432 MHz), drop `clk_out2`. (Done
+  2026-10-01; superseded 2026-10-20: every keyboard runs on its core clock.)
 
 ### 5.3 Core CPU-rate questions (RTL vs catalog; confirm before acting)
 
@@ -262,7 +263,9 @@ changed lines).
   single-clock (18.431856 / 12.287904 / 9.215928 / 6.143952 MHz fabric
   clocks, `galaga_basys3.vhd:134-244`) and has a sw(13) mode;
   Zaxxon has a generated `clk_wiz_0_clk_wiz.v`; Burnin-Rubber 272-line
-  "fixed" (5.4); "single clock" entries omit `clock_kbd`.
+  "fixed" (5.4); "single clock" entries omit `clock_kbd`. (Superseded
+  2026-10-20: the fabric keyboard clocks `clock_9` / `clock_kbd` are removed;
+  every keyboard runs on its core clock.)
 - Pristine comment mismatches (no action): Popeye/Sky-skipper
   "divide by 20"; MCR `clk_8Mhz` is a 4 MHz square wave; Solar-Fox/Tron
   "635x525" vs 634.
@@ -282,7 +285,8 @@ changed lines).
   0.122: all met, hardware-confirmed.
 - Popeye/Sky-skipper 40.333 (DE10 PLL) vs 40.32 MHz: CPU 4.032 vs 4.033 MHz
   after the counter fix; no action.
-- Keyboard clock rates: unchanged; hardware-confirmed working.
+- Keyboard clock rates: unchanged; hardware-confirmed working. (Superseded
+  2026-10-20: separate keyboard clocks removed, keyboards on the core clock.)
 
 ## 8. Order of work (after per-item approval)
 

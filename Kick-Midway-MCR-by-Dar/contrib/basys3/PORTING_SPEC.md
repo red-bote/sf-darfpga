@@ -1,59 +1,93 @@
-# Kick-Midway-MCR-by-Dar — Porting spec
+# Kick-Midway-MCR-by-Dar: porting spec
 
-## 1. Reference model
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-- Source archive: `vhdl_kick_rev_0_2_2019_11_22.zip` (SourceForge folder `Kick_kickman`, per the
-  repo-root `downloads.md`) → `vhdl_kick_rev_0_2_2019_11_22/` at the machine root.
-- Top entity: `kick_basys3` (target file `sources_1/new/kick_basys3.vhd`).
-- Part: `xc7a35tcpg236-1`, VHDL target language.
+## 1. Upstream and reference model
+
+- Archive `vhdl_kick_rev_0_2_2019_11_22.zip` (SourceForge `darfpga/files/Software
+  VHDL/Kick_kickman/`), SHA-256 in `contrib/tools/setup_kick.sh`; extracted to
+  `vhdl_kick_rev_0_2_2019_11_22/`. Core `rtl_dar/kick.vhd`.
+- MAME driver: `bally/mcr.cpp` (`kick`), MCR-1 90009 CPU board + SSIO sound board.
+- Top entity `kick_basys3`; part `xc7a35tcpg236-1`.
+- Closest existing port used as model: Tron-by-Dar (same MCR family).
 
 ## 2. Clocking
 
-- Single core clock: **40 MHz**, derived from the 100 MHz Basys 3 oscillator by `clk_wiz_0`.
-- Solved MMCM (per machine `README.md`): `DIVCLK_DIVIDE=1`, `CLKFBOUT_MULT_F=10.0`,
-  `CLKOUT0_DIVIDE_F=25.0`. Reset active-high (`btnC`).
+- Original: main Z80 19.968 MHz crystal /8 = 2.496 MHz; SSIO sound board 16 MHz (Z80 and
+  2x AY-3-8910 at 2 MHz).
+- `clk_wiz_0`: request 40.000 MHz, achieved 40.000 MHz (1 / 10.0 / 25.0); signal
+  `clock_40`. Main CPU +0.16% fast vs 19.968 MHz.
+- Enables: CPU, pixel and sound rates are enables inside Dar's core.
+- Video (`rtl_dar/kick.vhd` scanner 634 x 525): progressive pixel `clock_40`/2 = 20 MHz,
+  H = 20 MHz / 634 = 31.546 kHz, V = 31.546 kHz / 525 = 60.09 Hz; TV pixel 10 MHz,
+  H 15.773 kHz, V 59.75 Hz (264 lines).
+- The 39.9356 MHz retune (exact main CPU, sound 0.16% flat) was skipped by user decision
+  2026-10-01 (`../../../CLOCKING_SPEC.md`).
 
-## 3. Reset polarity
+## 3. Reset
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` with MMCM reset = btnC (standard pattern,
-  2026-10-01, `../../CLOCKING_SPEC.md` section 6); previously `locked => open` (Tron pattern).
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC` (2026-10-01,
+`../../../CLOCKING_SPEC.md` section 6; previously `locked => open`).
 
-## 4. Video (31 kHz VGA / 15 kHz TV)
+## 4. Core instantiation
 
-- No external scandoubler: the core doubles scanlines internally. Mode toggled by keyboard
-  **F8** (31 kHz VGA / 15 kHz TV), not a Basys 3 switch — unlike Bagman/Popeye's `sw(13)`
-  convention, this port's mode select stays keyboard-only per the pristine core's own toggle.
+Dar's `kick` entity unchanged. `separate_audio => '0'`; `service` from the F2 toggle;
+coin 1 / coin 2 / start 1 / start 2 through signals (no expression actuals).
 
-## 5. Audio (stereo L/R PWM, mono out on PmodAMP2)
+## 5. Video path
 
-- The core carries a stereo L/R PWM path; only the left channel drives PmodAMP2 `O_PMODAMP2_AIN`
-  (mono out). Keyboard **F5** toggles separate/stereo audio mode in the core; **F7** toggles
-  service mode. `sw(15)`/`sw(14)` → AMP gain/shutdown (standard convention).
+No external scandoubler: the core generates 31 kHz progressive or 15 kHz TV.
+`tv15Khz_mode <= sw(13)` (2026-09-29; pristine: `not fn_toggle(7)`, the F8 key).
 
-## 6. Inputs
+## 6. Audio
 
-- PS/2 keyboard + `kbd_joystick`, OR-merged with the JA joystick (active-low, invert to
-  active-high): `JA1=Spin right, JA2=Spin left, JA3=Down, JA4=Up(kick), JA7=Fire(speed up)`.
-- Coin1 = keyboard F1 or `btnU`; Start 1 = keyboard F2 or `btnL`; Start 2 = keyboard F3 or
-  `btnR` — per root `PORTING_SPEC.md` §3's default button mapping. No fire+direction combos.
-- Coin2 = `btnD` only (the core's second coin input; no keyboard or JA path maps to it).
+Dar's stereo 18-bit PWM accumulators (`pwm_accumulator_l/r`, update when
+`clock_div = "0000"`) on `clock_40`; `O_PMODAMP2_AIN <= pwm_accumulator_l(17)` (left
+channel). `separate_audio => '0'` (mixed, 2026-10-20, as rework; the F5 toggle would drop
+right-channel sounds on the mono amp). `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
 
-## 7. LEDs
+## 7. Inputs
 
-- Unused/reserved — the authored `kick_basys3` top level declares no `led` port, matching the
-  Bagman/Berzerk/Pooyan/Time-Pilot/Tron convention.
+- Keyboard: `io_ps2_keyboard` on `clock_40`, wrapper decoder (MAME keys,
+  `../../../PORTING_SPEC.md` §3.1, §4.3), replaces `kbd_joystick` (2026-10-20;
+  `kbd_joystick.vhd` stays in the project, unreferenced). Left/Right = spin, Left Alt =
+  spin faster, Left Ctrl = kick, 1/2 = start, 5/6 = coin 1/2, F2 = service toggle (on
+  press).
+- JXADC (active-low, inverted): JXADC1 = spin right, JXADC2 = spin left, JXADC4 = spin
+  faster, JXADC7 = kick; JXADC3 unused.
+- Buttons: btnU = coin 1, btnD = coin 2, btnL/btnR = start 1/2, OR-merged with the keys.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_40`. The former
+  `clock_40`/6 fabric clock `clock_kbd` (`clock_div_kbd`) is removed (single domain, as
+  rework).
+- Debounce: none. Combos: none.
 
-## 8. Shared conventions & hard rules
+## 8. Switches and DIPs
 
-- **Non-nested project layout**: the `.xpr` will live directly in `basys3/` as
-  `basys3/kick_basys3.xpr`, with the sources tree at `basys3/kick_basys3.srcs/`.
-- **Vivado build scripts run from `/tmp`** so `vivado.log`/`vivado.jou` stay out of the repo.
-- **Tool/path resolution** is `ENV_VAR → project default → interactive prompt`:
-  - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-  - roms: `ROMZIP` → `~/roms/`
-- **Roms and generated PROM VHDL are copyrighted content** — never commit or distribute them.
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw13 | `tv15Khz_mode` | 1 | 31 kHz VGA | up = 15 kHz TV |
+| sw14 / sw15 | PmodAMP2 GAIN / SHUTD | | gain low / audio on | |
 
-## 9. Open items
+No DIP bank at the core boundary; settings via the service menu (F2).
 
-- Physical Basys 3 hardware bring-up (the build chain through bitstream is scripted and
-  verified; no software/build items remain).
+## 9. Patches
+
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/basys3/code/kick_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
+
+No fix patches to Dar's core.
+
+## 10. PROM generation
+
+`contrib/tools/prep_roms.sh`: `make_kick_proms.bat` → shell; romset `kick.zip` (`ROMZIP`).
+
+## 11. Build
+
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. The `.xpr` lives
+at `vhdl_kick_rev_0_2_2019_11_22/basys3/kick_basys3.xpr`.
+
+## 12. Open items
+
+None.

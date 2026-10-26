@@ -8,13 +8,13 @@
 --  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 24.329 MHz (clock_24) --
 --    the core's only clock domain (unlike Burnin-Rubber/BurgerTime's 12+6 MHz
 --    pairs).
---  - Joystick on JA (movement + fire), OR-merged with PS/2 keyboard (JB) and,
+--  - Joystick on JXADC (movement + fire), OR-merged with the PS/2 keyboard and,
 --    for coin/start, dedicated buttons (btnU/btnD = coin, btnL = P1 start,
---    btnR = P2 start). No JA fire+direction coin/start combos: unlike Bagman
+--    btnR = P2 start). No JXADC fire+direction coin/start combos: unlike Bagman
 --    (no coin/start buttons available), this port has dedicated buttons, so
 --    the combo layer is redundant and skipped (see PORTING_SPEC.md).
---  - Mono (left-channel) PWM audio on PmodAMP2 (JC); sw14 = shutdown,
---    sw15 = gain select. audio_out_r is left open (project convention is
+--  - Mono (left-channel) PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled,
+--    sw14 up = gain. audio_out_r is left open (project convention is
 --    mono/left-channel only).
 --  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
 --    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high).
@@ -27,24 +27,25 @@
 --    clock_cnt(1:0) bits pix_ena is built from) so this port wires clk_sys/
 --    ce_x1 straight from the core instead of re-deriving them locally.
 --  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
---  - Cocktail (F7) and service (F5) stay keyboard-only (kbd_joystick fn_toggle
---    outputs). Flip-screen: F4 toggle XOR not sw(12) (sw(12) added and inverted 2026-10-02).
+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
+--    E0 ignored): arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin 1/2,
+--    F2 = service (toggle). Dar's F7 cocktail toggle kept. Flip-screen: F4
+--    toggle XOR not sw(12) (sw(12) added and inverted 2026-10-02).
+--  - PS/2 and JXADC pass 2-FF synchronizers on clock_24.
 --  - btnU/btnD/btnL/btnR are debounced (~10 ms) before use (2026-10-02).
+--    JXADC fire: 2-FF synchronizer only, as Pooyan (2026-10-20). Debounce and
+--    filter variants did not fix missed presses on hardware; the cause was a
+--    faulty joystick (clean with a CX40-type).
 --    left_c/right_c/up_c/down_c/fire_c mirror player 1, matching the
 --    pristine top (this core has no genuine second control set).
 --  - The PWM accumulator's clock_div-gated update is reused verbatim from
 --    the pristine top (see PORTING_SPEC.md). ps2_dat/ps2_clk are wired to
 --    the onboard USB-HID host (C17/B17), the project default since 2026-09
---    (root PORTING_SPEC.md §3). The original keyboard clock (clock_kbd,
---    clock_24/6 via clock_div, reused verbatim from the pristine top) was
---    ~4 MHz and shared with the PWM audio gate (clock_div = "0000") --
---    below the onboard USB-HID port's >= 6 MHz floor, and retargeting
---    clock_div's threshold would also change the audio rate. Added a new,
---    independent clock_div_kbd counter (clock_24/4 = 6 MHz) dedicated to
---    clock_kbd only; clock_div and the PWM gate it drives are unchanged
---    (same fix as the sibling Kick-Midway-MCR/Solar-Fox/Popeye ports). An
---    initial plain XDC pin swap without this divider (2026-09-26) was
---    confirmed non-functional on hardware (2026-09-28).
+--    (root PORTING_SPEC.md §3). The keyboard runs on clock_24 (2026-10-20;
+--    >= 6 MHz floor met). It replaces the fabric clock_kbd (clock_24/4 =
+--    6 MHz) divider, itself added 2026-09-28 because the pristine
+--    clock_24/6 keyboard clock (~4 MHz) was below the floor; clock_div and
+--    the PWM gate it drives are unchanged.
 --  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr, cpu address
 --    trace) is not ported; the core's debug output is left open.
 --  - No led port: the pristine top's ledr assignment is dead code (never
@@ -79,7 +80,7 @@ port(
  btnU            : in  std_logic;  -- coin-in
  btnD            : in  std_logic;  -- coin-in
 
- JA              : in  std_logic_vector(4 downto 0);  -- joystick (movement + fire)
+ JXADC              : in  std_logic_vector(4 downto 0);  -- joystick (movement + fire)
  ps2_dat         : in  std_logic;
  ps2_clk         : in  std_logic;
 
@@ -149,17 +150,22 @@ architecture struct of zaxxon_basys3 is
  signal pwm_accumulator_l : std_logic_vector(17 downto 0);
 
  signal clock_div : unsigned(3 downto 0);
- signal clock_kbd : std_logic;
- signal clock_div_kbd : unsigned(0 downto 0);
+
+ -- PS/2 and JXADC(4 downto 0), 2-FF synchronized on clock_24 (index 1 = output).
+ signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
+ signal ja_meta, ja_s        : std_logic_vector(4 downto 0) := (others => '1');
 
  signal kbd_intr      : std_logic;
  signal kbd_scancode  : std_logic_vector(7 downto 0);
- signal joy_BBBBFRLDU : std_logic_vector(8 downto 0);
- signal fn_pulse      : std_logic_vector(7 downto 0);
- signal fn_toggle     : std_logic_vector(7 downto 0);
+ signal kbd_rel       : std_logic := '0';
+ -- kbd_joy: 0 up, 1 down, 2 left, 3 right, 4 fire, 5 coin1, 6 coin2, 7 start1, 8 start2
+ signal kbd_joy       : std_logic_vector(8 downto 0) := (others => '0');
+ -- key held (typematic filter) and toggles: 0 = F2 service, 1 = F4 flip, 2 = F7 cocktail
+ signal fn_held       : std_logic_vector(2 downto 0) := (others => '0');
+ signal fn_toggle     : std_logic_vector(2 downto 0) := (others => '0');
 
  signal core_up, core_down, core_left, core_right, core_fire : std_logic;
- signal core_coin1, core_start1, core_start2                 : std_logic;
+ signal core_coin1, core_coin2, core_start1, core_start2     : std_logic;
 
  -- Button debounce (2026-10-02): 2-FF synchronizer, then the output follows
  -- the input only after it has been stable for 2**18 clock_24 cycles
@@ -171,6 +177,7 @@ architecture struct of zaxxon_basys3 is
  signal btn_cnt : btn_cnt_t := (others => (others => '0'));
  attribute ASYNC_REG : string;
  attribute ASYNC_REG of btn_meta, btn_sync : signal is "TRUE";
+ attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, ja_meta, ja_s : signal is "TRUE";
 begin
 
  -- btnC is active-high: it resets the MMCM and, together with !locked,
@@ -204,7 +211,7 @@ begin
   audio_out_r  => open,
 
   coin1        => core_coin1,
-  coin2        => '0',
+  coin2        => core_coin2,
   start1       => core_start1,
   start2       => core_start2,
 
@@ -220,16 +227,16 @@ begin
   down_c       => core_down,
   fire_c       => core_fire,
 
-  cocktail     => fn_toggle(6), -- F7
-  service      => fn_toggle(4), -- F5
+  cocktail     => fn_toggle(2), -- F7
+  service      => fn_toggle(0), -- F2
   flip_screen  => flip_sel,     -- F4 toggle xor not sw(12)
 
   dbg_cpu_addr => open
  );
 
  -- clock_div (reused verbatim from the pristine top): unchanged, still
- -- gates the PWM accumulator update below. No longer drives clock_kbd --
- -- see below.
+ -- gates the PWM accumulator update below. No longer drives the keyboard
+ -- clock (see header).
  process (reset, clock_24)
  begin
    if reset = '1' then
@@ -243,65 +250,86 @@ begin
    end if;
  end process;
 
- -- Independent keyboard clock divider (clock_24 / 4 = 6 MHz), dedicated to
- -- clock_kbd only -- see header comment above.
- process (reset, clock_24)
- begin
-   if reset = '1' then
-     clock_div_kbd <= (others => '0');
-     clock_kbd <= '0';
-   elsif rising_edge(clock_24) then
-     if clock_div_kbd = "1" then
-       clock_div_kbd <= (others => '0');
-       clock_kbd <= not clock_kbd;
-     else
-       clock_div_kbd <= clock_div_kbd + 1;
-     end if;
-   end if;
- end process;
-
  -- clk_sys/ce_x1 for the scandoubler, straight from the core's real
  -- pix_clk_div (see the signal declaration comment above).
  sd_clock_12 <= pix_clk_div(0);
  sd_clock_6  <= pix_clk_div(1);
 
+ -- PS/2 and JXADC input synchronizers (2-FF) into clock_24
+ process (clock_24)
+ begin
+   if rising_edge(clock_24) then
+     ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
+     ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
+     ja_meta   <= JXADC;
+     ja_s      <= ja_meta;
+   end if;
+ end process;
+
  -- get scancode from keyboard
  keyboard : entity work.io_ps2_keyboard
  port map (
-   clk       => clock_kbd, -- independent USB-HID-rate divider, see above
-   kbd_clk   => ps2_clk,
-   kbd_dat   => ps2_dat,
+   clk       => clock_24, -- core clock, single domain (see header)
+   kbd_clk   => ps2_clk_s(1),
+   kbd_dat   => ps2_dat_s(1),
    interrupt => kbd_intr,
    scancode  => kbd_scancode
  );
 
- -- translate scancode to joystick / function keys
- joystick : entity work.kbd_joystick
- port map (
-   clk           => clock_kbd,
-   kbdint        => kbd_intr,
-   kbdscancode   => std_logic_vector(kbd_scancode),
-   joy_BBBBFRLDU => joy_BBBBFRLDU,
-   fn_pulse      => fn_pulse,
-   fn_toggle     => fn_toggle
- );
+ -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
+ -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
+ -- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+ -- F2/F4/F7 toggle on the make code only (typematic repeats ignored).
+ process (clock_24)
+ begin
+   if rising_edge(clock_24) then
+     if kbd_intr = '1' then
+       if kbd_scancode = x"F0" then
+         kbd_rel <= '1';
+       elsif kbd_scancode /= x"E0" then
+         kbd_rel <= '0';
+         if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up arrow
+         if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
+         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
+         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
+         if kbd_scancode = x"2E" then kbd_joy(5) <= not kbd_rel; end if; -- 5 : coin 1
+         if kbd_scancode = x"36" then kbd_joy(6) <= not kbd_rel; end if; -- 6 : coin 2
+         if kbd_scancode = x"16" then kbd_joy(7) <= not kbd_rel; end if; -- 1 : start 1
+         if kbd_scancode = x"1E" then kbd_joy(8) <= not kbd_rel; end if; -- 2 : start 2
+         if kbd_scancode = x"06" then                                    -- F2 : service toggle
+           fn_held(0) <= not kbd_rel;
+           if kbd_rel = '0' and fn_held(0) = '0' then fn_toggle(0) <= not fn_toggle(0); end if;
+         end if;
+         if kbd_scancode = x"0C" then                                    -- F4 : flip toggle
+           fn_held(1) <= not kbd_rel;
+           if kbd_rel = '0' and fn_held(1) = '0' then fn_toggle(1) <= not fn_toggle(1); end if;
+         end if;
+         if kbd_scancode = x"83" then                                    -- F7 : cocktail toggle
+           fn_held(2) <= not kbd_rel;
+           if kbd_rel = '0' and fn_held(2) = '0' then fn_toggle(2) <= not fn_toggle(2); end if;
+         end if;
+       end if;
+     end if;
+   end if;
+ end process;
 
- -- OR-merge the joystick on JA with the PS/2 keyboard joystick. JA physical
- -- map: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire, i.e. JA(0)=right,
- -- JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire. JA is active-low (pressed
+ -- OR-merge the joystick on JXADC with the PS/2 keyboard joystick. JXADC physical
+ -- map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire, i.e. JXADC(0)=right,
+ -- JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire. JXADC is active-low (pressed
  -- shorts to ground); invert so a press reads active-high, matching the
  -- core's active-high input boundary and the keyboard path.
- core_up    <= joy_BBBBFRLDU(0) or not JA(3);  -- up    (JA4)
- core_down  <= joy_BBBBFRLDU(1) or not JA(2);  -- down  (JA3)
- core_left  <= joy_BBBBFRLDU(2) or not JA(1);  -- left  (JA2)
- core_right <= joy_BBBBFRLDU(3) or not JA(0);  -- right (JA1)
- core_fire  <= joy_BBBBFRLDU(4) or not JA(4);  -- fire  (JA7)
+ core_up    <= kbd_joy(0) or not ja_s(3);  -- up    (JXADC4)
+ core_down  <= kbd_joy(1) or not ja_s(2);  -- down  (JXADC3)
+ core_left  <= kbd_joy(2) or not ja_s(1);  -- left  (JXADC2)
+ core_right <= kbd_joy(3) or not ja_s(0);  -- right (JXADC1)
+ core_fire  <= kbd_joy(4) or not ja_s(4);  -- fire  (JXADC7)
 
- -- Coin/start: keyboard (F1/F2/F3) OR-merged with dedicated buttons.
+ -- Coin/start: keyboard (5/6, 1/2) OR-merged with dedicated buttons.
  -- Buttons are active-high (Basys3 board pull-down, same convention as
- -- btnC). This core has a single coin input; btnU and btnD both trigger it.
+ -- btnC). btnU and btnD both trigger coin 1; key 6 = coin 2.
 -- Button debounce (see declarations).
-flip_sel <= fn_toggle(3) xor not sw(12);  -- sw(12) polarity inverted 2026-10-02
+flip_sel <= fn_toggle(1) xor not sw(12);  -- sw(12) polarity inverted 2026-10-02
 btn_raw <= btnU & btnD & btnL & btnR;
 process(clock_24)
 begin
@@ -321,9 +349,10 @@ begin
   end if;
 end process;
 
- core_coin1  <= fn_pulse(0) or btn_db(3) or btn_db(2);  -- coin   = F1 or btnU or btnD
- core_start1 <= fn_pulse(1) or btn_db(1);     -- start1 = F2 or btnL
- core_start2 <= fn_pulse(2) or btn_db(0);     -- start2 = F3 or btnR
+ core_coin1  <= kbd_joy(5) or btn_db(3) or btn_db(2);  -- coin 1 = 5 or btnU or btnD
+ core_coin2  <= kbd_joy(6);                            -- coin 2 = 6
+ core_start1 <= kbd_joy(7) or btn_db(1);     -- start1 = 1 or btnL
+ core_start2 <= kbd_joy(8) or btn_db(0);     -- start2 = 2 or btnR
 
  -- Pad native 3/3/2-bit RGB to the scan doubler's 6-bit/channel input by
  -- MSB replication, forced to black while blanked.
@@ -372,7 +401,7 @@ end process;
  end process;
 
  O_PMODAMP2_AIN   <= pwm_accumulator_l(17);
- O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
- O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
+ O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
+ O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 
 end struct;

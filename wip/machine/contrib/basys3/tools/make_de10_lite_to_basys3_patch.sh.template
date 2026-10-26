@@ -5,13 +5,14 @@
 # darfpga_place_top_level() in sf-darfpga/tools/lib/darfpga-patch.sh, which
 # places the tracked contrib/basys3/code/<TOP_ENTITY>.vhd into the Vivado
 # project sources and regenerates its provenance patch
-# (contrib/basys3/code/<game>_de10_lite_to_basys3.patch, a diff against the
-# pristine upstream <DE10_TOP> — documentation only, not consumed by the
-# build).
+# in contrib/basys3/code/: a diff against the pristine upstream <DE10_TOP>,
+# documentation only, not consumed by the build. darfpga-patch.sh names it after
+# the top entity with the _basys3 suffix removed (not after the game name), plus
+# _de10_lite_to_basys3.patch.
 #
 # Author the top-level VHDL itself as a real file at
-# contrib/basys3/code/<TOP_ENTITY>.vhd (see the <Machine>-by-Dar/PORTING_SPEC.md
-# and the external-IO convention in the root PORTING_SPEC.md §3; format it
+# contrib/basys3/code/<TOP_ENTITY>.vhd (see contrib/basys3/PORTING_SPEC.md
+# and the sf-darfpga PORTING_SPEC.md §3 and §4; format it
 # with sf-darfpga/tools/vhdl_formatter.py). If the port imports a
 # scandoubler, the VHDL must include the scandoubler wiring (component +
 # instance + clock derivation).

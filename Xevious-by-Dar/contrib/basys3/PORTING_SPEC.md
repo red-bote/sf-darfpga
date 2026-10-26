@@ -1,126 +1,135 @@
-# Xevious-by-Dar — Porting spec
+# Xevious-by-Dar — porting spec
 
-Upstream: `vhdl_xevious_de2_de10_lite_2017_05_01.zip` (darfpga@aol.fr,
-<http://darfpga.blogspot.fr>), which has an internal top-level folder
-(`vhdl_xevious_de2_de10_lite_2017_05_01/`, extracted as `SRC_DIR` per
-`setup_xevious.sh`). Project/top entity: `xevious_basys3`. Core clock:
-18.432 MHz (pixel clock 6.144 MHz = `ena_vidgen`); PS/2 decoder on the same clock (revised 2026-10-01, see Clocking). Video
-path: composite-sync core with genuine separate hsync/vsync exposed by patch —
-see "Video path" below.
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-Port status is tracked in the root `README.md` §Status, not here (per
-`.opencode/rules.md` §"Documentation scope (PORTING_SPEC.md)").
+## 1. Upstream and reference model
 
-## Clocking (`clk_wiz_0`, scripted in `make_clk_wiz_0.sh`)
+- Archive `vhdl_xevious_de2_de10_lite_2017_05_01.zip` (darfpga@aol.fr,
+  <http://darfpga.blogspot.fr>), internal top folder; SHA-256 in
+  `contrib/tools/setup_xevious.sh`; extracted to `vhdl_xevious_de2_de10_lite_2017_05_01/`.
+  Core `rtl_dar/xevious.vhd`; DE10 top `rtl_dar/xevious_de10_lite.vhd`.
+- MAME driver: `namco/xevious.cpp` (`xevious`).
+- Model: Galaga-Midway-by-Dar (same Namco core family, composite-sync core, MiST
+  scandoubler).
 
-Revised 2026-10-01 (`../../CLOCKING_SPEC.md` sections 4 and 5.2): single
-MMCM output `clk_out1` = 18.43196 MHz (the original 18.432 MHz crystal;
-Vivado solve DIVCLK 7 / MULT_F 61.125 / CLKOUT0_DIVIDE_F 47.375), signal
-`clock_18`, driving the `xevious` entity, the scandoubler clock chain and
-`io_ps2_keyboard`/`kbd_joystick` (single clock domain; >= 6 MHz keyboard
-requirement met). Pixel 6.144 MHz, CPUs 3.072 MHz (was 18.000 MHz,
--2.34%). The former `clk_out2` = 11 MHz keyboard clock is removed; the
-earlier note that exact 18/11 MHz division was impossible was also wrong
-(Vivado solved both exactly at VCO 990 MHz). `clk_wiz_0` `reset` is
-on `btnC` and the core reset is `btnC or not mmcm_locked` (2026-10-01,
-`../../CLOCKING_SPEC.md` section 6; previously tied to a static `'0'`).
+## 2. Clocking
 
-## Video path
+- Original: 18.432 MHz crystal; pixel 6.144 MHz (`ena_vidgen`), CPUs 3.072 MHz.
+- `clk_wiz_0`: request 18.432 MHz, achieved 18.43196 MHz (D 7 / M 61.125 / O 47.375), single
+  output, signal `clock_18`; clocks the core, scandoubler, keyboard and PWM.
+- Enables: the core derives pixel and CPU enables from `clock_18` (6-slot cycle).
+- Video: 384 pixel ticks per line at 6.144 MHz → H 16.000 kHz (31 kHz output 32.000 kHz),
+  V 60.61 Hz.
+- The `xevious_cpu_gfx_8bits` CPU/graphics ROM is instantiated in the wrapper, clocked on
+  `clock_18n <= not clock_18` (a signal, not an expression actual), as the DE10 top's
+  `clock_18n`.
+- History: until 2026-10-01 the MMCM had 18.000 MHz (core) and 11.000 MHz (keyboard only)
+  outputs: VGA 31.25 kHz / 59.19 Hz, -2.34% speed. Revision 2026-10-01
+  (`../../../CLOCKING_SPEC.md` sections 4 and 5.2): single output at the original crystal;
+  keyboard moved to `clock_18`. The earlier note that exact 18/11 MHz division was
+  impossible was wrong (Vivado solved both at VCO 990 MHz).
 
-### Problem
+## 3. Reset
 
-The `xevious` core (like Galaga's) generates composite sync and exposes it as
-`video_csync`; its `video_hs`/`video_vs` ports are commented out in the
-pristine entity (`xevious.vhd:140-141`). The pristine DE10-lite top puts
-`csync` straight on `vga_hs` and ties `vga_vs` high — 15 kHz TV only. To drive
-the imported MiST `scandoubler.v` in 31 kHz VGA mode, genuine separate
-hsync/vsync are required (the scandoubler detects hsync on its falling edge
-and copies `vs_in` through a register; it does not separate composite sync).
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC` (2026-10-01,
+`../../../CLOCKING_SPEC.md` section 6; previously the MMCM reset was tied `'0'` and the core
+reset was `btnC` alone).
 
-### Chosen approach: expose the core's internal hsync/vsync
+## 4. Core instantiation
 
-`contrib/code/xevious_expose_hsync_vsync.patch` is a single-file patch on
-`rtl_dar/xevious.vhd`:
+- `xevious` entity kept; discrete inputs `coin`, `start1`, `start2`, `up`, `down`, `left`,
+  `right`, `fire`, `bomb` driven from `joyBCPPFRLDU(8..0)`.
+- `video_hs`/`video_vs` added by the expose patch (§5) and fed to the scandoubler.
+- `b_test => b_test_in` (signal, §8); `b_svce => '1'` (DE10 value).
+- Debug hex display (`dbg_cpu_addr`) and LEDs not ported.
 
-- Realizes the entity's pre-existing commented `video_hs`/`video_vs` ports
-  (`xevious.vhd:140-141`).
-- Relays them from the `gen_video` instance's already-present `hsync`/`vsync`
-  outputs, which the patch re-wires from `open` to `video_hs`/`video_vs`
-  (the `gen_video` entity already has real `hsync`/`vsync` output ports
-  driven by its `hcntReg`/`vcntReg` counters, `gen_video.vhd:14-15`).
+## 5. Video path
 
-Polarity: `gen_video`'s `hsync` is active-low (pulses low around
-`hcntReg=495`), which the scandoubler requires (falling-edge detection);
-`vsync` is active-low, used by the scandoubler's `vs_out <= vs_in` register
-(vs_out toggles in phase).
+- Problem: the core generates composite sync (`video_csync`); its `video_hs`/`video_vs`
+  ports are commented out in the pristine entity (`xevious.vhd:140-141`); the DE10 top puts
+  csync on `vga_hs` and ties `vga_vs` high (15 kHz TV only). The MiST scandoubler needs
+  separate hsync/vsync (it detects hsync on its falling edge and registers `vs_in`).
+- Fix: `contrib/code/xevious_expose_hsync_vsync.patch` realizes the commented ports and
+  wires them from the `gen_video` instance's existing `hsync`/`vsync` outputs
+  (`gen_video.vhd:14-15`, driven by `hcntReg`/`vcntReg`). Both active-low.
+- Scandoubler (`contrib/code/scandoubler.v` + `scandoubler_fix.patch`):
 
-### Scandoubler wiring
+  | Port | Signal | Note |
+  |---|---|---|
+  | `clk_sys` | `clock_18` | core clock |
+  | `ce_x1` | mod-3 enable, 6.144 MHz | slot 0 of each 3-cycle group |
+  | `ce_x2` | mod-3 enable, 12.288 MHz average | slots 0 and 1 |
+  | `scanlines` | `"00"` | |
+  | `hs_in` / `vs_in` | core `video_hs` / `video_vs` | direct |
+  | `r_in/g_in/b_in` | `video_r & video_r(3 downto 2)` etc. | 4 bits padded to 6 by MSB replication, black when `blankn = '0'` |
 
-Component/port-map shape follows Galaga's (`Galaga-Midway-by-Dar/...`); the
-mapping for Xevious:
+  Line total 384 ticks fits `HCNT_WIDTH = 9`.
+- sw13: `0` = scandoubler output `(5 downto 2)`, `vga_hs/vs` from the doubler; `1` = native
+  4-bit RGB, `vga_hs <= video_csync`, `vga_vs <= '1'` (the DE10 top's path).
 
-| Port | Connected signal | Note |
+## 6. Audio
+
+Dar's PWM accumulator verbatim: `pwm_accumulator <= unsigned('0' &
+pwm_accumulator(11 downto 0)) + unsigned('0' & audio)` (`audio` 11 bits), output bit 12 to
+`O_PMODAMP2_AIN`. `O_PMODAMP2_SHUTD <= not sw(15)`, `O_PMODAMP2_GAIN <= not sw(14)`.
+
+## 7. Inputs
+
+- Keyboard: `io_ps2_keyboard` on `clock_18`, wrapper decoder (MAME keys, F0 = release, E0
+  ignored; `../../../PORTING_SPEC.md` §3.1, §4.3): arrows, Left Ctrl = fire, Left Alt =
+  bomb, 1/2 = start, 5/6 = coin (2026-10-20; replaced Dar's `kbd_joystick`, which is no
+  longer instantiated).
+- Core inputs: active-high discrete ports; fire and bomb are passed to the CPU as levels
+  (`xevious.vhd:1240`, `:1250`), so contact bounce is filtered by the game's once-per-frame
+  read: no JXADC fire debounce (no double shots on hardware, 2026-10-21; contrast Galaga,
+  `../../../Galaga-Midway-by-Dar/contrib/basys3/PORTING_SPEC.md` §7.1).
+- Merge (`joyBCPPFRLDU`): JXADC1 right, JXADC2 left, JXADC3 down and bomb (the core uses
+  `down`, `xevious.vhd:1218`; JXADC3 added to down 2026-10-01), JXADC4 up, JXADC7 fire;
+  coin = keys 5/6, btnU, btnD; start 1 = key 1, btnL; start 2 = key 2, btnR; bomb = Left
+  Alt, JXADC3, or JXADC up + fire.
+- Synchronizers (2026-10-02): 2-FF `ASYNC_REG` on `ps2_clk`/`ps2_dat`, JXADC(4:0) and
+  btnU/btnD/btnL/btnR, on `clock_18`. After the keyboard moved to `clock_18` (2026-10-01),
+  keyboard and joystick inputs stuck or were missed: `io_ps2_keyboard` has no synchronizer
+  or frame check, so a lost make code is a missed key and a lost F0 a stuck key.
+- Debounce (2026-10-02): btnU/btnD/btnL/btnR stable for 2^18 `clock_18` cycles (14.2 ms);
+  the core edge-detects coin, so release bounce counted extra coins.
+- Combos: JXADC up + fire = bomb (approved 2026-10-20); up and fire pass through.
+  Wrapper signals `ja_s`/`ja_*` carry JXADC (names kept from the JA era).
+
+## 8. Switches and DIPs
+
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw12 | `b_test` | 1 | `'1'` (off) | up = test/service mode; `b_test_in <= B_TEST_DEFAULT xor sw(12)`, 2026-10-20 |
+
+Fixed: `b_svce = '1'`. The DIP banks `dip_a = "11111111"` (cabinet, lives, bonus, coin A)
+and `dip_b` (freeze, difficulty, coin B) are constants inside `rtl_dar/xevious.vhd:410-411`
+(core patch needed; out of scope). sw13 display, sw14 gain, sw15 audio off.
+
+## 9. Patches
+
+| Patch | Target | Reason |
 |---|---|---|
-| `clk_sys` | `clock_18` (18 MHz) | MMCM core clock |
-| `ce_x1` | mod-3 enable, ~6 MHz | see clocking below |
-| `ce_x2` | mod-3 enable, ~12 MHz avg | see clocking below |
-| `scanlines` | `"00"` (literal) | matches fleet convention |
-| `hs_in` / `vs_in` | core's `video_hs`/`video_vs`, direct | exposed by patch |
-| `r_in`/`g_in`/`b_in` | `video_r & video_r(3 down to 2)` etc. | core outputs 4 bits/channel; pad to `COLOR_DEPTH=6` by MSB replication, gated `when blankn='1' else "000000"` |
+| `contrib/code/xevious_expose_hsync_vsync.patch` | `rtl_dar/xevious.vhd` | separate hsync/vsync for the scandoubler (§5) |
+| `contrib/code/xevious_synth_fix_xor_spflips.patch` | `rtl_dar/xevious.vhd` | `xor spflips` operand widths differ; Vivado rejects |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array range |
+| `contrib/basys3/code/xevious_de10_lite_to_basys3.patch` | `rtl_dar/xevious_de10_lite.vhd` | provenance record (generated) |
 
-Scandoubler enable clocking: the core's pixel clock is 6 MHz (`ena_vidgen`,
-asserted on slots "100"/"001" of the 6-slot 18 MHz cycle). A mod-3 counter on
-`clock_18` produces `ce_x1` (capture) on slot 0 and `ce_x2` (output) on slots
-0 and 1 of every 3-cycle group, giving `ce_x1` ≈ 6 MHz (input pixel rate) and
-`ce_x2` ≈ 12 MHz average (2x input, i.e. horizontal line doubling). The line
-total (384 effective pixel ticks at 6 MHz) fits the scandoubler's
-`HCNT_WIDTH=9` (512).
+## 10. PROM generation
 
-The `xevious_cpu_gfx_8bits` character/graphics ROM is instantiated in the
-wrapper (not the core), clocked on `not clock_18` (asserting edge mid-slot),
-matching the DE10 top's `clock_18n` convention.
+`contrib/tools/prep_roms.sh`: compiles `make_vhdl_prom`, rebuilds
+`make_xevious_proms.sh` from `make_xevious_proms.bat`, unzips `xevious.zip` (`ROMZIP`)
+into `tools/xevious_unzip/roms/`, renames the 9 color/sound PROMs to Dar's names
+(`xvi-8*.6a` → `xvi_8bpr.6a`, ...), generates the PROM VHDL (incl.
+`xevious_cpu_gfx_8bits.vhd`). The project references the generated files in place.
 
-### Dual-mode output (`sw(13)`, matches the fleet's TV/VGA switch convention)
+## 11. Build
 
-- `sw(13) = '0'` (VGA, 31 kHz): scandoubler output `vga_r/g/b_o(5 down to 2)`
-  on the top's 4-bit channels; `vga_hs <= hsync_o`, `vga_vs <= vsync_o`.
-- `sw(13) = '1'` (TV, 15 kHz): native `video_r/g/b` straight out (4-bit),
-  `vga_hs <= video_csync`, `vga_vs <= '1'` — exactly reproducing the pristine
-  DE10-lite top's behavior.
+`make` (setup, create_prj, clk_wiz, patch), `make check`, `make bitstream`. `make check`
+shows one pre-existing CRITICAL WARNING HDL 9-3240 (`r2_port_in`,
+`rtl_dar/xevious.vhd:1469`, core-internal).
 
-## Other wiring decisions
+## 12. Open items
 
-- **Reset**: `reset <= btnC` (active-high, matching the DE10 `reset <= not
-  key(0)`); `clk_wiz_0` reset static `'0'`.
-- **Inputs — JA joystick + keyboard, OR-merged**: unlike Phoenix, the
-  `xevious` core exposes discrete input ports (`coin`, `start1`, `start2`,
-  `up`, `down`, `left`, `right`, `fire`, `bomb`), so the wrapper OR-merges
-  the active-low JA joystick (inverted: `not JA(n)`, Galaga/Defender
-  pattern) with the PS/2 keyboard path (`io_ps2_keyboard` -> `kbd_joystick`
-  -> `joyBCPPFRLDU(8..0)`). Dedicated buttons add coin/start1/start2.
-  JA pin assignment honoring the Makefile's "bomb=JA3":
-  `JA[0]=right, JA[1]=left, JA[2]=down and bomb, JA[3]=up, JA[4]=fire`
-  (the core does use `down`, `rtl_dar/xevious.vhd:1218`; JA3 added to it
-  2026-10-01).
-- **Input synchronizers** (2026-10-02): `ps2_clk`/`ps2_dat`, `JA(4:0)` and
-  `btnU`/`btnL`/`btnR` pass through 2-FF synchronizers (`ASYNC_REG`) on
-  `clock_18`. After the keyboard moved to the 18.432 MHz core clock
-  (2026-10-01), keyboard and JA showed stuck and missed inputs. Cause, as in
-  `pinballwiz/NEXYS2-Pacman` PORTING_SPEC section 11: `io_ps2_keyboard` has
-  no synchronizer, an edge near a clock edge can drop a bit, and with no
-  frame check a lost make code is a missed key and a lost F0 a stuck key; a
-  stuck keyboard bit also holds the OR-merged JA direction. The vendored
-  decoder stays unmodified.
-- **Audio**: reuse the pristine DE10 top's PWM accumulator verbatim
-  (`pwm_accumulator <= unsigned('0' & pwm_accumulator(11 downto 0)) +
-  unsigned('0' & audio)`, `audio` is 11 bits, out = bit 12) — same pattern
-  as every other machine (each reuses its own core's native accumulator
-  width rather than a shared implementation).
-- **`sw(14)`/`sw(15)`**: `sw(14)` = AMP shutdown/enable, `sw(15)` = AMP gain
-  (`O_PMODAMP2_SHUTD`/`O_PMODAMP2_GAIN`), the fleet's sound-enable/AMP-gain
-  pair.
-- **Dip switches**: `b_test => '1'`, `b_svce => '1'` (like the DE10 top);
-  no `sw` mapping for them.
-- **Debug hex display**: not ported (no 7-segment wiring on this board) —
-  matches every other machine.
-- **LEDs**: not ported — matches the fleet.
+None.

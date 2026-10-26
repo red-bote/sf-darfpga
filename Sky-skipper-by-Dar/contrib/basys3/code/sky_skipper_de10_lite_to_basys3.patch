@@ -1,7 +1,7 @@
 diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd b/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
 --- a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
 +++ b/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
-@@ -1,410 +1,289 @@
+@@ -1,410 +1,314 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Sky skipper by Dar (darfpga@aol.fr) (26/12/2019)
 --- http://darfpga.blogspot.fr
@@ -437,37 +437,25 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +--    core outputs inverted video (video_r/g/b <= not palette_do), which is
 +--    passed through unchanged.
 +--  - Keyboard on the Basys3 onboard USB-HID connector (ps2_clk = C17,
-+--    ps2_dat = B17), NOT on the JB Pmod, using Dar's io_ps2_keyboard +
-+--    kbd_joystick clocked directly on clock_40 (40 MHz, comfortably above the
-+--    >= 6 MHz the onboard USB-HID host needs). The pristine clock_kbd divider
-+--    was dropped from the keyboard path; clock_div is kept only to gate the
-+--    PWM audio accumulator.
-+--  - Keyboard map (kbd_joystick -> joy_BBBBFRLDU, 9 bits):
-+--      bit0 = Up arrow (0x75)      -> up          bit4 = Space (0x29) -> fire10
-+--      bit1 = Down arrow (0x72)    -> down        bit5 = F (0x2B)     -> unused
-+--      bit2 = Left arrow (0x6B)    -> left        bit6 = G (0x34)     -> unused
-+--      bit3 = Right arrow (0x74)   -> right       bit7 = T (0x2C)     -> unused
-+--                                                bit8 = V (0x2A)     -> unused
-+--      Left Ctrl (0x14, decoded in this wrapper) -> fire11 / fire21 (fire B)
-+--  - Function keys (kbd_joystick):
-+--      F1 (fn_pulse 0) = coin1      F2 (fn_pulse 1) = coin2
-+--      F3 (fn_pulse 2) = start1     F4 (fn_pulse 3) = start2
-+--      F7 (fn_toggle 6) = service1
-+--  - JA joystick OR-merged with the keyboard (JA is active-low; a press is
-+--    inverted to active-high like the keyboard path):
-+--      JA1 = right  JA2 = left  JA3 = down  JA4 = up  JA7 = fire
-+--    JA7 drives both fire10 and fire11. Player 2 mirrors player 1 (the core
-+--    has no independent P2 controls, only dip-switch cocktail duplicates).
++--    ps2_dat = B17), io_ps2_keyboard on clock_40. Scancodes decoded in this
++--    wrapper, MAME default keys (2026-10-20, replaces kbd_joystick; F0 =
++--    release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1), mapping as the
++--    hardware-verified rb-fpga/rework Sky Skipper port:
++--      arrows = move, Left Ctrl = speed up (fire10/fire20),
++--      Left Alt = bomb (fire11/fire21), 1/2 = start, 5/6 = coin 1/2,
++--      9 = service1 (held)
++--  - JXADC joystick (active-low, inverted): JXADC1/2/3/4 = right/left/down/up,
++--    any JXADC direction also = speed up, JXADC7 = bomb. Player 2 mirrors
++--    player 1 (the core has no independent P2 controls).
 +--  - Pushbuttons: btnU = coin1, btnD = coin2, btnL = start1, btnR = start2
-+--    (btnC = reset). These replace the dedicated-key requirements so the
-+--    port is playable with a joystick + buttons only.
-+--  - DIP switches keep the pristine hard-coded values: sw1 = "0000000"
-+--    (normal coinage) and sw2 = "00000010" (lives/difficulty). Not wired to
-+--    the board switches.
-+--  - Mono PWM audio on PmodAMP2 (JC): reproduces the pristine 18-bit
++--    (btnC = reset).
++--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40.
++--  - DIP switches: sw1 = "0000000" (Dar's not("1111111"), normal coinage);
++--    sw2 = sw(7 downto 0), not inverted (as rework, hardware 2026-10-19).
++--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4): reproduces the pristine 18-bit
 +--    accumulator exactly, gated on clock_div = "0000" (effective 4 MHz
 +--    update) on clock_40, adding ('0'&audio&'0') i.e. audio doubled; output is
-+--    bit 17. sw14 = shutdown, sw15 = gain select.
++--    bit 17. sw15 up = audio disabled, sw14 up = gain.
 +--  - DE10-lite's 7-segment debug hex display (decodeur_7_seg on
 +--    dbg_cpu_addr) and unused peripheral shims (usb_host_max3421e,
 +--    sgtl5000_dac) are not ported; dbg_cpu_addr is left open.
@@ -494,7 +482,7 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  btnU            : in  std_logic;  -- coin1
 +  btnD            : in  std_logic;  -- coin2
 +
-+  JA              : in  std_logic_vector(4 downto 0);  -- joystick (right/left/down/up/fire)
++  JXADC              : in  std_logic_vector(4 downto 0);  -- joystick (right/left/down/up/fire)
 +  ps2_dat         : in  std_logic;
 +  ps2_clk         : in  std_logic;
 +
@@ -534,21 +522,36 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  -- now runs on clock_40 for the onboard USB-HID host)
 +  signal clock_div : std_logic_vector(3 downto 0);
 +
++  -- 2-FF synchronizers (clock_40) for the asynchronous inputs
++  signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
++  signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
++  signal jxadc_meta, jxadc_s     : std_logic_vector(4 downto 0) := (others => '1');
++  signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0'); -- U, D, L, R
++  attribute ASYNC_REG : string;
++  attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
++  attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
++
 +  signal kbd_intr     : std_logic;
 +  signal kbd_scancode : std_logic_vector(7 downto 0);
-+  signal joy_BBBBFRLDU: std_logic_vector(8 downto 0);
-+  signal kbd_released : std_logic := '0';
-+  signal kbd_lctrl    : std_logic := '0';  -- Left Ctrl held: fire B
-+  signal fn_pulse     : std_logic_vector(7 downto 0);
-+  signal fn_toggle    : std_logic_vector(7 downto 0);
++  signal kbd_rel      : std_logic := '0';
++  -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++  --           6 '1', 7 '2', 8 '5', 9 '6', 10 '9'
++  signal kbd_key      : std_logic_vector(10 downto 0) := (others => '0');
++  signal joy_BBBBFRLDU: std_logic_vector(5 downto 0);
++  signal coin1_in     : std_logic;
++  signal coin2_in     : std_logic;
++  signal start1_in    : std_logic;
++  signal start2_in    : std_logic;
++  signal sw2_in       : std_logic_vector(7 downto 0); -- dip switch 2
 +
-+  signal ja_up    : std_logic;
-+  signal ja_down  : std_logic;
-+  signal ja_left  : std_logic;
-+  signal ja_right : std_logic;
-+  signal ja_fire  : std_logic;
-+
++ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
++ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
++ -- sw1: coinage DCBA (bits 3-0) on sw11-8; n.u. bits (6-4) fixed.
++ constant SW1_DEFAULT : std_logic_vector(6 downto 0) := "0000000";
++ signal sw1_in : std_logic_vector(6 downto 0);
 +begin
++
++sw1_in <= SW1_DEFAULT xor ("000" & sw(11 downto 8));  -- coinage on sw11-8
 +
 +  reset <= btnC or not mmcm_locked;
 +
@@ -582,32 +585,32 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +
 +    audio_out    => audio,
 +
-+    coin1         => fn_pulse(0) or btnU,  -- F1 or btnU
-+    coin2         => fn_pulse(1) or btnD,  -- F2 or btnD
-+    start1        => fn_pulse(2) or btnL,  -- F3 or btnL
-+    start2        => fn_pulse(3) or btnR,  -- F4 or btnR
++    coin1         => coin1_in,  -- 5 or btnU
++    coin2         => coin2_in,  -- 6 or btnD
++    start1        => start1_in, -- 1 or btnL
++    start2        => start2_in, -- 2 or btnR
 +
-+    right1         => joy_BBBBFRLDU(3) or ja_right,
-+    left1          => joy_BBBBFRLDU(2) or ja_left,
-+    up1            => joy_BBBBFRLDU(0) or ja_up,
-+    down1          => joy_BBBBFRLDU(1) or ja_down,
-+    fire10         => joy_BBBBFRLDU(4) or ja_fire,
-+    fire11         => kbd_lctrl or ja_fire,
++    right1         => joy_BBBBFRLDU(3),
++    left1          => joy_BBBBFRLDU(2),
++    up1            => joy_BBBBFRLDU(0),
++    down1          => joy_BBBBFRLDU(1),
++    fire10         => joy_BBBBFRLDU(4), -- speed up
++    fire11         => joy_BBBBFRLDU(5), -- bomb
 +
-+    right2         => joy_BBBBFRLDU(3) or ja_right,
-+    left2          => joy_BBBBFRLDU(2) or ja_left,
-+    up2            => joy_BBBBFRLDU(0) or ja_up,
-+    down2          => joy_BBBBFRLDU(1) or ja_down,
-+    fire20         => joy_BBBBFRLDU(4) or ja_fire,
-+    fire21         => kbd_lctrl or ja_fire,
++    right2         => joy_BBBBFRLDU(3),
++    left2          => joy_BBBBFRLDU(2),
++    up2            => joy_BBBBFRLDU(0),
++    down2          => joy_BBBBFRLDU(1),
++    fire20         => joy_BBBBFRLDU(4),
++    fire21         => joy_BBBBFRLDU(5),
 +
 +  --      ...DCBA
-+    sw1            => "0000000",  --  n.u.(3b hard wired)  / coinage(DCBA)
++    sw1            => sw1_in,     --  Dar: not("1111111") n.u.(3b hard wired)  / coinage(DCBA) on sw11-8
 +
 +  --      PONMLKJI
-+    sw2            => "00000010", -- cocktail(P) / service2(O) / bonus(N) / difficulty(MLK) / lives(IJ)
++    sw2            => sw2_in,  -- sw7-0 (Dar: not("11111101")) cocktail(P) / service2(O) / bonus(N) / difficulty(MLK) / lives(IJ)
 +
-+    service1       => fn_toggle(6),  -- F7
++    service1       => kbd_key(10),  -- 9 (MAME service 1)
 +
 +    dbg_cpu_addr   => open
 +  );
@@ -629,48 +632,70 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +    end if;
 +  end process;
 +
++  -- synchronize asynchronous inputs to the core clock
++  process(clock_40)
++  begin
++    if rising_edge(clock_40) then
++      ps2_clk_meta <= ps2_clk;      ps2_clk_s <= ps2_clk_meta;
++      ps2_dat_meta <= ps2_dat;      ps2_dat_s <= ps2_dat_meta;
++      jxadc_meta   <= JXADC;        jxadc_s   <= jxadc_meta;
++      btn_meta     <= btnU & btnD & btnL & btnR;
++      btn_s        <= btn_meta;
++    end if;
++  end process;
++
 +  -- get scancode from keyboard (onboard USB HID host on C17/B17, clock_40)
 +  keyboard : entity work.io_ps2_keyboard
 +  port map (
 +    clk       => clock_40,
-+    kbd_clk   => ps2_clk,
-+    kbd_dat   => ps2_dat,
++    kbd_clk   => ps2_clk_s,
++    kbd_dat   => ps2_dat_s,
 +    interrupt => kbd_intr,
 +    scancode  => kbd_scancode
 +  );
 +
-+  -- translate scancode to joystick / function keys
-+  joystick : entity work.kbd_joystick
-+  port map (
-+    clk            => clock_40,
-+    kbdint         => kbd_intr,
-+    kbdscancode    => kbd_scancode,
-+    joy_BBBBFRLDU  => joy_BBBBFRLDU,
-+    fn_pulse       => fn_pulse,
-+    fn_toggle      => fn_toggle
-+  );
-+
-+  -- Fire B (fire11/fire21) on Left Ctrl (0x14) instead of Dar's F key.
-+  -- Decoded here so the core's kbd_joystick stays unpatched. Make/break
-+  -- handling as in kbd_joystick (F0 marks the next code as a release).
-+  process (clock_40)
++  -- translate scancode to keys (MAME default keys, PS/2 set 2 codes), replaces
++  -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the
++  -- arrows, Right Ctrl/Alt alias Left Ctrl/Alt).
++  process(clock_40)
 +  begin
 +    if rising_edge(clock_40) then
 +      if kbd_intr = '1' then
-+        if kbd_scancode = x"F0" then kbd_released <= '1'; else kbd_released <= '0'; end if;
-+        if kbd_scancode = x"14" then kbd_lctrl <= not kbd_released; end if;
++        if kbd_scancode = x"F0" then
++          kbd_rel <= '1';
++        elsif kbd_scancode /= x"E0" then
++          kbd_rel <= '0';
++          if kbd_scancode = x"75" then kbd_key(0)  <= not kbd_rel; end if; -- up arrow
++          if kbd_scancode = x"72" then kbd_key(1)  <= not kbd_rel; end if; -- down arrow
++          if kbd_scancode = x"6B" then kbd_key(2)  <= not kbd_rel; end if; -- left arrow
++          if kbd_scancode = x"74" then kbd_key(3)  <= not kbd_rel; end if; -- right arrow
++          if kbd_scancode = x"14" then kbd_key(4)  <= not kbd_rel; end if; -- left ctrl
++          if kbd_scancode = x"11" then kbd_key(5)  <= not kbd_rel; end if; -- left alt
++          if kbd_scancode = x"16" then kbd_key(6)  <= not kbd_rel; end if; -- 1
++          if kbd_scancode = x"1E" then kbd_key(7)  <= not kbd_rel; end if; -- 2
++          if kbd_scancode = x"2E" then kbd_key(8)  <= not kbd_rel; end if; -- 5
++          if kbd_scancode = x"36" then kbd_key(9)  <= not kbd_rel; end if; -- 6
++          if kbd_scancode = x"46" then kbd_key(10) <= not kbd_rel; end if; -- 9
++        end if;
 +      end if;
 +    end if;
 +  end process;
 +
-+  -- JA physical map: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire. JA is
-+  -- active-low (pressed shorts to ground); invert so a press reads active-high,
-+  -- matching the core's active-high input boundary and the keyboard path.
-+  ja_up    <= not JA(3);
-+  ja_down  <= not JA(2);
-+  ja_left  <= not JA(1);
-+  ja_right <= not JA(0);
-+  ja_fire  <= not JA(4);
++  -- merge keyboard, buttons and JXADC joystick. JXADC is active-low (pressed
++  -- shorts to ground); invert so a press reads active-high, matching the
++  -- core's active-high input boundary and the keyboard path.
++  coin1_in  <= kbd_key(8) or btn_s(3); -- 5 or btnU
++  coin2_in  <= kbd_key(9) or btn_s(2); -- 6 or btnD
++  start1_in <= kbd_key(6) or btn_s(1); -- 1 or btnL
++  start2_in <= kbd_key(7) or btn_s(0); -- 2 or btnR
++  sw2_in    <= sw(7 downto 0);         -- dip switch 2 from sw7-0 (not inverted, rework hardware 2026-10-19)
++  joy_BBBBFRLDU(0) <= kbd_key(0) or not jxadc_s(3); -- up    (JXADC4)
++  joy_BBBBFRLDU(1) <= kbd_key(1) or not jxadc_s(2); -- down  (JXADC3)
++  joy_BBBBFRLDU(2) <= kbd_key(2) or not jxadc_s(1); -- left  (JXADC2)
++  joy_BBBBFRLDU(3) <= kbd_key(3) or not jxadc_s(0); -- right (JXADC1)
++  -- fire10 (speed up) : left ctrl, or any JXADC direction
++  joy_BBBBFRLDU(4) <= kbd_key(4) or not (jxadc_s(3) and jxadc_s(2) and jxadc_s(1) and jxadc_s(0));
++  joy_BBBBFRLDU(5) <= kbd_key(5) or not jxadc_s(4); -- fire11 (bomb) : left alt (JXADC7)
 +
 +  -- Pad native 3/3/2-bit RGB to the VGA connector's 4-bit/channel input by
 +  -- MSB replication (identical to the pristine vga_r/vga_g/vga_b).
@@ -696,8 +721,8 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  end process;
 +
 +  O_PMODAMP2_AIN   <= pwm_accumulator(17);
-+  O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-+  O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
++  O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
++  O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 +
 +end struct;
 +

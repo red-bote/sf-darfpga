@@ -1,161 +1,110 @@
-# Zaxxon-by-Dar (Basys 3 port)
+# Zaxxon-by-Dar
 
-Zaxxon (Gremlin/Sega, 1980) by Dar (`darfpga@aol.fr`,
-http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
-`README.txt` in the extracted source archive for the original Dar release
-notes.
+Basys 3 port of Zaxxon (Gremlin/Sega, 1980), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_zaxxon_rev_0_0_2019_11_29.zip` (rev 0.0,
+2019-11-29, SourceForge folder `zaxxon`), `dloads/`. Upstream release notes:
+`README.txt` in the extracted archive.
 
-- Vivado 2020.2 project: `basys3/zaxxon_basys3.xpr` (top entity
-  `zaxxon_basys3`)
-- Core clock: 24.329 MHz (48.66 MHz crystal / 2; CPU 3.041 MHz, pixel
-  6.082 MHz as the original; from the 100 MHz Basys 3 oscillator via
-  `clk_wiz_0`; see `../CLOCKING_SPEC.md`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 24.32900 MHz;
-  reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=3`,
-  `CLKFBOUT_MULT_F=35.125`, `CLKOUT0_DIVIDE_F=48.125`. VGA 31.678 kHz /
-  60.00 Hz (was 24.000 MHz: 31.25 kHz / 59.19 Hz, -1.36% speed).
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20: picture (31 kHz VGA via MiST scandoubler), sound, keyboard
+(MAME keys, keyboard on `clock_24`), JXADC joystick including fire with a CX40-type
+joystick (missed presses earlier were a faulty joystick), buttons. Open items: none.
 
-- **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`). sw(13) switches to 15 kHz TV mode (native
-  RGB + composite sync on HS). The pristine core only drove composite sync
-  (`video_csync`); `zaxxon_expose_video_timing.patch` adds real
-  `video_hs`/`video_vs` drivers plus a `pix_clk_div` output exposing the
-  core's real 12/6 MHz clock bits for the scandoubler's `clk_sys`/`ce_x1` —
-  see `contrib/basys3/PORTING_SPEC.md` §4 for the full derivation.
-- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
-  tracked as `contrib/code/scandoubler.v`, copied into the project by
-  `create_project.sh`.
-- **Sound**: mono (left-channel) PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged);
-  dedicated buttons for coin/start (btnU/btnD = coin, btnL = start 1, btnR =
-  start 2), btnC = reset. Hardware-confirmed 2026-09-28: USB-HID keyboard
-  working. (An initial plain XDC pin swap on 2026-09-26 was non-functional on
-  hardware; the keyboard runs on its own independent `clock_div_kbd` divider
-  (`clock_24` / 4 = 6 MHz exactly), added 2026-09-28 -- the pre-existing
-  `clock_div` counter, still used unchanged to gate the PWM accumulator, was too
-  slow (~4 MHz) for the onboard host.)
+## Features (Basys 3)
 
-| Input | Keyboard |
-|-------|----------|
-| Move | Arrow keys |
-| Fire | Space |
-| Coin | F1 |
-| Start 1 | F2 |
-| Start 2 | F3 |
-| Flip screen | F4 |
-| Service | F5 |
-| Cocktail/upright | F7 |
+- Video: 31 kHz VGA via the MiST scandoubler; the core's hsync/vsync and pixel-clock bits
+  are exposed by `contrib/code/zaxxon_expose_video_timing.patch`. sw13 up = 15 kHz TV
+  (native RGB, csync on HS, VS high).
+- Keyboard: onboard USB-HID port, MAME default keys.
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/fire, active
+  low, pull-ups in the XDC. 8-way.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, left channel.
+- Single clock domain (24.329 MHz = 48.66 MHz crystal / 2).
 
-JA joystick (active-low, switch to GND):
-- JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- No coin/start combos on JA — dedicated buttons handle that (see below).
-- Player 2 mirrors player 1 inputs (the core has no genuine second control
-  set, only cocktail-mode duplicates).
+## Controls
 
-Buttons (active-high, Basys3 board pull-down, same convention as btnC):
-- btnU = coin-in, btnD = coin-in (this core has a single coin input; both
-  buttons trigger it)
-- btnL = start 1, btnR = start 2, btnC = reset
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| move | arrows | pins 1-4 | |
+| fire | Left Ctrl | pin 7 | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin 1 | 5 | | btnU / btnD |
+| coin 2 | 6 | | |
+| service (toggle) | F2 | | |
+| flip screen (toggle) | F4 | | sw12 (XOR) |
+| cocktail / upright (toggle) | F7 | | |
+| reset | | | btnC |
+
+Player 2 mirrors player 1 (the core's `*_c` cocktail inputs take the player 1 signals).
+Toggles flip on key press and ignore typematic repeat. Buttons are debounced (10.8 ms);
+JXADC fire is not (2-FF only; the core passes fire to the CPU as a level). No joystick
+combos.
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| sw12 | flip screen, XOR with the F4 toggle | `flip_sel = F4 toggle xor '1'` | `flip_sel = F4 toggle` |
+
+The core's DIP values are set inside `rtl_dar/zaxxon.vhd:453-454`: `sw1_input =
+cocktail & "111" & x"f"` (only cocktail is a port, the F7 toggle) and `sw2_input = x"33"`
+(coin A/B 1 coin 1 credit); not wireable without a core patch.
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnU / btnD | `btnU` / `btnD` | coin-in (all buttons debounced ~11 ms since 2026-10-02) |
-| btnL / btnR | `btnL` / `btnR` | start 1 / start 2 |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
-| sw(12) | `sw(12)` | display flip, inverted polarity (XOR with the F4 toggle; added and inverted 2026-10-02) |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (mono/left channel; JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC`, `btnU`, `btnD`, `btnL`, `btnR` | reset / coin 1 / coin 1 / start 1 / start 2 |
+| sw(15:0) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
+| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
 
-## Scripted setup
+## Clocking
 
-`contrib/tools/setup_zaxxon.sh` automates the manual steps below: it fetches
-the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
-matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_zaxxon_rev_0_0_2019_11_29/`, applies
-`contrib/code/zaxxon_hflip_xor_width.patch` and
-`contrib/code/zaxxon_expose_video_timing.patch`, then runs
-`contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
-`make_zaxxon_proms.bat`, stage the romset from `$ROMZIP` (default
-`~/roms/zaxxon.zip`) and generate the PROM VHDL. Run it via `make setup`.
+`clk_wiz_0`: 24.32900 MHz (D 3 / M 35.125 / O 48.125), single domain, signal `clock_24`;
+original 48.66 MHz crystal / 2 (CPU 3.041 MHz, pixel 6.082 MHz). VGA H 31.678 kHz, V
+60.00 Hz. Details: `contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
 
-The remaining steps are wrapped by the machine `Makefile`: `make create_prj`
-(copies `zaxxon_basys3.xpr` and `Basys-3-Master.xdc` into the extracted tree,
-imports `scandoubler.v`), `make clk_wiz` (generates the `clk_wiz_0` MMCM IP
-wrappers), `make patch` (regenerates `zaxxon_de10_lite_to_basys3.patch` and
-places `zaxxon_basys3.vhd`), then `make synth` / `make bitstream` (Vivado
-batch runs; logs stay outside the repo).
+## Required ROMs
 
-## ROM set required
+`zaxxon.zip` (MAME romset; `ROMZIP`, default `~/roms/zaxxon.zip`). Not included.
+`prep_roms.sh` unzips it into `tools/zaxxon_unzip/` and generates `zaxxon_cpu.vhd`,
+`zaxxon_char_bits_1/2.vhd`, `zaxxon_bg_bits_1/2/3.vhd`, `zaxxon_sp_bits_1/2/3.vhd`,
+`zaxxon_map_1/2.vhd`, `zaxxon_palette.vhd`, `zaxxon_char_color.vhd`.
+**Do not redistribute roms or anything generated from them.**
 
-MAME ROM set `zaxxon.zip`, unzipped into `tools/zaxxon_unzip/`:
+## Building
 
-```
-~/roms/zaxxon.zip   ->   tools/zaxxon_unzip/
-```
+Requires gcc, unzip, Vivado 2020.2 (`VIVADO` overrides the path), openFPGALoader.
+`make help`; `make` (setup, create_prj, clk_wiz, patch), `make check` (parse-only),
+`make bitstream`, `make load`. Project
+`vhdl_zaxxon_rev_0_0_2019_11_29/basys3/zaxxon_basys3.xpr` (top `zaxxon_basys3`).
 
-Then run `./make_zaxxon_proms.sh` from that directory to generate the PROM
-VHDL (`zaxxon_cpu.vhd`, `zaxxon_char_bits_1/2.vhd`, `zaxxon_bg_bits_1/2/3.vhd`,
-`zaxxon_sp_bits_1/2/3.vhd`, `zaxxon_map_1/2.vhd`, `zaxxon_palette.vhd`,
-`zaxxon_char_color.vhd`). The Vivado project references these generated files
-in place, so the build needs only the staged ROMs + the script.
+## Known issues
 
-machine ROMs are copyrighted — never commit or redistribute them.
+- Scandoubler `clk_sys` is the core's register-derived `clock_cnt(0)` (untimed path,
+  `../KNOWN_ISSUES.md`); no hardware symptom.
 
-## Applying the hflip XOR-width fix
+## Issues addressed for Basys 3
 
-The pristine Dar core (`vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd`)
-fails Vivado synthesis on `hflip2`'s assignment: the literal
-`(not(hcnt(8)) & "0000000")` is only 8 bits wide, but `hflip`/`hflip2` are
-9-bit signals. The fix left-pads the literal to 9 bits:
+- `rtl_dar/zaxxon.vhd`: 8-bit literal XORed with 9-bit `hflip`, Vivado rejects it; padded
+  to 9 bits (`contrib/code/zaxxon_hflip_xor_width.patch`; check:
+  `grep -n '"0" & not(hcnt(8))' .../rtl_dar/zaxxon.vhd`).
+- `rtl_dar/zaxxon.vhd`: `video_hs`/`video_vs` declared but never driven; patch drives them
+  and adds `pix_clk_div` (`contrib/code/zaxxon_expose_video_timing.patch`; check:
+  `grep -n 'pix_clk_div' .../rtl_dar/zaxxon.vhd`).
+- MiST `scandoubler.v`: unpacked array range Vivado rejects (`contrib/code/scandoubler_fix.patch`).
 
-```vhdl
-hflip2 <= hflip xor ("0" & not(hcnt(8)) & "0000000") when flip = '1' else hflip;
-```
+## Third-party sources
 
-`zaxxon_hflip_xor_width.patch` in `contrib/code/` applies that change to the
-unmodified Dar source. Verify it took:
-
-```
-grep -n '"0" & not(hcnt(8))' vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
-```
-
-## Applying the video-timing exposure fix
-
-The pristine core declares `video_hs`/`video_vs` output ports but never
-drives them anywhere in the architecture (only `video_csync` is real, built
-from a composite-sync generator with equalizing/serration pulses) — no VGA
-display resulted until this was fixed. `zaxxon_expose_video_timing.patch`
-adds:
-
-```vhdl
-video_hs <= hsync0;                        -- already a valid per-line pulse
-video_vs <= '0' when vcnt < 8 else '1';    -- new simple pulse in the existing blanking window
-pix_clk_div <= clock_cnt(1 downto 0);      -- exposes the core's real 12/6 MHz clock bits
-```
-
-`pix_clk_div` feeds the Basys3 wrapper's scandoubler `clk_sys`/`ce_x1`
-directly from the core's own clock divider rather than a locally mirrored
-counter — see `contrib/basys3/PORTING_SPEC.md` §4 for the full derivation,
-including the Galaga-precedent finding that a fast clock fed directly into
-`clk_sys` does not work for this scandoubler module. Verify the patch took:
-
-```
-grep -n 'pix_clk_div' vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
-```
-
-## Build status
-
-The port is fully scripted (`make setup create_prj clk_wiz patch synth
-bitstream`). Hardware bring-up is complete: a bitstream has been built and
-the port runs correctly on the Basys 3 board.
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |

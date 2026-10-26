@@ -22,7 +22,10 @@ Iterate from the top module: for every `entity work.<name>`, locate the file
 defining that entity (or Verilog module of the same name), add it, repeat to
 fixpoint. Expect roughly: clocking wrappers, CPU library set (T80s =
 T80_Pack/T80/T80_ALU/T80_MCode/T80_Reg/T80s), gen_ram, io_ps2_keyboard,
-kbd_joystick, video/audio modules, PROM VHDLs, top level.
+video/audio modules, PROM VHDLs, the Basys 3 wrapper, `clk_wiz_0`, the MiST scandoubler
+import where used. `kbd_joystick.vhd` is listed in every existing project but no longer
+instantiated (the wrapper decodes the keys, `PORTING_SPEC.md` §4.3); a new port may omit
+it.
 
 Never extract archives into the repo; extracted trees are build artifacts
 (reproducible via setup scripts, removed by `make clean`).
@@ -39,15 +42,15 @@ filenames:
 
 | Signature in the core | Video path | Machines |
 |---|---|---|
-| No `tv15Khz_mode`; wrapper drives `vga_hs <= csync` (15 kHz composite sync) | External MiST scandoubler needed | Galaga, Burnin-Rubber |
-| Internal `line_doubler` instantiation | Doubles internally; no external doubler | Bagman, Berzerk |
-| Progressive branch under `tv15Khz_mode='0'`: vcnt counts 524/525, pix_ena ~20 MHz comment | Native progressive 31 kHz | Kick, Popeye, Sky Skipper, Solar Fox |
-| Ships DECA `vga_scandoubler.v` | Ported with that module | none in sf-darfpga since 2026-10-05 (Time Pilot, Pooyan moved to MiST `scandoubler.v`); still in `other/` and `red-bote/` Arcade_Pooyan / Arcade_Zaxxon |
+| No `tv15Khz_mode`; 15 kHz composite sync only | External MiST scandoubler (`contrib/code/scandoubler.v` + fix patch) | Burger-Time, Burnin-Rubber, Computer-Space, Defender, Galaga, Phoenix, Pooyan, Time-Pilot, Traverse-USA, Xevious, Zaxxon |
+| Internal `line_doubler` instantiation under `tv15Khz_mode` | Doubles internally; no external doubler | Bagman, Berzerk, Crazy-Kong |
+| Progressive branch under `tv15Khz_mode='0'`: vcnt counts 524/525 | Native progressive 31 kHz | Kick, Popeye, Satans-Hollow, Sky-skipper, Solar-Fox, Tron |
 
 ## Authoring the .xpr
 
-Clone `Galaga-Midway-by-Dar/contrib/basys3/vivado/galaga_basys3.xpr` and
-substitute:
+Clone the tracked `.xpr` of the closest machine
+(`Pooyan-by-Dar/contrib/basys3/vivado/pooyan_basys3.xpr` for a MiST-scandoubler machine)
+and substitute:
 
 - Project name / TopModule (appears in both sources_1 and sim_1 configs)
 - FileSet `sources_1` File entries: one per closed-over source; PROM VHDLs are

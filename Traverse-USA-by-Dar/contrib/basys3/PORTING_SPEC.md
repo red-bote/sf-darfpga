@@ -1,47 +1,58 @@
-# Traverse-USA-by-Dar — Porting spec
+# Traverse-USA-by-Dar — porting spec
 
-## 1. Reference model
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-- Source archive: `vhdl_traverse_usa_rev_0_0_2019_03_16.zip` (SourceForge
-  folder `traverse_usa`) → `vhdl_traverse_usa_rev_0_0_2019_03_16/` at the
-  machine root.
-- Core: `rtl_dar/traverse_usa.vhd` (entity `traverse_usa`); off-core support
-  `rtl_dar/{moon_patrol_sound_board,gen_ram,io_ps2_keyboard,kbd_joystick}.vhd`,
-  `rtl_jkent/cpu68.vhd` (M6803), `rtl_mikej/ym_2149_linmix.vhd`, `rtl_T80/*`.
-- Top entity: `traverse_usa_basys3` (target file
-  `sources_1/new/traverse_usa_basys3.vhd`).
-- Part: `xc7a35tcpg236-1`, VHDL target language.
-- Status: in progress (see root `README.md` Status section for the current
-  verified stage).
+## 1. Upstream and reference model
+
+- Archive `vhdl_traverse_usa_rev_0_0_2019_03_16.zip` (SourceForge `darfpga/files/Software
+  VHDL/traverse_usa`), SHA-256 in `contrib/tools/setup_traverse_usa.sh`; extracted to
+  `vhdl_traverse_usa_rev_0_0_2019_03_16/`. Core `rtl_dar/traverse_usa.vhd` (entity
+  `traverse_usa`); DE10 top `rtl_dar/traverse_usa_de10_lite.vhd`.
+- Support sources: `rtl_dar/{moon_patrol_sound_board,gen_ram,io_ps2_keyboard,kbd_joystick}.vhd`
+  (`kbd_joystick` unreferenced since 2026-10-20), `rtl_jkent/cpu68.vhd` (M6803),
+  `rtl_mikej/ym_2149_linmix.vhd`, `rtl_T80/*`.
+- MAME driver: `travrusa` (romset `travrusa`).
+- Top entity `traverse_usa_basys3`; part `xc7a35tcpg236-1`, VHDL. Model: Burnin-Rubber
+  (scandoubler wiring shape), Galaga (derived `clk_sys`).
 
 ## 2. Clocking
 
-- Two core clocks: **36.86 MHz** (`clock_36`, core) and **3.58 MHz**
-  (`clock_3p58`, sound board), derived on DE10-lite from 50 MHz by
-  `max10_pll_36p86M_3p58M`. On Basys 3, `clk_wiz_0` derives both from the
-  100 MHz board oscillator (single MMCM, two outputs).
-- Reset active-high (`btnC`), `locked` used — see §3.
-- The pristine top also derives a divided `clock_6` (a toggle) for the
-  keyboard via a `clock_div` mod-6 counter on `clock_36`; this divider is
-  reused verbatim (renamed `clock_kbd` to avoid colliding with the
-  scandoubler's `sd_clock_6`).
+- Original: 18.432 MHz main/video crystal (Z80 3.072 MHz, pixel 6.144 MHz); sound board
+  (Irem M52) 3.579545 MHz (`../../../CLOCK_CRYSTAL_CATALOG.md`).
+- DE10: `max10_pll_36p86M_3p58M` derives 36.86 and 3.58 MHz from 50 MHz.
+- `clk_wiz_0` (one MMCM, two outputs): request 36.86 / 7.16 MHz, achieved `clk_out1` =
+  36.842105 MHz (`clock_36`, core) and `clk_out2` = 7.159091 MHz (`clock_7p16`); DIVCLK 1 /
+  MULT_F 7.875 / CLKOUT0 21.375 / CLKOUT1 110, VCO 787.5 MHz. `clock_3p58` =
+  `clock_7p16` / 2 (fabric toggle) for the sound board and PWM (Defender pattern).
+- Keyboard: on `clock_36` since 2026-10-20 (§7). The DE10 top derived a ~3 MHz keyboard
+  toggle from a mod-6 counter; the port first used a mod-3 `clock_kbd` (~6.14 MHz).
+- Video: pixel `clock_36` / 6 = 6.140351 MHz (`pix_ena` twice per 12-state `clock_cnt`),
+  384 counts/line (`hcnt` 128-511), 282 lines (`vcnt` 230-511) → native 15.99 kHz /
+  56.70 Hz, VGA 31.98 kHz.
+- Separate domains kept (not converted): `clock_3p58`/`clock_7p16` (sound) and the fabric
+  scandoubler `sd_clock_12` (§5). Retune to 36.864 MHz was optional and skipped
+  (2026-10-01).
 
-## 3. Reset polarity
+## 3. Reset
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Bagman/Berzerk/Pooyan
-  pattern) — core held in reset while `btnC` is pressed or the MMCM has not
-  locked. `clk_wiz_0`'s own `reset` port is driven directly by `btnC`.
+`reset <= btnC or not mmcm_locked` (Bagman/Berzerk/Pooyan pattern); MMCM reset = `btnC`.
 
-## 4. Video (31 kHz VGA / 15 kHz TV, switch-selectable)
+## 4. Core instantiation
 
-The `traverse_usa` core entity declares `video_hs`/`video_vs` output ports but
-the shipped core leaves the drivers **commented out** (the pristine DE10 top
-also leaves them `open`, with a "not tested" comment) — only `video_csync` is
-active. This core therefore belongs in the **Phoenix/Xevious/Zaxxon category**
-("core needs a patch to expose hsync/vsync before a scandoubler can be used").
+- `traverse_usa` port map kept; inputs `coin1`, `start1/2`, `right1/2`, `left1/2`,
+  `accel1/2`, `brake1/2`, `dip_switch_1/2`; no fire input. `accel1` = `input_1` bit 5,
+  `brake1` = bit 7.
+- `video_hs`/`video_vs` are declared but not driven by the shipped core;
+  `traverse_usa_expose_video_timing.patch` (§9) enables them.
+- `dbg_cpu_addr` left `open`.
 
-`contrib/code/traverse_usa_expose_video_timing.patch` un-comments the dormant
-drivers — no new logic needed:
+## 5. Video path
+
+The core declares `video_hs`/`video_vs` but its drivers are commented out (the DE10 top
+also leaves them `open`, "not tested"); only `video_csync` is active. Category: core needs a
+patch to expose hsync/vsync (as Phoenix/Xevious/Zaxxon; no `tv15Khz_mode`, no internal
+`line_doubler`). The patch un-comments the dormant drivers:
 
 ```vhdl
 video_hs <= hsync0;
@@ -52,7 +63,7 @@ end if;
 
 `video_hs` is the core's real per-line `hsync0` pulse (already valid
 horizontal sync, unconditional every line). `video_vs` is built from the
-existing `vsync_cnt` variable — a 4-bit feedback counter that the
+existing `vsync_cnt` variable; a 4-bit feedback counter that the
 composite-sync generator already runs (it counts 0→F and is reset at line
 start): `video_vs` is low only while `vsync_cnt = 0`, high otherwise, giving a
 1-line vertical-sync pulse inside the existing blanking window (the same
@@ -62,55 +73,20 @@ independent of the legacy equalizing/serration machinery that drives
 
 No `line_doubler.vhd` exists in this core's archive (that's
 Bagman/Berzerk's structurally different no-scandoubler approach), and the
-wrapper is not inside the core, so the patch is the only viable fix — matching
+wrapper is not inside the core, so the patch is the only viable fix; matching
 the Phoenix/Xevious/Zaxxon signature (no `tv15Khz_mode` input, no internal
 `line_doubler`) from the `xpr-dependency-closure` skill's classification
 table.
 
-### Scandoubler clocks
+### 5.1 Scandoubler wiring
 
-The core's pixel clock is 6.14 MHz (`pix_ena`-equivalent; the core's real
-video rate is `clock_36 / 6`). The wrapper derives `sd_clock_12`
-(`clk_sys`) and `sd_clock_6` (`ce_x1`) with a mod-6 counter on `clock_36`,
-following **Galaga's proven pattern** — Galaga's own porting record
-(`Galaga-Midway-by-Dar/PORTING_SPEC.md` #12.3.3) documents that wiring a fast
-MMCM clock directly to `clk_sys` "no funciona" (does not work); the working
-design uses a derived `clk_sys` at 2× `ce_x1`, with `ce_x2` tied to `'1'`.
-This port follows Burnin-Rubber-by-Dar's scan-doubler wiring shape directly.
-
-The imported `scandoubler.v` is the MiST scandoubler
-(`contrib/code/scandoubler.v`, cleanroom import, never modified in place),
-added under `imports/mist/`. `contrib/code/scandoubler_fix.patch` (Vivado
-2020.2 Verilog-2001 parser fix) is applied only to the copied project
-instance by `create_project.sh`, never to the canonical import.
-
-### Component declaration (as declared in `traverse_usa_basys3.vhd`)
-
-```vhdl
-component scandoubler
-    port (
-        clk_sys   : in  std_logic;
-        scanlines : in  std_logic_vector (1 downto 0);
-        ce_x1     : in  std_logic;
-        ce_x2     : in  std_logic;
-        hs_in     : in  std_logic;
-        vs_in     : in  std_logic;
-        r_in      : in  std_logic_vector (5 downto 0);
-        g_in      : in  std_logic_vector (5 downto 0);
-        b_in      : in  std_logic_vector (5 downto 0);
-        hs_out    : out std_logic;
-        vs_out    : out std_logic;
-        r_out     : out std_logic_vector (5 downto 0);
-        g_out     : out std_logic_vector (5 downto 0);
-        b_out     : out std_logic_vector (5 downto 0)
-    );
-end component;
-```
-
-Binds by name to the Verilog module `scandoubler`, `COLOR_DEPTH = 6` /
-`HCNT_WIDTH = 9` defaults, not overridden.
-
-### Port map (`scandoubler_inst`)
+- MiST `scandoubler.v` (`contrib/code/`, unmodified; project copy under `imports/mist/`
+  patched by `scandoubler_fix.patch` in `create_project.sh`), `COLOR_DEPTH = 6`,
+  `HCNT_WIDTH = 9` (defaults).
+- Clocks: `sd_clock_12` (`clk_sys`) and `sd_clock_6` (`ce_x1`) from a mod-6 counter on
+  `clock_36`, Galaga pattern (`../../../Galaga-Midway-by-Dar/contrib/basys3/PORTING_SPEC.md`
+  §5.1: a fast clock directly on `clk_sys` "no funciona"); `ce_x2` `'1'`. `sd_clock_12` is a
+  register-derived clock (untimed path, `../../../KNOWN_ISSUES.md`).
 
 | Port | Direction | Connected signal | Type/width |
 |---|---|---|---|
@@ -129,125 +105,106 @@ Binds by name to the Verilog module `scandoubler`, `COLOR_DEPTH = 6` /
 | `g_out` | out | `vga_g_o` | `std_logic_vector(5 downto 0)` |
 | `b_out` | out | `vga_b_o` | `std_logic_vector(5 downto 0)` |
 
-### Upstream signals (into the scan doubler)
-
-- `hs_in`/`vs_in`: driven directly by the core's `video_hs`/`video_vs`
-  outputs (real only since `traverse_usa_expose_video_timing.patch`, see
-  above), no intermediate logic. `video_csync` is not connected to the scan
-  doubler; it drives the local `csync` used only by the `sw(13)` TV-mode
-  output mux.
-- `r_in`/`g_in`/`b_in`: the core exposes native `r`/`g`/`b` as 2/3/3 bits
-  (`video_r(1:0)`, `video_g(2:0)`, `video_b(2:0)`) plus a `blankn`
-  (`video_blankn`) output. Padded to 6 bits by MSB replication, forced to
-  `"000000"` while blanked:
+- `hs_in`/`vs_in`: the core's patched `video_hs`/`video_vs`, no intermediate logic.
+  `video_csync` drives `csync` for TV mode only.
+- RGB: core 2/3/3 bits (`video_r(1:0)`, `video_g(2:0)`, `video_b(2:0)`), padded to 6 by MSB
+  replication, black while `blankn = '0'`:
 
   ```vhdl
   vga_r_i <= r & r & r      when blankn = '1' else "000000";
   vga_g_i <= g & g           when blankn = '1' else "000000";
   vga_b_i <= b & b           when blankn = '1' else "000000";
   ```
-- `scanlines`: tied to `"00"` (scanline attenuation unused).
+- `scanlines` `"00"`.
 
-### Downstream signals (out of the scan doubler) — `sw(13)` mux
+### 5.2 Display mode (sw13)
 
-- **VGA mode (`sw(13) = '0'`)** — 31 kHz progressive VGA, sync from the scan
-  doubler, colour truncated to the top 4 bits of each 6-bit field:
+- `sw(13) = '0'`: 31 kHz VGA, sync from the scandoubler, top 4 of 6 bits:
+
   ```vhdl
   vgaHsync <= hsync_o;  vgaVsync <= vsync_o;
   vgaRed   <= vga_r_o(5 downto 2);
   vgaGreen <= vga_g_o(5 downto 2);
   vgaBlue  <= vga_b_o(5 downto 2);
   ```
-- **TV mode (`sw(13) = '1'`)** — 15 kHz TV, native core RGB (2/3/3 padded to
-  4/4/4 with zeros), composite sync on HS, VS held high:
+- `sw(13) = '1'`: 15 kHz TV, native RGB padded with zeros, csync on HS, VS high:
+
   ```vhdl
   vgaRed <= r & "00";  vgaGreen <= g & '0';  vgaBlue <= b & '0';
   vgaHsync <= csync;  vgaVsync <= '1';
   ```
+- Caveat: the patched `video_hs`/`video_vs` are not validated on hardware in Dar's
+  original release; validated on the Basys 3 build.
 
-### Caveats
+## 6. Audio
 
-- The pristine DE10-lite top leaves `video_hs`/`video_vs` unconnected and
-  derives all sync from `video_csync` only — and the shipped core doesn't
-  drive `video_hs`/`video_vs` without `traverse_usa_expose_video_timing.patch`.
-  This port wires the patched signals into the scan doubler; a pattern not
-  validated on real hardware in the original Dar release for this core.
+`audio(10:0)` mono. Dar's PWM accumulator verbatim (`'0' & acc(11:0)` + `audio & "00"`,
+13 bits, `O_PMODAMP2_AIN` = bit 12) on `clock_3p58` (same clock as
+`moon_patrol_sound_board`). `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
 
-## 5. Audio (mono PWM on PmodAMP2)
+## 7. Inputs
 
-- `audio_out` is 11-bit on this core (`audio(10:0)`), mono — matching the
-  Burnin-Rubber note's "11-bit mono `audio_out`" case.
-- The PWM accumulator is reused verbatim from the pristine DE10 top
-  (`pwm_accumulator <= ( '0' & pwm_accumulator(11 downto 0) ) +
-  ( audio & "00" )`, 13-bit accumulator, `O_PMODAMP2_AIN <=
-  pwm_accumulator(12)`), clocked on `clock_3p58` (same clock as the
-  `moon_patrol_sound_board`).
-- `sw(15)` → AMP gain, `sw(14)` → AMP shutdown (standard convention).
+- Keyboard: onboard USB-HID host (C17 `ps2_clk`, B17 `ps2_dat`). `io_ps2_keyboard` and the
+  wrapper decoder on `clock_36` (2026-10-20, replaces `kbd_joystick`;
+  `../../../PORTING_SPEC.md` §3.1, MAME `travrusa`), F0 = release, E0 ignored, into
+  `kbd_joy(8:2)`: Left/Right arrows = steer, Left Ctrl = accelerate, Left Alt = brake,
+  5 / 6 = coin, 1 / 2 = start. Previously Dar's `kbd_joystick` (up/Space accelerate, down
+  brake, F1 coin, F2/F3 start).
+- Keyboard clock history: the pristine ~3 MHz toggle left the USB-HID port non-functional
+  (same symptom as Arcade_Zaxxon and Congo Bongo, hardware 2026-09-03); fixed with a
+  ~6.14 MHz `clock_kbd`; moved to `clock_36` 2026-10-20 (user-approved refactor, removes the
+  fabric clock and the crossing into the core; precedent Kick/Popeye/Solar-Fox 40 MHz,
+  Computer-Space 48 MHz). Hardware-verified 2026-10-21.
+- Core inputs: active-high levels; P2 mirrors P1 (`right2`/`left2`/`brake2`/`accel2` on the
+  P1 signals, as the DE10 top).
+- Merge: `core_accel <= kbd_joy(4) or not jxadc_s(4)` (Left Ctrl / JXADC7);
+  `core_brake <= kbd_joy(8) or not jxadc_s(2)` (Left Alt / JXADC3); left/right =
+  arrows or JXADC2/JXADC1; coin = 5/6 or btnU/btnD (single `coin1`); start 1/2 = 1/2 or
+  btnL/btnR. JXADC4 (up) accelerated until 2026-10-20; removed (user), unused.
+- Down+fire asserts brake and accelerate (fire passes through); brake alone covers the
+  §3.1 down+fire entry.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_36` (2026-10-20;
+  previously JXADC and buttons unsynchronized).
+- Debounce: none. Combos: down+fire only (§3.1).
 
-## 6. Inputs
+## 8. Switches and DIPs
 
-- **Keyboard is always on the Basys 3 onboard USB HID host** (C17 =
-  `ps2_clk`, B17 = `ps2_dat`) — plugged into the onboard USB-A port, never
-  JB and never an external PS/2 connector. This follows the Computer-Space /
-  Congo Bongo convention (as opposed to Galaga/Popeye/Tron/Defender, which
-  put the keyboard on JB), feeding the standard `io_ps2_keyboard`/
-  `kbd_joystick` chain.
-- **The keyboard sampling clock must be ≥ 6 MHz** (verified working rate on
-  the Basys3 onboard USB-HID host). The pristine top's mod-6 toggle on
-  `clock_36` (~3 MHz) leaves the onboard USB-HID port non-functional (the
-  same symptom Arcade_Zaxxon and Congo Bongo hit and fixed, confirmed on
-  real hardware 2026-09-03; Pooyan's working design also uses ~6 MHz).
-  This port's `clock_kbd` is a **keyboard-only** divider (nothing shares
-  `clock_div` here — the PWM accumulator runs on `clock_3p58`, so changing
-  its period has no audio side effect) set to a mod-3 toggle →
-  `clock_36/6 ≈ 6.14 MHz`. See the machine `README.md` Known issues.
-- The `kbd_joystick` used here is the `joyPCFRLDU` (8-bit) variant in this
-  core's archive (not `joy_BBBBFRLDU`): bit0=Up, bit1=Down, bit2=Left,
-  bit3=Right, bit4=Space, bit5=F1, bit6=F2, bit7=F3.
-- JA joystick (5-pin, active-low, invert to active-high) OR-merged into
-  movement + accelerate/brake only: `JA1=Right, JA2=Left, JA3=Down/brake,
-  JA4=Up/accelerate, JA7=Fire/accelerate`. **The core has no genuine fire
-  input** (`traverse_usa.vhd` port list has no `fire`) — accelerate and fire
-  both drive the core's `accel` port. So up (JA4, or arrow-UP bit0) *and*
-  fire (JA7, or SPACE bit4) both accelerate, and down (JA3, or arrow-DOWN
-  bit1) brakes.
-- **Coin/start: dedicated Basys3 buttons** in addition to the keyboard:
-  `btnU`/`btnD` = coin (both map to the core's single `coin1`), `btnL` =
-  start 1, `btnR` = start 2, each OR'd with the keyboard-decoded
-  `joyPCFRLDU(5)`/`(6)`/`(7)` (F1/F2/F3). No JA combos are added: this port
-  has dedicated buttons, so the combo layer is redundant.
-- Player 2 mirrors player 1 movement inputs (the core has no genuine second
-  control set, only cocktail-mode duplicates — matches the pristine top,
-  which wired `right2`/`left2`/`brake2`/`accel2` to the same P1 joystick
-  bits).
-- Dip switches are hardcoded to `x"FF"` / `x"FE"` (same constants as the
-  pristine DE10 top).
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw7-0 | `dip_switch_2` | 7-0 | `x"FE"` | Diag(7) / Demo(6) / Zippy(5) / Freeze(4) / M-Km(3) / Coin mode(2) / Cocktail(1) / Flip(0) |
+| sw11-8 | `dip_switch_1` | 3-0 | `x"FF"` | Cont. play(3) / Fuel consumption(2) / Fuel lost when collision(1-0) |
 
-## 7. LEDs
+`dip = DEFAULT xor sw` (2026-10-20, `../../../PORTING_SPEC.md` §3.2; previously
+hardcoded). Fixed: Coinage_B (`dip_switch_1` bits 7-4). sw12 spare.
 
-- No `led` port: the pristine top's `ledr` and 7-segment `hex0..3` are a
-  debug/`dbg_cpu_addr` chain not ported (matches every other machine's
-  convention); `dbg_cpu_addr` is left `open`.
+## 9. Patches
 
-## 8. Synthesis-fix / behavior-fix patches
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/code/traverse_usa_expose_video_timing.patch` | `rtl_dar/traverse_usa.vhd` | enables the dormant `video_hs`/`video_vs` drivers (§5); behaviour fix, the pristine core synthesizes but has no VGA sync. Verify: `grep -n 'video_hs <= hsync0' <SRC_DIR>/rtl_dar/traverse_usa.vhd` |
+| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado 2020.2 Verilog-2001 parser fix |
+| `contrib/basys3/code/traverse_usa_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
-- `traverse_usa_expose_video_timing.patch`: un-comments the core's dormant
-  `video_hs`/`video_vs` drivers (see §4) — a behavior fix, not a
-  synthesis-failure fix; the pristine core synthesizes without error but
-  produces no valid VGA sync.
-- `scandoubler_fix.patch` (§4) is applied to the imported scandoubler copy
-  only, not to the pristine `traverse_usa` tree.
-- No width/sensitivity synthesis-fix patch was needed for this core.
+No width/sensitivity synthesis fix was needed for this core.
 
-## 9. Shared conventions & hard rules
+## 10. PROM generation
 
-- **Non-nested project layout**: the `.xpr` lives directly in `basys3/` as
-  `basys3/traverse_usa_basys3.xpr`, sources tree at
-  `basys3/traverse_usa_basys3.srcs/`.
-- **Vivado build scripts run from `/tmp`** so `vivado.log`/`vivado.jou` stay
-  out of the repo.
-- **Tool/path resolution** is `ENV_VAR → project default → interactive prompt`:
-  - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-  - roms: `ROMZIP` → `~/roms/travrusa.zip`
-- **Roms and generated PROM VHDL are copyrighted content** — never commit or
-  distribute them.
+`contrib/tools/prep_roms.sh`: compiles `make_vhdl_prom`, converts `make_travusa_proms.bat`
+to shell, unzips `ROMZIP` (default `~/roms/travrusa.zip`) into `tools/travusa_unzip/` and
+generates `travusa_cpu.vhd`, `travusa_chr_bit1/2/3.vhd`, `travusa_chr_palette.vhd`,
+`travusa_spr_bit1/2/3.vhd`, `travusa_spr_palette.vhd`, `travusa_spr_rgb_lut.vhd`,
+`travusa_sound.vhd`. The project references them in place. Never committed.
+
+## 11. Build
+
+`make setup` (fetch to `dloads/` with SHA-256 check, extract, video-timing patch, PROMs),
+`make create_prj` (`.xpr`, `Basys-3-Master.xdc`, scandoubler import), `make clk_wiz`,
+`make patch`, `make check`, `make synth` / `make bitstream`, `make load`. Project
+`basys3/traverse_usa_basys3.xpr` (not nested). Vivado from `/tmp`; `VIVADO` →
+`/tools/Xilinx/Vivado/2020.2/bin/vivado`; `ROMZIP` → `~/roms/travrusa.zip`.
+
+## 12. Open items
+
+- Sound clocks `clock_7p16`/`clock_3p58` and the scandoubler `sd_clock_12` are separate,
+  partly register-derived domains (`../../../KNOWN_ISSUES.md`); single-domain conversion
+  (Pooyan pattern) not done.

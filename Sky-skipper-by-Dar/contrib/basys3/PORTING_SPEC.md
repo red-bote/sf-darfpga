@@ -1,81 +1,101 @@
-# Sky-skipper-by-Dar — Porting spec
+# Sky-skipper-by-Dar: porting spec
 
-## 1. Reference model
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-- Source archive: `vhdl_sky_skipper_rev_01_2020_01_28.zip` (SourceForge folder `sky_skipper`,
-  per the repo-root `downloads.md`) → `vhdl_sky_skipper_rev_01_2020_01_28/` at the machine root.
-- Top entity: `sky_skipper_basys3` (target file `sources_1/new/sky_skipper_basys3.vhd`).
-- Part: `xc7a35tcpg236-1`, VHDL target language.
-- Directory naming note: this machine's directory is `Sky-skipper-by-Dar` (lowercase `s`), not
-  `Sky-Skipper-by-Dar` — see root `README.md`'s directory-naming bullet.
+## 1. Upstream and reference model
+
+- Archive `vhdl_sky_skipper_rev_01_2020_01_28.zip` (SourceForge `darfpga/files/Software
+  VHDL/sky_skipper/`), SHA-256 in `contrib/tools/setup_sky_skipper.sh`; extracted to
+  `vhdl_sky_skipper_rev_01_2020_01_28/`. Core `rtl_dar/sky_skipper.vhd`.
+- MAME driver: `nintendo/popeye.cpp` (`skyskipr`, `tnx1_state`, same TNX-1 board as Popeye).
+- Top entity `sky_skipper_basys3`; part `xc7a35tcpg236-1`. Directory `Sky-skipper-by-Dar`
+  (lowercase `s`).
+- Closest existing port used as model: Popeye-by-Dar.
 
 ## 2. Clocking
 
-- Single core clock: **40.32 MHz** (revised 2026-10-01 from 40 MHz, as Popeye; `../../CLOCKING_SPEC.md` 5.6), derived from the 100 MHz Basys 3 oscillator by `clk_wiz_0`.
-- Solved MMCM: `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=31.5`,
-  `CLKOUT0_DIVIDE_F=15.625`. Core patch `contrib/code/sky_skipper_clock_cnt2_width.patch` restores the CPU f/10 / AY f/20 dividers (pristine 4-bit counter ran mod 16). Reset active-high (`btnC`), `locked` used.
+- Original: single 8.000 MHz crystal; Z80 XTAL/2 = 4 MHz, AY-3-8910 XTAL/4 = 2 MHz.
+- `clk_wiz_0`: request 40.32 MHz, achieved 40.320 MHz (5 / 31.5 / 15.625, VCO 630 MHz);
+  signal `clock_40`. Retuned 2026-10-01 from 40.000 MHz (1 / 10 / 25), as Popeye
+  (`../../../CLOCKING_SPEC.md` 5.6).
+- Enables: `clock_cnt2` (after the width patch) CPU f/10 = 4.032 MHz (+0.8%), AY f/20 =
+  2.016 MHz; `clock_div` gates the PWM accumulator.
+- Video (scanner 640 x 526, display 512 x 448): progressive pixel `clock_40`/2 = 20.16 MHz,
+  H = 31.500 kHz, V = 59.886 Hz; TV pixel 10.08 MHz, H = 15.750 kHz, V = 59.886 Hz.
 
-## 3. Reset polarity
+## 3. Reset
 
-- **Basys 3:** `reset <= btnC or not mmcm_locked;` (Berzerk/Bagman/Pooyan pattern).
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC`.
 
-## 4. Video (31 kHz VGA / 15 kHz TV)
+## 4. Core instantiation
 
-- No external scandoubler: the core is **native progressive 31 kHz** — it drives the real
-  `video_hs`/`video_vs` itself on a 20 MHz pixel clock (`tv15Khz_mode = '0'`); `'1'` selects
-  15 kHz interlaced timing.
-- Display mode is selected by **sw(13)** (0 = 31 kHz VGA, 1 = 15 kHz TV) XORed with the
-  **F8** keyboard toggle (`fn_toggle(7)`), so F8 inverts the mode in either switch position.
-  The default `sw(13)=0` (F8 not pressed) is **31 kHz VGA**, giving an out-of-the-box picture
-  with no PS/2 keyboard attached. This replaces the pristine polarity
-  (`tv15Khz_mode <= not fn_toggle(7)`, which defaulted to 15 kHz) and also departs from the
-  Kick/Solar-Fox keyboard-only convention by adding the Bagman/Popeye-style sw(13) override.
-- HS/VS select is a direct copy of the pristine DE10 top
-  (`vga_hs <= csync when tv15Khz_mode = '1'`, `vga_vs <= '1' when tv15Khz_mode = '1'`);
-  RGB is padded 3/3/2 → 4/4/4 (`r&'0'`, `g&'0'`, `b&"00"`) in both modes. The core's
-  inverted video outputs are passed through unchanged.
+Dar's `sky_skipper` entity unchanged. Core inputs driven from signals (no expression
+actuals): `sw1_in`, `sw2_in`, `service1`, player inputs. The core's inverted video outputs
+pass through unchanged.
 
-## 5. Audio (mono PWM on PmodAMP2)
+## 5. Video path
 
-- Mono PWM accumulator reproducing the pristine top's 18-bit accumulator on `clock_40`,
-  gated on the `clock_div = "0000"` phase of the pristine clock divider (see §6 — the
-  keyboard no longer uses this divider); output is bit
-  17. `sw(15)` → AMP gain, `sw(14)` → AMP shutdown.
+No external scandoubler: native progressive 31 kHz on a 20 MHz pixel enable
+(`tv15Khz_mode = '0'`); `'1'` selects 15 kHz interlaced timing. `tv15Khz_mode <= sw(13)`
+(2026-09-29; earlier sw13 XOR the F8 toggle `fn_toggle(7)`; pristine
+`not fn_toggle(7)` defaulted to 15 kHz). HS/VS select copied from the DE10 top
+(`vga_hs <= csync`, `vga_vs <= '1'` when `tv15Khz_mode = '1'`); RGB padded 3/3/2 → 4/4/4
+(`r&'0'`, `g&'0'`, `b&"00"`).
 
-## 6. Inputs
+## 6. Audio
 
-- Keyboard on the **Basys3 onboard USB-HID connector** (`ps2_clk` = C17, `ps2_dat` = B17),
-  NOT on the JB Pmod: `io_ps2_keyboard` + `kbd_joystick` are clocked directly on `clock_40`
-  (40 MHz, comfortably above the ≥ 6 MHz the onboard USB-HID host needs). The pristine
-  `clock_kbd` divider (40/20 = 2 MHz) was dropped from the keyboard path (too slow for the
-  USB-HID host) and is retained only as the `clock_div` gate for the PWM accumulator — the
-  shared pristine counter is otherwise untouched.
-- Keyboard → core: arrows = up/down/left/right, Space = fire10, F = fire11; F1/F2/F3/F4 =
-  coin1/coin2/start1/start2; F7 = service; F8 = `tv15Khz_mode` toggle.
-- JA joystick (active-low, invert to active-high) OR-merged with the keyboard:
-  `JA1=Right, JA2=Left, JA3=Down, JA4=Up, JA7=Fire`; JA7 drives both the core's Fire A and
-  Fire B inputs.
-- Pushbuttons: `btnU` = coin1, `btnD` = coin2, `btnL` = start1, `btnR` = start2 (btnC =
-  reset). Player 2 mirrors player 1 (the core has no independent P2 controls, only
-  cocktail-mode duplicates).
-- DIP switches keep the pristine hard constants: `sw1 = "0000000"`, `sw2 = "00000010"`; the
-  board switches are not wired to them.
+Pristine mono 18-bit accumulator on `clock_40`, gated on `clock_div = "0000"`;
+`O_PMODAMP2_AIN <= pwm_accumulator(17)`. `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
 
-## 7. LEDs
+## 7. Inputs
 
-- **Not ported** — the pristine DE10 top's `ledr` is commented out (dead code) and the core
-  has no LED output; the wrapper declares no `led` port and the XDC keeps the LEDs commented
-  (unlike Bagman/Berzerk/Pooyan which wire `led(15:0)`).
+- Keyboard: `io_ps2_keyboard` on `clock_40` (onboard USB-HID C17/B17), wrapper decoder (MAME
+  keys, `../../../PORTING_SPEC.md` §3.1, §4.3), replaces `kbd_joystick` (2026-10-20;
+  `kbd_joystick.vhd` stays in the project, unreferenced). The pristine `clock_kbd`
+  (`clock_40`/20 = 2 MHz) was too slow for the USB-HID host and is no longer produced; its
+  `clock_div` counter remains for the PWM gate.
+- Keys: arrows = directions, Left Ctrl = `fire10` (speed up), Left Alt = `fire11` (bomb),
+  1/2 = start, 5/6 = coin 1/2, 9 = `service1` (held). Mapping as the hardware-verified
+  `rb-fpga/ref-repos` Sky Skipper port.
+- JXADC (active-low, inverted): JXADC1/2/3/4 = right/left/down/up, JXADC7 = bomb
+  (`fire11`); any JXADC direction also drives `fire10` (speed up), as rework.
+- Buttons: btnU = coin 1, btnD = coin 2, btnL/btnR = start 1/2. Player 2 mirrors player 1
+  (the core has only cocktail-mode duplicates).
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_40`.
+- Debounce: none. Combos: none beyond the rework direction → speed-up mapping.
 
-## 8. Shared conventions & hard rules
+## 8. Switches and DIPs
 
-- **Non-nested project layout**: the `.xpr` lives directly in `basys3/` as
-  `basys3/sky_skipper_basys3.xpr`, with the sources tree at `basys3/sky_skipper_basys3.srcs/`.
-- **Vivado build scripts run from `/tmp`** so `vivado.log`/`vivado.jou` stay out of the repo.
-- **Tool/path resolution** is `ENV_VAR → project default → interactive prompt`:
-  - Vivado: `VIVADO` → `/tools/Xilinx/Vivado/2020.2/bin/vivado`
-  - roms: `ROMZIP` → `~/roms/skyskipr.zip`
-- **Roms and generated PROM VHDL are copyrighted content** — never commit or distribute them.
-- **No synthesis-fix patch** is required for this core: every XOR is full-expression-width
-  (the constant is padded to the full width by `std_logic_unsigned`, no ckong/Bagman-style
-  sub-part misalignment), and all PROM address widths match their core drivers.
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw7-0 | `sw2` | 7-0 | `'0'` | `sw2_in <= sw(7 downto 0)`, not inverted (as rework, hardware 2026-10-19); cocktail (P) / service2 (O) / bonus (N) / difficulty (MLK) / lives (IJ); Dar's DE10 value `not("11111101")` = `"00000010"` |
+| sw11-8 | `sw1` | 3-0 coinage DCBA | `"0000000"` (Dar `not("1111111")`) | `SW1_DEFAULT xor ("000" & sw(11:8))` (2026-10-20, §3.2) |
+| sw13 | `tv15Khz_mode` | | 31 kHz VGA | up = 15 kHz TV |
+| sw14 / sw15 | PmodAMP2 GAIN / SHUTD | | gain low / audio on | |
+
+Fixed: `sw1` n.u. bits 6-4 (hard-wired in Dar's top). sw12 spare.
+
+## 9. Patches
+
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/code/sky_skipper_clock_cnt2_width.patch` | `rtl_dar/sky_skipper.vhd` | 4-bit `clock_cnt2` never reached the `"10011"` reload; CPU f/8, AY f/16; widened to 5 bits (2026-10-01) |
+| `contrib/basys3/code/sky_skipper_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
+
+No synthesis-fix patch: every XOR is full-width and all PROM address widths match their
+core drivers.
+
+## 10. PROM generation
+
+`contrib/tools/prep_roms.sh`: `make_sky_skipper_proms.bat` → shell; romset `skyskipr.zip`
+(`ROMZIP`).
+
+## 11. Build
+
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. The `.xpr` lives
+at `vhdl_sky_skipper_rev_01_2020_01_28/basys3/sky_skipper_basys3.xpr`.
+
+## 12. Open items
+
+None.

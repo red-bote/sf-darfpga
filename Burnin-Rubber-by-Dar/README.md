@@ -1,123 +1,103 @@
-# Burnin-Rubber-by-Dar (Basys 3 port)
+# Burnin-Rubber-by-Dar
 
-Burnin' Rubber (Data East, 1982) by Dar (`darfpga@aol.fr`,
-http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
-`README.txt` in the extracted source archive for the original Dar release
-notes.
+Basys 3 port of Burnin' Rubber (Data East, 1982), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_burnin_rubber_rev_0_0_2017_12_22.zip` (rev 0.0,
+22/12/2017), `dloads/`. Basys 3 port by Red~Bote; Dar's release notes: `README.txt` in the
+extracted archive.
 
-- Vivado 2020.2 project: `basys3/burnin_rubber_basys3.xpr` (top entity
-  `burnin_rubber_basys3`)
-- Core clock: 12 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): single output `clk_out1` =
-  12.000 MHz; reset active-high (btnC), `locked` used. Solved MMCM:
-  `DIVCLK_DIVIDE=5`, `CLKFBOUT_MULT_F=49.875`, `CLKOUT0_DIVIDE_F=83.125`. The
-  scandoubler `ce_x1` is a `clock_12` toggle enable in the wrapper (2026-10-02;
-  the former 6 MHz `clk_out2` failed hold timing; `../CLOCKING_SPEC.md` 5.2).
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20 (IO scheme of 2026-10-20, MAME keys): picture (31 kHz VGA),
+sound, keyboard, JXADC joystick, buttons. Open items: none.
 
-- **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`). sw(13) switches to 15 kHz TV mode (native RGB
-  + composite sync on HS).
-- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
-  tracked as `contrib/code/scandoubler.v`, copied into the project by
-  `create_project.sh`.
-- **Scan doubler wiring**: see `contrib/basys3/PORTING_SPEC.md`.
-- **Sound**: mono PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged); buttons
-  btnU/btnD = coin-in, btnL/btnR = start 1/2, btnC = reset. Hardware-confirmed
-  2026-09-25: USB-HID keyboard and controls working.
+## Features (Basys 3)
 
-| Input | Keyboard |
-|-------|----------|
-| Move | Arrow keys |
-| Fire | Space |
-| Coin | F3 |
-| Start 1 | F1 |
-| Start 2 | F2 |
+- Video: 31 kHz VGA via the MiST scandoubler; sw13 up = 15 kHz TV (native RGB, composite
+  sync on HS, VS high).
+- Keyboard: onboard USB-HID port, MAME default keys.
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/jump, active
+  low, pull-ups in the XDC.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
 
-JA joystick (active-low, switch to GND):
-- JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
-- Player 2 mirrors player 1 inputs.
+## Controls
 
-Buttons (active-low, switch to GND):
-- btnU = coin-in, btnD = coin-in
-- btnL = start 1, btnR = start 2, btnC = reset
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| steer / accelerate / slow down | arrows | pins 1-4 | |
+| jump | Left Ctrl | pin 7 | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin | 5 / 6 | | btnU / btnD |
+| reset | | | btnC |
+
+Player 2 mirrors player 1. No joystick combos (coin/start combos removed 2026-10-02). No
+debounce. Keyboard decoded in the wrapper (F0 = release, E0 ignored).
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+
+The DIP switches are constants inside the core (`burnin_rubber.vhd:295-296`); not on board
+switches.
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnU / btnD | `btnU` / `btnD` | coin-in |
-| btnL / btnR | `btnL` / `btnR` | start 1 / start 2 |
-| btnC | `btnC` | reset (active-high) |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| sw(13) | `sw(13)` | display mode: 0 = VGA, 1 = 15 kHz TV |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz VGA / 15 kHz TV |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC` / `btnU` / `btnD` / `btnL` / `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:13) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
+| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
+
+## Clocking
+
+`clk_wiz_0`: 12.000 MHz (5 / 49.875 / 83.125), single domain; pixel 6 MHz. Video
+H 31.25 kHz / V 59.87 Hz (261 lines). Details: `contrib/basys3/PORTING_SPEC.md` §2,
+`../CLOCK_CRYSTAL_CATALOG.md`.
+
+## Required ROMs
+
+`brubber.zip` (MAME romset; `ROMZIP`, default `~/roms/brubber.zip`), unzipped by
+`prep_roms.sh` into `<SRC_DIR>/tools/burnin_rubber_unzip/`; generates
+`burnin_rubber_prog.vhd`, `bg_graphx_1/2.vhd`, `fg_sp_graphx_1/2/3.vhd`,
+`burnin_rubber_sound_prog.vhd`. Not included.
+**Do not redistribute roms or anything generated from them.**
+
+## Building
+
+Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
+patch), `make check` (parse-only), `make bitstream`, `make load`. `make setup` verifies and
+extracts `dloads/vhdl_burnin_rubber_rev_0_0_2017_12_22.zip`, applies
+`contrib/code/burnin_rubber_vsync_before_vblank.patch` and runs `contrib/tools/prep_roms.sh`.
 
 ## Known issues
 
-- **Missing bottom horizontal rows (resolved 2026-09-28)**: root cause was `video_vs`
-  asserting 8 lines before `vblank` onset, so a real VGA monitor discarded the last
-  8 active-picture lines during its own vertical retrace. Fixed by
-  `contrib/code/burnin_rubber_vsync_before_vblank.patch`, which moves the
-  `vsync_cnt` reset to `vcnt = 248` for zero overlap (matching the
-  Defender/Time-Pilot/Pooyan pattern).
+None open. Resolved 2026-09-28: missing bottom rows (see Issues addressed).
 
-  A second patch, `burnin_rubber_vcnt_272_lines.patch` (vertical line count 261 ->
-  272 per the original Bump&Jump schematics), shipped alongside it on 2026-09-23
-  and is now proven to have *caused* the 2026-09-25 regression rather than being
-  harmless: it stretched the frame to 544 lines @ 57.44 Hz, a non-standard
-  envelope no sibling port in the family uses (Burger-Time, on the identical
-  horizontal path, emits 522 @ 59.86 Hz). A/B testing on hardware on 2026-09-28
-  isolated it -- the vsync fix alone (pristine 261-line frame) is clean, both
-  patches together clip the bottom rows. The vcnt-272 patch has been **retired**
-  (removed 2026-09-28); hardware-confirmed no clipping with the vsync fix alone.
+## Issues addressed for Basys 3
 
-## Scripted setup
+- `rtl_dar/burnin_rubber.vhd`: `video_vs` asserted 8 lines before `vblank`, so a VGA
+  monitor discarded the last 8 active lines in its retrace.
+  `contrib/code/burnin_rubber_vsync_before_vblank.patch` moves the `vsync_cnt` reset to
+  `vcnt = 248` (no overlap; Defender/Time-Pilot/Pooyan pattern). Hardware-confirmed
+  2026-09-28.
+- `burnin_rubber_vcnt_272_lines.patch` (261 → 272 lines per the Bump 'n' Jump schematics,
+  2026-09-23) caused the 2026-09-25 bottom-row clipping (544 lines at 57.44 Hz); retired
+  2026-09-28 after hardware A/B testing. The pristine 261-line frame is used.
+- Scandoubler `ce_x1` from a second MMCM output failed hold timing (WHS -0.60 ns); replaced
+  by a `clock_12` toggle enable, single MMCM output (2026-10-02).
+- MiST `scandoubler.v`: unpacked array declared with a full range
+  (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
 
-`contrib/tools/setup_burnin_rubber.sh` automates the manual steps below: it
-fetches the Dar archive into the `dloads/` cache (tracked in git) (reused when its
-SHA-256 matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_burnin_rubber_rev_0_0_2017_12_22/`, applies
-`contrib/code/burnin_rubber_vsync_before_vblank.patch` (see Known issues
-above), then runs `contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
-`make_burnin_rubber_proms.bat`, stage the romset from `$ROMZIP` (default
-`~/roms/brubber.zip`) and generate the PROM VHDL. Run it via `make setup`. The
-MiST `scandoubler.v` (see Features above) is tracked in `contrib/code/` and
-copied into the project by `create_project.sh`.
+## Third-party sources
 
-## ROM set required
-
-MAME ROM set `brubber.zip`, unzipped into `tools/burnin_rubber_unzip/`:
-
-```
-~/roms/brubber.zip   ->   tools/burnin_rubber_unzip/
-```
-
-Then run `./make_burnin_rubber_proms.sh` from that directory to generate the
-PROM VHDL (`burnin_rubber_prog.vhd`, `bg_graphx_1/2.vhd`,
-`fg_sp_graphx_1/2/3.vhd`, `burnin_rubber_sound_prog.vhd`). The Vivado project
-references these generated files in place, so the build needs only the staged
-ROMs + the script.
-
-machine ROMs are copyrighted — never commit or redistribute them.
-
-## Build status
-
-The port is fully scripted and has been verified to reproduce a Vivado project that opens
-cleanly (correct top entity, part, and source list; 21 sources + 1 constraints file) end-to-end
-from the tracked assets alone. `check_syntax` (HDL parse only, no synthesis) passes with no
-errors — only benign warnings in the untouched canonical `scandoubler.v` import and info-level
-notes on the `clk_wiz_0` IP instantiation.
-
-Hardware bring-up is complete: a bitstream has been built and the port runs correctly on the
-Basys 3 board.
-
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |

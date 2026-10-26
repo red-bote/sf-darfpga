@@ -1,222 +1,110 @@
-# Burnin-Rubber-by-Dar — Porting spec
+# Burnin-Rubber-by-Dar — porting spec
 
-## Scan doubler wiring (31 kHz VGA / 15 kHz TV)
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
 
-This section is self-contained. It specifies how the `scandoubler` component
-(from `imports/mist/scandoubler.v`) is instantiated and wired into the Basys 3
-top level (`basys3/burnin_rubber_basys3.srcs/sources_1/new/burnin_rubber_basys3.vhd`,
-instance label `scandoubler_inst`). It covers the component declaration, every
-port connection, the signals on each side of the instance, and the
-upstream/downstream logic those signals connect to, including the clock signals
-(`clk_out1`, `clk_out2`) that drive the instance.
+## 1. Upstream and reference model
 
-The imported `scandoubler.v` is the MiST scandoubler, sourced from
-<https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>. It is
-tracked as `contrib/code/scandoubler.v` and copied into the project by
-`create_project.sh`. It is added to the Vivado project as a source file
-(imported under `imports/mist/`).
+- Archive `vhdl_burnin_rubber_rev_0_0_2017_12_22.zip` (SourceForge `darfpga/files/Software
+  VHDL/burnin_rubber/`), SHA-256 in `contrib/tools/setup_burnin_rubber.sh`; extracted to
+  `vhdl_burnin_rubber_rev_0_0_2017_12_22/`. Core `rtl_dar/burnin_rubber.vhd`; DE10 top
+  `rtl_dar/burnin_rubber_de10_lite.vhd`.
+- MAME driver: `brubber` (`dataeast/btime.cpp`, Bump 'n' Jump family).
+- Model: Pooyan conventions; reference for Burger-Time (same core family).
+- Top entity `burnin_rubber_basys3`; project
+  `vhdl_burnin_rubber_rev_0_0_2017_12_22/basys3/burnin_rubber_basys3.xpr`.
 
-### Component declaration (as declared in `burnin_rubber_basys3.vhd`)
+## 2. Clocking
 
-```vhdl
-component scandoubler
-    port (
-        clk_sys   : in  std_logic;
-        scanlines : in  std_logic_vector (1 downto 0);
-        ce_x1     : in  std_logic;
-        ce_x2     : in  std_logic;
-        hs_in     : in  std_logic;
-        vs_in     : in  std_logic;
-        r_in      : in  std_logic_vector (5 downto 0);
-        g_in      : in  std_logic_vector (5 downto 0);
-        b_in      : in  std_logic_vector (5 downto 0);
-        hs_out    : out std_logic;
-        vs_out    : out std_logic;
-        r_out     : out std_logic_vector (5 downto 0);
-        g_out     : out std_logic_vector (5 downto 0);
-        b_out     : out std_logic_vector (5 downto 0)
-    );
-end component;
-```
+- Original: 12.000 MHz crystal (Bump 'n' Jump hardware); pixel 6 MHz.
+- `clk_wiz_0`: request 12 MHz, achieved 12.000 MHz (5 / 49.875 / 83.125); signal
+  `clock_12`. Speed error 0.
+- Enables: `clock_6` = `clock_12` toggle (scandoubler `ce_x1`, 2026-10-02; previously MMCM
+  `clk_out2` 6 MHz, 1 / 7.5 / 62.5 / 125, which failed hold timing, WHS -0.60 ns,
+  `../../../CLOCKING_SPEC.md` 5.2). CPU and sound enables inside the core.
+- Video: pixel 6 MHz, h_total 384, v_total 261 → native H 15.625 kHz, V 59.87 Hz;
+  doubled H 31.25 kHz.
 
-This declaration binds by name to the Verilog module `scandoubler`, which
-parameterizes `COLOR_DEPTH = 6` and `HCNT_WIDTH = 9` at its defaults; the top
-level does not override either parameter.
+## 3. Reset
 
-### Port map (`scandoubler_inst`)
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC`.
 
-| Port | Direction | Connected signal | Type/width |
-|---|---|---|---|
-| `clk_sys` | in | `clk_out1` | `std_logic` |
-| `scanlines` | in | `"00"` (literal) | `std_logic_vector(1 downto 0)` |
-| `ce_x1` | in | `clk_out2` | `std_logic` |
-| `ce_x2` | in | `'1'` (literal) | `std_logic` |
-| `hs_in` | in | `hsync` | `std_logic` |
-| `vs_in` | in | `vsync` | `std_logic` |
-| `r_in` | in | `vga_r_i` | `std_logic_vector(5 downto 0)` |
-| `g_in` | in | `vga_g_i` | `std_logic_vector(5 downto 0)` |
-| `b_in` | in | `vga_b_i` | `std_logic_vector(5 downto 0)` |
-| `hs_out` | out | `hsync_o` | `std_logic` |
-| `vs_out` | out | `vsync_o` | `std_logic` |
-| `r_out` | out | `vga_r_o` | `std_logic_vector(5 downto 0)` |
-| `g_out` | out | `vga_g_o` | `std_logic_vector(5 downto 0)` |
-| `b_out` | out | `vga_b_o` | `std_logic_vector(5 downto 0)` |
+## 4. Core instantiation
 
-### Upstream signals (into the scan doubler)
+Dar's `burnin_rubber` entity unchanged. The DE10 top leaves `video_hs`/`video_vs` open ("not
+tested") and uses `video_csync` only; this port wires them to the scandoubler,
+hardware-verified. `dbg_cpu_addr => open` (DE10 7-segment chain not ported). No `led` port
+(DE10 `ledr` assignment is commented out).
 
-#### `hs_in` / `vs_in`
+## 5. Video path
 
-Driven directly by the `hsync` and `vsync` outputs of the core instance (its
-`video_hs` / `video_vs` ports), with no intermediate logic. These are the
-core's native, undoubled sync signals, generated internally by the core at a
-15.625 kHz horizontal line rate. The core's `video_csync` output is not
-connected to the scan doubler; it drives a separate local `csync` signal used
-only by the `sw(13)` TV-mode output mux (see Downstream signals below).
+MiST `scandoubler.v` (`contrib/code/`, project copy patched by `scandoubler_fix.patch`),
+instance `scandoubler_inst`, `COLOR_DEPTH = 6`, `HCNT_WIDTH = 9` (defaults).
 
-#### `r_in` / `g_in` / `b_in`
+| Port | Signal |
+|---|---|
+| `clk_sys` | `clock_12` |
+| `ce_x1` | `clock_6` (toggle enable) |
+| `ce_x2` | `'1'` |
+| `scanlines` | `"00"` |
+| `hs_in` / `vs_in` | core `video_hs` / `video_vs` (15.625 kHz) |
+| `r_in` / `g_in` / `b_in` | `r & r`, `g & g`, `b & b & b` when `blankn = '1'`, else `"000000"` (core RGB 3/3/2) |
+| outputs | `hsync_o`, `vsync_o`, `vga_r_o/g_o/b_o` |
 
-Driven by intermediate signals `vga_r_i`, `vga_g_i`, `vga_b_i`, each declared
-as `std_logic_vector(5 downto 0)`. These are combinationally assigned,
-immediately ahead of the instance, from the core's native RGB output and its
-`blankn` output.
+sw13: `0` = `vga_*_o(5 downto 2)`, `hsync_o`, `vsync_o`; `1` = `r & '0'`, `g & '0'`,
+`b & "00"`, `csync` on HS, VS `'1'`. `clk_sys` must run at 12 MHz (2 × pixel) with
+`ce_x2 = '1'`.
 
-**Core interface (confirmed):** the core exposes native `r`/`g`/`b` as 3/3/2
-bits respectively (like the other Dar cores), plus a `blankn` blanking output.
-Each channel is padded to 6 bits by MSB replication and forced to `"000000"`
-during blanking:
+## 6. Audio
 
-```vhdl
-vga_r_i <= r & r     when blankn = '1' else "000000";
-vga_g_i <= g & g     when blankn = '1' else "000000";
-vga_b_i <= b & b & b when blankn = '1' else "000000";
-```
+DE10 PWM accumulator: `'0' & pwm_accumulator(11 downto 0)` + `audio & "00"` (11-bit
+`audio_out`), 13 bits, `O_PMODAMP2_AIN` = bit 12. `SHUTD <= not sw(15)`,
+`GAIN <= not sw(14)`.
 
-`r & r` duplicates the 3-bit red field to fill 6 bits, etc., matching the scan
-doubler's `COLOR_DEPTH = 6` default.
+## 7. Inputs
 
-#### `clk_sys`, `ce_x1`, `ce_x2`
+- Keyboard: `io_ps2_keyboard` on `clock_12`, wrapper decoder (MAME keys,
+  `../../../PORTING_SPEC.md` §3.1, §4.3), 2026-10-20: arrows, Left Ctrl = jump, 1/2 =
+  start, 5/6 = coin. Replaces `kbd_joystick`.
+- Core inputs: active-high at the core boundary (`btn_p1 <= not(...)` inside the core);
+  P2 mirrors P1.
+- Merge: `not jxadc_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/jump; coin = keys
+  5/6, btnU, btnD; start 1 = key 1, btnL; start 2 = key 2, btnR.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_12` (2026-10-20).
+- Debounce: none.
+- Combos: none (fire+up = coin, fire+left = start 1 removed 2026-10-02).
 
-**Revised 2026-10-02** (`../../CLOCKING_SPEC.md` 5.2): `ce_x1` is now a
-6 MHz enable made by toggling on `clock_12` in the wrapper, and the MMCM has a
-single 12 MHz output. Using the MMCM `clk_out2` (6 MHz) as `ce_x1`, sampled in
-the `clk_out1` domain, failed hold timing (WHS -0.60 ns). The description below
-is the previous design.
+## 8. Switches and DIPs
 
-`clk_sys` is driven by `clk_out1` (12 MHz) and `ce_x1` by `clk_out2` (6 MHz),
-both generated by the design's `clk_wiz_0` MMCM from the 100 MHz board
-oscillator (see README: `clk_out1` = 12.000 MHz, `clk_out2` = 6.000 MHz).
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| sw13 | output mux | 1 | 31 kHz VGA | |
+| sw14 / sw15 | PmodAMP2 GAIN / SHUTD | 1 / 1 | low gain / on | |
 
-- `clk_sys` must run at the **12 MHz** rate. 12 MHz is the value that works
-  for this scan doubler. Burnin-Rubber gets both clocks directly from the MMCM
-  as true clock outputs: `clk_sys` = `clk_out1` (12 MHz) and `ce_x1` =
-  `clk_out2` (6 MHz), with no intermediate fabric divider.
-- `ce_x2` is tied to the constant `'1'`, so the scan doubler's output/
-  re-timing stage is enabled on every `clk_sys` edge with no additional gating.
+Fixed: `dip_sw1 <= "10011111"`, `dip_sw2 <= "00010111"` are constants inside the core
+(`burnin_rubber.vhd:295-296`); need a core patch.
 
-#### `scanlines`
+## 9. Patches
 
-Tied to the constant `"00"`, disabling the scan doubler's built-in scanline
-attenuation feature (25/50/75% options exist in the component but are unused
-here).
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/code/burnin_rubber_vsync_before_vblank.patch` | `rtl_dar/burnin_rubber.vhd` | `vsync_cnt` reset at `vcnt = 248`: vsync no longer overlaps the last 8 active lines (2026-09-28) |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array full range (Vivado) |
+| `contrib/basys3/code/burnin_rubber_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
-### Downstream signals (out of the scan doubler)
+Retired 2026-09-28: `burnin_rubber_vcnt_272_lines.patch` (272 lines, 57.44 Hz); it caused
+bottom-row clipping. Burger-Time, same horizontal path, runs the 261-line frame.
 
-#### `hs_out` / `vs_out` / `r_out` / `g_out` / `b_out` — output mux
+## 10. PROM generation
 
-The scan-doubler outputs (`hsync_o`, `vsync_o`, `vga_r_o`, `vga_g_o`,
-`vga_b_o`), each `std_logic_vector(5 downto 0)` for the colour channels, drive
-the board-facing VGA ports through a `sw(13)` display-mode mux:
+`contrib/tools/prep_roms.sh`: `make_burnin_rubber_proms.bat` → shell; romset `brubber.zip`
+into `tools/burnin_rubber_unzip/`.
 
-- **VGA mode (sw(13) = '0')** — 31 kHz progressive VGA. Sync comes straight
-  from the scan doubler (`hsync_o`, `vsync_o`); colour is truncated to the top
-  4 bits of each 6-bit field:
+## 11. Build
 
-  ```vhdl
-  vgaHsync <= hsync_o;
-  vgaVsync <= vsync_o;
-  vgaRed   <= vga_r_o (5 downto 2);
-  vgaGreen <= vga_g_o (5 downto 2);
-  vgaBlue  <= vga_b_o (5 downto 2);
-  ```
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. The project has 21
+sources and 1 constraints file.
 
-- **TV mode (sw(13) = '1')** — 15 kHz TV. Native core RGB passes straight
-  through (padded 3/3/2 → 4/4/4 with zeros), and composite sync (`csync`) is
-  placed on the HS line with VS held high:
+## 12. Open items
 
-  ```vhdl
-  vgaRed    <= r & '0';
-  vgaGreen  <= g & '0';
-  vgaBlue   <= b & "00";
-  vgaHsync  <= csync;
-  vgaVsync  <= '1';
-  ```
-
-The two low-order bits of each scan-doubler output channel are discarded.
-`vgaRed`/`vgaGreen`/`vgaBlue`/`vgaHsync`/`vgaVsync` are the entity's
-board-facing VGA ports, constrained in `Basys-3-Master.xdc` to the Basys 3's
-4-bit-per-channel VGA connector pins.
-
-### Full signal flow diagram
-
-```
-core                               burnin_rubber_basys3.vhd                scandoubler_inst           burnin_rubber_basys3.vhd        board pins
-----                               -------------------------               -----------------           -------------------------        ----------
-video_hs   -----------------------> hsync ---------------------------------> hs_in
-video_vs   -----------------------> vsync ---------------------------------> vs_in
-video_r(2:0), video_g(2:0),
-video_b(1:0), video_blankn -------> r, g, b, blankn
-                                     vga_r_i <= r&r      (or 0 if !blankn) --> r_in
-                                     vga_g_i <= g&g      (or 0 if !blankn) --> g_in
-                                     vga_b_i <= b&b&b    (or 0 if !blankn) --> b_in
-                                     clk_out1 (12 MHz) --------------------> clk_sys
-                                     clk_out2 (6 MHz) ---------------------> ce_x1
-                                     '1' -----------------------------------> ce_x2
-                                     "00" ----------------------------------> scanlines
-                                                                                hs_out ---> hsync_o ---.
-                                                                                vs_out ---> vsync_o ---.
-                                                                                r_out(5:2) ----------. |
-                                                                                g_out(5:2) ----------. |
-                                                                                b_out(5:2) ----------. |
-                                                                                                      v | [sw(13) mux]
-                                                                                                        | 0=VGA: hsync_o/vsync_o, r/g/b(5:2)
-                                                                                                        | 1=TV : csync/'1' on sync, r/g/b native
-                                                                                                        v
-                                                                                                  vgaHsync, vgaVsync, vgaRed, vgaGreen, vgaBlue
-```
-
-### Caveats
-
-- Native RGB widths (3/3/2) and the presence of `blankn` are confirmed against
-  the Burnin-Rubber core.
-- `clk_sys` must be the 12 MHz rate for the scan doubler to work.
-- The pristine DE10-lite top leaves the core's `video_hs`/`video_vs` outputs
-  open (commented "not tested") and derives all sync from `video_csync`
-  only. This port wires `video_hs`/`video_vs` into the scan doubler instead
-  (see Upstream signals above); not used in Dar's release, hardware-verified
-  on the Basys 3.
-
-## Other wiring decisions (outside the scan doubler)
-
-- **Reset**: `reset <= btnC or not mmcm_locked` — core held in reset while
-  `btnC` is pressed or the MMCM has not locked (Berzerk/Bagman pattern).
-  `clk_wiz_0`'s own `reset` port is driven directly by `btnC`.
-- **Inputs**: PS/2 keyboard + `kbd_joystick` OR-merged with the JA joystick
-  (active-low, inverted); coin = F3 OR `btnU` OR `btnD`, start1 = F1 OR
-  `btnL`, start2 = F2 OR `btnR`; no JA fire+direction combos (removed 2026-10-02) —
-  see `README.md`'s IO mapping table for the full button/JA/keyboard
-  assignment. Player 2 mirrors player 1.
-- **Audio**: the mono PWM accumulator is reused verbatim from the pristine
-  DE10-lite top (`pwm_accumulator <= unsigned('0' & pwm_accumulator(11
-  downto 0)) + unsigned(audio & "00")`, 13-bit accumulator, `O_PMODAMP2_AIN
-  <= pwm_accumulator(12)`) — this core's `audio_out` is 11 bits, unlike
-  Berzerk's 16-bit `audio_out`, so its own accumulator sizing/slicing was
-  reused instead of Berzerk's.
-- **Debug hex display**: `dbg_cpu_addr` is left open (`=> open`); the
-  DE10-lite 7-segment debug decoder chain is not ported, matching every
-  other machine's convention (no Basys3 board in this repo carries
-  7-segment wiring).
-- **LEDs**: no `led` port. The pristine top's `ledr` assignment is dead code
-  (commented out, never actually driven), so it is omitted entirely rather
-  than added as an unconnected/tied-off port — matches Bagman/Pooyan/
-  Time-Pilot/Berzerk's convention of leaving `led` unconstrained when the
-  core doesn't meaningfully drive it.
+None.

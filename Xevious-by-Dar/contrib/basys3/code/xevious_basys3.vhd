@@ -7,13 +7,15 @@
 -- Ported from xevious_de10_lite.vhd (DE10-lite 2017/05/01):
 --  - 100 MHz board oscillator; clk_wiz_0 MMCM derives the 18.432 MHz core
 --    clock (signal clock_18), also used by the PS/2 keyboard
---  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
---  - Mono PWM audio on PmodAMP2 (JC); sw(14) = shutdown, sw(15) = gain select
+--  - Atari-style joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID, C17/B17)
+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
 --  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
 --    sw(13) switches to 15 kHz TV (native RGB + composite sync on HS)
---  - btnC = reset; btnU = coin, btnL = start1, btnR = start2
---  - PS/2 pins, JA and btnU/L/R pass through 2-FF synchronizers on
+--  - btnC = reset; btnU/btnD = coin, btnL = start1, btnR = start2
+--  - PS/2 pins, JXADC and btnU/D/L/R pass through 2-FF synchronizers on
 --    clock_18 before use (stuck/missed inputs seen without them)
+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
+--    E0 ignored): arrows, Left Ctrl = fire, Left Alt = bomb, 1/2 = start, 5/6 = coin
 ---------------------------------------------------------------------------------
 -- Educational use only
 -- Do not redistribute synthetized file with roms
@@ -33,10 +35,11 @@ port(
  sw             : in  std_logic_vector(15 downto 0);
  btnC           : in  std_logic;
  btnU           : in  std_logic;
+ btnD           : in  std_logic;
  btnL           : in  std_logic;
  btnR           : in  std_logic;
 
- JA             : in  std_logic_vector(4 downto 0);  -- joystick
+ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
 
  ps2_dat        : in  std_logic;
  ps2_clk        : in  std_logic;
@@ -84,22 +87,24 @@ architecture struct of xevious_basys3 is
 
  signal rom_addr : std_logic_vector(16 downto 0);
  signal rom_do   : std_logic_vector( 7 downto 0);
+ signal clock_18n : std_logic;
 
  signal kbd_intr     : std_logic;
  signal kbd_scancode : std_logic_vector(7 downto 0);
- signal kbd_joy      : std_logic_vector(8 downto 0);
+ signal kbd_rel      : std_logic := '0';
+ signal kbd_joy      : std_logic_vector(8 downto 0) := (others => '0');
  signal joyBCPPFRLDU : std_logic_vector(8 downto 0);
 
  -- 2-FF synchronizers for the asynchronous inputs
  signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
  signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
  signal ja_meta, ja_s           : std_logic_vector(4 downto 0) := (others => '1');
- signal btn_meta, btn_s         : std_logic_vector(2 downto 0) := (others => '0');  -- U, L, R
+ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0');  -- D, U, L, R
  -- Button debounce (2026-10-02): btn_s must be stable for 2**18 clock_18
  -- cycles (18.432 MHz: 14.2 ms) before btn_db follows. This core
  -- edge-detects coin on press, so release bounce counted extra coins.
- signal btn_db                  : std_logic_vector(2 downto 0) := (others => '0');
- type btn_cnt_t is array (0 to 2) of unsigned(17 downto 0);
+ signal btn_db                  : std_logic_vector(3 downto 0) := (others => '0');
+ type btn_cnt_t is array (0 to 3) of unsigned(17 downto 0);
  signal btn_cnt                 : btn_cnt_t := (others => (others => '0'));
  attribute ASYNC_REG : string;
  attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
@@ -124,7 +129,14 @@ architecture struct of xevious_basys3 is
      );
  end component;
 
+ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
+ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
+ -- b_test on sw12 (Dar '1' = off).
+ constant B_TEST_DEFAULT : std_logic := '1';
+ signal b_test_in : std_logic;
 begin
+
+b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
 
 reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 
@@ -159,7 +171,7 @@ port map(
  rom_bus_addr_o => rom_addr,
  rom_bus_do     => rom_do,
 
- b_test       => '1',
+ b_test       => b_test_in,  -- sw12 (up = test/service mode)
  b_svce       => '1',
 
  coin         => joyBCPPFRLDU(7),
@@ -173,9 +185,11 @@ port map(
  bomb         => joyBCPPFRLDU(8)
 );
 
+clock_18n <= not clock_18;  -- signal, not an expression actual (HDL 9-3240)
+
 rom : entity work.xevious_cpu_gfx_8bits
 port map(
- clk  => (not clock_18),
+ clk  => clock_18n,
  addr => rom_addr,
  data => rom_do
 );
@@ -246,7 +260,7 @@ vga_b <= b             when sw(13) = '1' and blankn = '1' else
 vga_hs <= csync   when sw(13) = '1' else hsync_o;
 vga_vs <= '1'     when sw(13) = '1' else vsync_o;
 
--- The PS/2 pins, JA and the buttons are asynchronous to clock_18.
+-- The PS/2 pins, JXADC and the buttons are asynchronous to clock_18.
 -- io_ps2_keyboard has no synchronizer of its own: an edge near a clock
 -- edge can drop a bit, giving missed or stuck keys (same failure and fix
 -- as pinballwiz/NEXYS2-Pacman PORTING_SPEC section 11).
@@ -255,9 +269,9 @@ begin
   if rising_edge(clock_18) then
     ps2_clk_meta <= ps2_clk;  ps2_clk_s <= ps2_clk_meta;
     ps2_dat_meta <= ps2_dat;  ps2_dat_s <= ps2_dat_meta;
-    ja_meta      <= JA;       ja_s      <= ja_meta;
-    btn_meta     <= btnU & btnL & btnR;  btn_s <= btn_meta;
-    for i in 0 to 2 loop
+    ja_meta      <= JXADC;       ja_s      <= ja_meta;
+    btn_meta     <= btnD & btnU & btnL & btnR;  btn_s <= btn_meta;
+    for i in 0 to 3 loop
       if btn_s(i) = btn_db(i) then
         btn_cnt(i) <= (others => '0');
       elsif btn_cnt(i) = (btn_cnt(i)'range => '1') then
@@ -280,31 +294,50 @@ port map (
   scancode  => kbd_scancode
 );
 
--- translate scancode to joystick
-joystick : entity work.kbd_joystick
-port map (
-  clk           => clock_18, -- core clock (18.432 MHz), single domain
-  kbdint        => kbd_intr,
-  kbdscancode   => kbd_scancode,
-  joyBCPPFRLDU  => kbd_joy
-);
+-- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
+-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
+-- Right Ctrl/Alt alias Left Ctrl/Alt), sf-darfpga PORTING_SPEC.md section 3.1.
+-- kbd_joy bit order matches joyBCPPFRLDU below.
+process (clock_18)
+begin
+  if rising_edge(clock_18) then
+    if kbd_intr = '1' then
+      if kbd_scancode = x"F0" then
+        kbd_rel <= '1';
+      elsif kbd_scancode /= x"E0" then
+        kbd_rel <= '0';
+        if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up arrow
+        if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
+        if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
+        if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
+        if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
+        if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
+        if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
+        if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
+        if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt : bomb
+      end if;
+    end if;
+  end if;
+end process;
 
--- OR-merge the Atari-style joystick on JA with the PS/2 keyboard joystick.
--- JA physical map (JA[0]=JA1, JA[1]=JA2, JA[2]=JA3, JA[3]=JA4, JA[4]=JA7):
---   JA[0]=right, JA[1]=left, JA[2]=down and bomb, JA[3]=up, JA[4]=fire.
---   The synchronized JA (ja_s) and debounced buttons (btn_db) are used below.
--- JA is active-low (pressed shorts to ground); invert so a press reads
+-- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
+-- JXADC physical map (JXADC[0]=JXADC1, JXADC[1]=JXADC2, JXADC[2]=JXADC3, JXADC[3]=JXADC4, JXADC[4]=JXADC7):
+--   JXADC[0]=right, JXADC[1]=left, JXADC[2]=down and bomb, JXADC[3]=up, JXADC[4]=fire;
+--   up + fire also gives bomb (up and fire pass through).
+--   The synchronized JXADC (ja_s) and debounced buttons (btn_db) are used below.
+-- JXADC is active-low (pressed shorts to ground); invert so a press reads
 -- active-high, matching the core's active-high input boundary and the
 -- keyboard path.
-joyBCPPFRLDU(0) <= kbd_joy(0) or not ja_s(3);                 -- up      (JA4)
-joyBCPPFRLDU(1) <= kbd_joy(1) or not ja_s(2);                 -- down    (JA3, also bomb)
-joyBCPPFRLDU(2) <= kbd_joy(2) or not ja_s(1);                 -- left    (JA2)
-joyBCPPFRLDU(3) <= kbd_joy(3) or not ja_s(0);                 -- right   (JA1)
-joyBCPPFRLDU(4) <= kbd_joy(4) or not ja_s(4);                 -- fire    (JA7)
-joyBCPPFRLDU(5) <= kbd_joy(5) or btn_db(1);                   -- start1  (btnL / F1)
-joyBCPPFRLDU(6) <= kbd_joy(6) or btn_db(0);                   -- start2  (btnR / F2)
-joyBCPPFRLDU(7) <= kbd_joy(7) or btn_db(2);                   -- coin    (btnU / F3)
-joyBCPPFRLDU(8) <= kbd_joy(8) or not ja_s(2);                 -- bomb    (JA3 / CTRL)
+joyBCPPFRLDU(0) <= kbd_joy(0) or not ja_s(3);                 -- up      (JXADC4)
+joyBCPPFRLDU(1) <= kbd_joy(1) or not ja_s(2);                 -- down    (JXADC3, also bomb)
+joyBCPPFRLDU(2) <= kbd_joy(2) or not ja_s(1);                 -- left    (JXADC2)
+joyBCPPFRLDU(3) <= kbd_joy(3) or not ja_s(0);                 -- right   (JXADC1)
+joyBCPPFRLDU(4) <= kbd_joy(4) or not ja_s(4);                 -- fire    (JXADC7)
+joyBCPPFRLDU(5) <= kbd_joy(5) or btn_db(1);                   -- start1  (btnL / 1)
+joyBCPPFRLDU(6) <= kbd_joy(6) or btn_db(0);                   -- start2  (btnR / 2)
+joyBCPPFRLDU(7) <= kbd_joy(7) or btn_db(2) or btn_db(3);      -- coin    (btnU / btnD / 5 / 6)
+joyBCPPFRLDU(8) <= kbd_joy(8) or not ja_s(2)
+                   or (not ja_s(3) and not ja_s(4));          -- bomb    (Left Alt / JXADC3 / JXADC up+fire)
 
 -- pwm sound output
 process(clock_18)  -- same clock as the DE10 top drove the PWM accumulator
@@ -315,7 +348,7 @@ begin
 end process;
 
 O_PMODAMP2_AIN   <= pwm_accumulator(12);
-O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
+O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
+O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 
 end struct;

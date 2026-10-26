@@ -1,124 +1,110 @@
-# Berzerk-FPGA-by-Dar (Basys 3 port)
+# Berzerk-FPGA-by-Dar
 
-Berzerk (Stern, 1980) by Dar (`darfpga@aol.fr`, http://darfpga.blogspot.fr).
-Basys 3 (Artix-7) port by Red~Bote. See `README.txt` in the extracted source
-archive for the original Dar release notes.
+Basys 3 port of Berzerk (Stern, 1980), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_berzerk_rev_0_1_2018_08_08.zip` (rev 0.1,
+08/08/2018), `dloads/`. Basys 3 port by Red~Bote; Dar's release notes: `README.txt` in the
+extracted archive.
 
-- Vivado 2020.2 project: `basys3/berzerk_basys3.xpr` (top entity `berzerk_basys3`)
-- Core clock: 10 MHz (from the 100 MHz Basys 3 oscillator via `clk_wiz_0`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 10.000 MHz;
-  reset active-high (btnC), `locked` used. Solved MMCM: `DIVCLK_DIVIDE=2`,
-  `CLKFBOUT_MULT_F=15.625`, `CLKOUT0_DIVIDE_F=78.125`.
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20 (IO scheme of 2026-10-20, MAME keys): picture (31 kHz VGA),
+sound, keyboard, JXADC joystick, buttons. sw12 cocktail DIP added 2026-10-20 (hardware check
+2026-10-21; which switch position means upright is not individually confirmed). USB-HID
+keyboard first confirmed 2026-09-25.
 
-- **Video**: switch-selectable via `sw(13)` — 0 = 31 kHz progressive VGA (scan doubling built
-  into the core via `rtl_dar/line_doubler.vhd`), 1 = 15 kHz TV (native rate, composite sync on
-  HS, VS held high; requires a 15 kHz RGB monitor or RGB-to-composite converter).
-- **Sound**: mono PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (movement + fire,
-  OR-merged), dedicated buttons for coin/start, btnC = reset. Hardware-confirmed
-  2026-09-25: USB-HID keyboard working.
+## Features (Basys 3)
 
-| Input | Keyboard | Button |
-|-------|----------|--------|
-| Move | Arrow keys | — |
-| Fire | Space | — |
-| Coin | F3 | btnU or btnD |
-| Start 1 | F1 | btnL |
-| Start 2 | F2 | btnR |
+- Video: 31 kHz progressive VGA, scan doubling built into the core
+  (`rtl_dar/line_doubler.vhd`); sw13 up = 15 kHz TV (native rate, composite sync on HS,
+  VS high).
+- Keyboard: onboard USB-HID port, MAME default keys.
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/fire, active
+  low, pull-ups in the XDC.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono; sound effects and S14001A-style speech.
 
-JA joystick (active-low, switch to GND):
-- JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Movement + fire only — coin/start are not reachable from the joystick on this port.
-- Player 2 mirrors player 1 movement/fire inputs.
+## Controls
+
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| move | arrows | pins 1-4 | |
+| fire | Left Ctrl | pin 7 | |
+| start 1P / 2P | 1 / 2 | | btnL / btnR |
+| coin | 5 / 6 | | btnU / btnD |
+| reset | | | btnC |
+
+Player 2 mirrors player 1. No joystick combos (coin/start not reachable from the
+joystick). No debounce. Keyboard decoded in the wrapper (F0 = release, E0 ignored).
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| sw12 | `cocktail` | Dar `'1'` | `'0'` (inverted inside the core; upright level not verified) |
+
+Other DIP banks (F2-F6) are constants inside the core (`berzerk.vhd:391-399`); not on
+board switches.
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnL | `btnL` | P1 start (active-high) |
-| btnR | `btnR` | P2 start (active-high) |
-| btnU | `btnU` | coin-in (active-high) |
-| btnD | `btnD` | coin-in (active-high) |
-| sw(13) | `sw(13)` | display mode: 0 = 31 kHz VGA, 1 = 15 kHz TV |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low, movement + fire) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB, 31 kHz / 15 kHz |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC` / `btnU` / `btnD` / `btnL` / `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:12) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
-No `led` ports — unconstrained on this port (matches Bagman/Pooyan/Time-Pilot's minimal,
-placement-proven port list).
+## Clocking
 
-## Scripted setup
+`clk_wiz_0`: 10.000 MHz (2 / 15.625 / 78.125), single domain; original 10.000 MHz crystal
+(Z80 2.5 MHz, pixel 5 MHz). Video H 31.25 kHz / V 59.64 Hz. Details:
+`contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
 
-`contrib/tools/setup_berzerk.sh` automates the manual steps below: it fetches
-the Dar archive into the `dloads/` cache (tracked in git) (reused when its SHA-256
-matches the hash embedded in the script; re-downloaded when missing or
-tampered), extracts it as `vhdl_berzerk_rev_0_1_2018_08_08/`, applies
-`contrib/code/berzerk_reset_sensitivity.patch`, then runs
-`contrib/tools/prep_roms.sh` to compile `make_vhdl_prom`, convert
-`make_berzerk_proms.bat`, stage the romset from `$ROMZIP` (default
-`~/roms/berzerk.zip`) and generate the PROM VHDL. The prep also renames the
-romset files to the descriptive names the `.bat` expects (rename table below).
-Run it via `make setup`.
+## Required ROMs
 
-## ROM set required
+`berzerk.zip` (MAME romset; `ROMZIP`, default `~/roms/berzerk.zip`), unzipped by
+`prep_roms.sh` into `<SRC_DIR>/tools/berzerk_unzip/` and renamed to the names Dar's
+`make_berzerk_proms.bat` expects:
 
-MAME ROM set `berzerk.zip`, unzipped into `tools/berzerk_unzip/`:
+| `berzerk.zip` file | `.bat` name | role |
+|---|---|---|
+| `1c-0` | `berzerk_rc31_1c.rom0.1c` | program rom0 |
+| `1d-1` | `berzerk_rc31_1d.rom1.1d` | program rom1 |
+| `3d-2` | `berzerk_rc31_3d.rom2.3d` | program rom2 |
+| `5d-3` | `berzerk_rc31_5d.rom3.5d` | program rom3 |
+| `6d-4` | `berzerk_rc31_6d.rom4.6d` | program rom4 |
+| `5c-5` | `berzerk_rc31_5c.rom5.5c` | program rom5 |
+| `1c` | `berzerk_r_vo_1c.1c` | voice rom1 |
+| `2c` | `berzerk_r_vo_2c.2c` | voice rom2 |
 
-```
-~/roms/berzerk.zip   ->   tools/berzerk_unzip/
-```
+Generates `berzerk_program1/2.vhd`, `berzerk_speech_rom.vhd`. Not included.
+**Do not redistribute roms or anything generated from them.**
 
-Then run `./make_berzerk_proms.sh` from that directory to generate the PROM VHDL
-(`berzerk_program1/2.vhd`, `berzerk_speech_rom.vhd`). The Vivado project
-references these generated files in place, so the build needs only the staged
-ROMs + the script.
+## Building
 
-### ROM file rename
+Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
+patch), `make check` (parse-only), `make bitstream`, `make load`. `make setup` verifies and
+extracts `dloads/vhdl_berzerk_rev_0_1_2018_08_08.zip`, applies
+`contrib/code/berzerk_reset_sensitivity.patch` and runs `contrib/tools/prep_roms.sh`.
 
-Dar's `make_berzerk_proms.bat` expects descriptive file names
-(`berzerk_rc31_1c.rom0.1c`, ...) while the MAME `berzerk.zip` dump uses position
-names (`1c-0`, `1d-1`, ...). `prep_roms.sh` renames the romset files to the names
-the script expects; the mapping is:
+## Known issues
 
-| `berzerk.zip` file | `make_berzerk_proms.bat` name | role |
-|--------------------|-------------------------------|------|
-| `1c-0`             | `berzerk_rc31_1c.rom0.1c`     | program rom0 |
-| `1d-1`             | `berzerk_rc31_1d.rom1.1d`     | program rom1 |
-| `3d-2`             | `berzerk_rc31_3d.rom2.3d`     | program rom2 |
-| `5d-3`             | `berzerk_rc31_5d.rom3.5d`     | program rom3 |
-| `6d-4`             | `berzerk_rc31_6d.rom4.6d`     | program rom4 |
-| `5c-5`             | `berzerk_rc31_5c.rom5.5c`     | program rom5 |
-| `1c`               | `berzerk_r_vo_1c.1c`          | voice rom1 |
-| `2c`               | `berzerk_r_vo_2c.2c`          | voice rom2 |
+None open.
 
-machine ROMs are copyrighted — never commit or redistribute them.
+## Issues addressed for Basys 3
 
-## Applying the reset-sensitivity fix
+- `rtl_dar/berzerk.vhd`: a process sensitivity list omits `reset`.
+  `contrib/code/berzerk_reset_sensitivity.patch` adds it
+  (`process (clock_10, cpu_iorq_n, cpu_addr, reset)`). Verify:
+  `grep -n "cpu_iorq_n, cpu_addr, reset" vhdl_berzerk_rev_0_1_2018_08_08/rtl_dar/berzerk.vhd`.
 
-The pristine Dar core (`vhdl_berzerk_rev_0_1_2018_08_08/rtl_dar/berzerk.vhd`)
-has a process whose sensitivity list omits `reset`. The one-line fix adds it:
+## Third-party sources
 
-```vhdl
-process (clock_10, cpu_iorq_n, cpu_addr, reset)
-```
-
-`berzerk_reset_sensitivity.patch` in this directory applies that single line to
-the unmodified Dar source. From the `Berzerk-FPGA-by-Dar/` directory (containing
-`vhdl_berzerk_rev_0_1_2018_08_08/`):
-
-```
-patch -p1 < berzerk_reset_sensitivity.patch
-```
-
-Verify it took:
-
-```
-grep -n "cpu_iorq_n, cpu_addr, reset" vhdl_berzerk_rev_0_1_2018_08_08/rtl_dar/berzerk.vhd
-```
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |

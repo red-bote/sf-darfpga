@@ -1,145 +1,103 @@
-# Galaga-Midway-by-Dar (Basys 3 port)
+# Galaga-Midway-by-Dar
 
-Galaga (Namco/Midway, 1981) by Dar (`darfpga@aol.fr`,
-http://darfpga.blogspot.fr). Basys 3 (Artix-7) port by Red~Bote. See
-`README.txt` in the extracted source archive for the original Dar release
-notes.
+Basys 3 port of Galaga (Namco / Midway, 1981), original core by Dar (darfpga@aol.fr),
+<http://darfpga.blogspot.fr>. Source: `vhdl_galaga_rev_0_3_2018_05_06.zip` (release 0.3,
+2018-05-06), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
+extracted archive.
 
-- Vivado 2020.2 project: `basys3/galaga_basys3.xpr` (top entity `galaga_basys3`)
-- Core clock: 36.863711 MHz (2 x 18.432 MHz crystal; core `clock_18` =
-  18.432 MHz, CPUs 3.072 MHz, pixel 6.144 MHz as the original; from the
-  100 MHz Basys 3 oscillator via `clk_wiz_0`; see `../CLOCKING_SPEC.md`)
-- `clk_wiz_0` Clocking Wizard (MMCM, 100 MHz in): `clk_out1` = 36.863711 MHz.
-  MMCM reset on btnC, core reset `btnC or not mmcm_locked` (2026-10-01; see
-  `../CLOCKING_SPEC.md` section 6). Solved MMCM (forced by `make_clk_wiz_0.sh`, Vivado's own solve
-  puts VGA H above 32.0 kHz): `DIVCLK_DIVIDE=6`, `CLKFBOUT_MULT_F=56.125`,
-  `CLKOUT0_DIVIDE_F=25.375`. VGA 31.9998 kHz / 60.61 Hz (was 36.000 MHz:
-  31.25 kHz / 59.19 Hz, -2.34% speed).
+## Status
 
-## Features supported
+Hardware-verified 2026-10-20: picture (31 kHz VGA), sound, keyboard (MAME keys), JXADC
+joystick, buttons. sw12 test mode wired 2026-10-20, hardware check 2026-10-21. JXADC fire
+debounce restored and hardware-verified 2026-10-21.
 
-- **Video**: 31 kHz progressive VGA via an imported MiST scandoubler
-  (`imports/mist/scandoubler.v`). sw(13) switches to 15 kHz TV mode (native
-  RGB + composite sync on HS).
-- **Scan doubler source**: MiST `scandoubler.v` (Till Harbaum, GPL-3.0),
-  <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v>;
-  tracked as `contrib/code/scandoubler.v`, copied into the project by
-  `create_project.sh`.
-- **Sound**: mono PWM audio on PmodAMP2.
-- **Controls**: PS/2 keyboard (onboard USB HID host) + JA joystick (OR-merged), btnC =
-  reset. Hardware-confirmed 2026-09-25: USB-HID keyboard working.
+## Features (Basys 3)
 
-| Input | Keyboard | Scancode |
-|-------|----------|----------|
-| Left | ← | 0x6B |
-| Right | → | 0x74 |
-| Fire | Space | 0x29 |
-| Coin | F3 | 0x04 |
-| Start 1 | F1 | 0x05 |
-| Start 2 | F2 | 0x06 |
+- Video: 31 kHz VGA via the imported MiST scandoubler; sw13 up = 15 kHz TV (native RGB,
+  composite sync on HS).
+- Keyboard: onboard USB-HID port, MAME default keys, decoded in the wrapper (2026-10-20,
+  replaces `kbd_joystick`; F0 = release, E0 ignored; `../PORTING_SPEC.md` §3.1).
+- Joystick: Atari-style on Pmod JXADC, pins 1/2/7 = right/left/fire (the core has no
+  up/down), active low, pull-ups in the XDC.
+- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
+- Board buttons and JXADC fire debounced (14 ms); reason: `contrib/basys3/PORTING_SPEC.md`
+  §7.1.
 
-JA joystick (active-low, switch to GND):
-- JA1 = Right, JA2 = Left, JA3 = Down, JA4 = Up, JA7 = Fire
-- Coin/start: keyboard and btnU/btnL/btnR (JA fire+direction combos removed 2026-10-02)
-- Player 2 mirrors player 1 left/right/fire inputs.
+## Controls
+
+| Action | Keyboard | JXADC | Basys 3 |
+|---|---|---|---|
+| left / right | Left / Right arrows (6B / 74) | pin 2 / pin 1 | |
+| fire | Left Ctrl (14) | pin 7 | |
+| start 1P / 2P | 1 / 2 (16 / 1E) | | btnL / btnR |
+| coin | 5 / 6 (2E / 36) | | btnU / btnD |
+| reset | | | btnC |
+
+Player 2 mirrors player 1 left/right/fire. No joystick combos (coin/start combos removed
+2026-10-02). JXADC pins 3/4 (down/up) are not used.
+
+## Switches
+
+| Switch | Function | Down | Up |
+|---|---|---|---|
+| sw15 | audio | on | off |
+| sw14 | amp gain | low | high |
+| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| sw12 | `b_test` | Dar `'1'` (off) | test / service mode |
 
 ## IO mapping
 
 | Basys 3 resource | Wrapper port | Function |
-|------------------|--------------|----------|
-| clk (W5, 100 MHz) | `clk` | clock into `clk_wiz_0` MMCM |
-| btnC | `btnC` | reset (active-high) |
-| btnU / btnL / btnR | `btnU`/`btnL`/`btnR` | coin / 1P start / 2P start (OR-merged with keyboard; added 2026-10-01; debounced ~14 ms since 2026-10-02) |
-| sw(15) | `O_PMODAMP2_GAIN` | AMP gain: 0 = 12 dB, 1 = 6 dB |
-| sw(14) | `O_PMODAMP2_SHUTD` | AMP shutdown: 0 = off, 1 = on |
-| C17 / B17 (onboard USB HID) | `ps2_clk` / `ps2_dat` | PS/2 keyboard (USB keyboard via onboard host) |
-| JA1-JA4, JA7 | `JA(0..4)` | joystick (active-low) |
-| JC (PmodAMP2) | `O_PMODAMP2_AIN` | PWM audio (JC1=AIN, JC2=GAIN, JC4=SHUTD) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB, 31 kHz |
-| LEDs | `led(15:0)` | present |
+|---|---|---|
+| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
+| btnC / btnU / btnD / btnL / btnR | `btnC` ... `btnR` | reset / coin / coin / start 1 / start 2 |
+| sw(15:0) | `sw` | see Switches |
+| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
+| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick (bits 0, 1, 4 used) |
+| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
+| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+
+## Clocking
+
+`clk_wiz_0`: 36.863711 MHz (6 / 56.125 / 25.375, forced by `make_clk_wiz_0.sh`; Vivado's own
+solve gives VGA H 32.0017 kHz), single MMCM output; `clock_18` = 18.432 MHz (core, original
+crystal), CPUs 3.072 MHz, pixel 6.144 MHz. Video 31.9998 kHz / 60.61 Hz (was 36.000 MHz,
+-2.34%, until 2026-10-01). Details: `contrib/basys3/PORTING_SPEC.md` §2,
+`../CLOCK_CRYSTAL_CATALOG.md`.
+
+## Required ROMs
+
+`galaga.zip` + `galagamw.zip` (MAME romsets; `ROMZIP1` / `ROMZIP2`, default
+`~/roms/galaga.zip` / `~/roms/galagamw.zip`). `galagamw` provides the `3200a`-`3700g` CPU
+ROMs missing from `galaga`. Not included.
+**Do not redistribute roms or anything generated from them.**
+
+## Building
+
+Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
+clk_wiz, patch), `make check` (parse-only), `make bitstream`, `make load`.
 
 ## Known issues
 
-- **Start 1 / Start 2 ignored after coin** (fixed in
-  `rtl_dar/galaga.vhd:848`): the Namco 51XX credit-mode flag is re-enabled on
-  every hardware coin edge (`cs51XX_credit_mode <= '1'`), so start inputs work
-  with credits available.
-- Keyboard can randomly stick to the right (and maybe left) — original core
-  issue.
+- The keyboard can randomly stick to the right (and maybe left); original core issue.
 
-## ROM set required
+## Issues addressed for Basys 3
 
-MAME ROM sets `galaga.zip` + `galagamw.zip`, unzipped into
-`tools/galaga_unzip/`:
+- `rtl_dar/galaga.vhd` `bgpalette_addr`: `xor` operand widths 3 vs 2 bits; fixed by
+  parenthesizing (`contrib/code/galaga_bgpalette_xor_length_fix.patch`).
+- `rtl_dar/galaga.vhd:848`: Start 1 / Start 2 ignored after a coin; the Namco 51XX
+  credit-mode flag is re-enabled on every coin edge (`contrib/code/galaga_credit_mode_fix.patch`;
+  open investigation: `contrib/code/51xx_credit_state_machine_investigation.md`).
+- `rtl_dar/galaga.vhd`: `video_hs`/`video_vs` brought out for the scandoubler
+  (`contrib/code/galaga_vga_sync.patch`).
+- MiST `scandoubler.v`: unpacked array declared with a full range; Vivado rejects the
+  single-value size (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
+- JXADC fire contact bounce double-fires through the core's full-rate fire edge detect;
+  debounced in the wrapper (PORTING_SPEC §7.1).
 
-```
-~/roms/galaga.zip      ->   tools/galaga_unzip/
-~/roms/galagamw.zip    ->   tools/galaga_unzip/
-```
+## Third-party sources
 
-The extra `galagamw` set provides the `3200a`-`3700g` CPU ROMs (not present in
-the plain `galaga` set). Then run `./make_galaga_proms.sh` from that directory
-to generate the PROM VHDL (`galaga_cpu1/2/3.vhd`, `cs54xx_prog.vhd`,
-`sp_graphx.vhd`, `bg_graphx.vhd`, `sp_palette.vhd`, `bg_palette.vhd`,
-`rgb.vhd`, `sound_samples.vhd`, `sound_seq.vhd`). The Vivado project references
-these generated files in place, so the build needs only the staged ROMs + the
-script.
-
-machine ROMs are copyrighted — never commit or redistribute them.
-
-## Fixing the background-palette XOR width
-
-The pristine Dar core (`rtl_dar/galaga.vhd`) has a synthesis-shape bug in `bgpalette_addr`
-(around line 521): the `xor` is applied after the `'1'`/`'0'` prefix bit is already concatenated
-onto `hcnt(1 downto 0)`, giving it a 3-bit left operand against `flip_h & flip_h`'s 2 bits.
-`galaga_bgpalette_xor_length_fix.patch` parenthesizes `hcnt(1 downto 0) xor (flip_h & flip_h)`
-first (both 2-bit) and concatenates the prefix bit onto the result. Applied automatically by
-`contrib/tools/setup_galaga.sh`. Verify it took:
-
-```
-grep -n "xor (flip_h & flip_h))))" vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
-```
-
-## Applying the credit-mode fix
-
-The pristine Dar core (`vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd`) has a
-bug where Start 1 / Start 2 are ignored after inserting a coin. The one-line fix
-re-enables the Namco 51XX credit-mode flag on every hardware coin edge:
-
-```vhdl
-cs51XX_credit_mode <= '1';     -- <-- RB 7/2026 - added by Big Pickle: re-enable credit mode on coin insert
-```
-
-`galaga_credit_mode_fix.patch` in this directory applies that single line to the
-unmodified Dar source. From the `Galaga-Midway-by-Dar/` directory (containing
-`vhdl_galaga_rev_0_3_2018_05_06/`):
-
-```
-patch -p1 < galaga_credit_mode_fix.patch
-```
-
-The patch adds the line inside the hardware coin-edge detection (`if coin = '1'
-and coin_r = '0'`), i.e. at `rtl_dar/galaga.vhd:848`. Verify it took:
-
-```
-grep -n "cs51XX_credit_mode <= '1'" vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
-```
-
-## Enabling VGA sync (Basys 3)
-
-The pristine Dar core leaves `video_hs`/`video_vs` unexposed (ports commented out,
-video-generator `hsync`/`vsync` wired to `open`). To drive the scan doubler's
-`hsync_ext_n`/`vsync_ext_n` from the core, apply
-`contrib/code/galaga_vga_sync.patch` to the pristine source. From the
-`Galaga-Midway-by-Dar/` directory (containing `vhdl_galaga_rev_0_3_2018_05_06/`):
-
-```
-patch -p1 < contrib/code/galaga_vga_sync.patch
-```
-
-It un-comments the two `video_hs`/`video_vs` output ports and wires the video
-generator's `hsync`/`vsync` to them. Verify it took:
-
-```
-grep -n "hsync   => video_hs" vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
-```
+| Resource | Source | Notes |
+|---|---|---|
+| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |

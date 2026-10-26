@@ -1,7 +1,7 @@
 diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd
 --- a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd
 +++ b/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd
-@@ -1,341 +1,313 @@
+@@ -1,341 +1,349 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Galaga Midway by Dar (darfpga@aol.fr) (06/11/2017)
 --- http://darfpga.blogspot.fr
@@ -352,11 +352,15 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +-- Ported from galaga_de10_lite.vhd (DE10-lite rev 06/11/2017):
 +--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 36.864 MHz (signal
 +--    clock_36; sf-darfpga/CLOCKING_SPEC.md)
-+--  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB)
-+--  - Mono PWM audio on PmodAMP2 (JC); sw14 = shutdown, sw15 = gain select
++--  - Atari-style joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
++--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
 +--  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
 +--    sw(13) switches to 15 kHz TV (native RGB + composite sync on HS)
-+--  - btnC = reset
++--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_18; buttons and
++--    JXADC fire debounced (14 ms)
++--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
++--    E0 ignored): left/right arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin
++--  - btnC = reset, btnU/btnD = coin, btnL/btnR = start
 +---------------------------------------------------------------------------------
 +-- Educational use only
 +-- Do not redistribute synthetized file with roms
@@ -376,10 +380,11 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 + sw             : in  std_logic_vector(15 downto 0);
 + btnC           : in  std_logic;
 + btnU           : in  std_logic;  -- coin
++ btnD           : in  std_logic;  -- coin
 + btnL           : in  std_logic;  -- 1P start
 + btnR           : in  std_logic;  -- 2P start
 +
-+ JA             : in  std_logic_vector(4 downto 0);  -- joystick
++ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
 + ps2_dat        : in  std_logic;
 + ps2_clk        : in  std_logic;
 +
@@ -399,7 +404,6 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +
 + signal clock_36 : std_logic;
 + signal clock_18 : std_logic;
-+ signal clock_9  : std_logic;
 + signal clock_6  : std_logic;
 + signal clock_12 : std_logic;
 + signal slot     : std_logic_vector(2 downto 0);
@@ -428,7 +432,8 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +
 + signal kbd_intr     : std_logic;
 + signal kbd_scancode : std_logic_vector(7 downto 0);
-+ signal kbd_joy      : std_logic_vector(7 downto 0);
++ signal kbd_rel      : std_logic := '0';
++ signal kbd_joy      : std_logic_vector(7 downto 0) := (others => '0');
 + signal joyPCFRLDU   : std_logic_vector(7 downto 0);
 +
 + component scandoubler
@@ -450,18 +455,36 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +     );
 + end component;
 +
-+ -- Button debounce (2026-10-02): 2-FF synchronizer, then the output follows
-+ -- the input only after it has been stable for 2**18 clock_18 cycles
-+ -- (18.432 MHz: 14.2 ms). Added because this core edge-detects coin on press,
-+ -- so release bounce counted extra coins. Clocked on clock_18, the core's own
-+ -- clock, so btn_db changes on core clock edges (a first version on clock_36
-+ -- changed it next to clock_18 edges; btnU then registered inconsistently).
-+ signal btn_raw, btn_meta, btn_sync, btn_db : std_logic_vector(2 downto 0) := (others => '0');  -- U, L, R
-+ type btn_cnt_t is array (0 to 2) of unsigned(17 downto 0);
-+ signal btn_cnt : btn_cnt_t := (others => (others => '0'));
++ -- 2-FF synchronizers on clock_18 for PS/2, JXADC and buttons.
++ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
++ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
++ signal jxadc_meta, jxadc_s     : std_logic_vector(4 downto 0) := (others => '1');
++ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0');  -- U, D, L, R
 + attribute ASYNC_REG : string;
-+ attribute ASYNC_REG of btn_meta, btn_sync : signal is "TRUE";
++ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
++ attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
++
++ -- Debounce (2026-10-02): the output follows the synchronized input only after it
++ -- has been stable for 2**18 clock_18 cycles (18.432 MHz: 14.2 ms). Added because
++ -- this core edge-detects coin on press, so release bounce counted extra coins.
++ -- Clocked on clock_18, the core's own clock, so btn_db changes on core clock edges
++ -- (a first version on clock_36 changed it next to clock_18 edges; btnU then
++ -- registered inconsistently). Index 4 = JXADC fire (bouncy fire seen on the
++ -- rb-fpga/rework hardware 2026-10-19); 3..0 = btnU, btnD, btnL, btnR. Fire was
++ -- 2-FF only for one test (2026-10-20, clean with a CX40-type joystick); restored
++ -- 2026-10-21 after fire triggered on both press and release (release bounce).
++ signal db_in   : std_logic_vector(4 downto 0);
++ signal btn_db  : std_logic_vector(4 downto 0) := (others => '0');
++ type btn_cnt_t is array (0 to 4) of unsigned(17 downto 0);
++ signal btn_cnt : btn_cnt_t := (others => (others => '0'));
++ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
++ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
++ -- b_test on sw12 (Dar '1' = off).
++ constant B_TEST_DEFAULT : std_logic := '1';
++ signal b_test_in : std_logic;
 +begin
++
++b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
 +
 +reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
 +
@@ -502,7 +525,7 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 + video_vs     => vsync,
 + audio        => audio,
 +
-+ b_test       => '1',
++ b_test       => b_test_in,  -- sw12 (up = test/service mode)
 + b_svce       => '1',
 +
 + coin         => joyPCFRLDU(7),
@@ -523,7 +546,7 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +vga_b_i <= b & b & b when blankn = '1' else "000000";
 +
 +-- Derive the scandoubler clocks: clock_12 (clk_sys) and clock_6 (ce_x1) from a
-+-- mod-6 counter clocked by clock_36 (see PORTING_SPEC 12.3.3).
++-- mod-6 counter clocked by clock_36 (see PORTING_SPEC 5.1).
 +process (clock_36)
 +begin
 +    if rising_edge(clock_36) then
@@ -576,53 +599,66 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +vga_hs <= csync   when sw(13) = '1' else hsync_o;
 +vga_vs <= '1'     when sw(13) = '1' else vsync_o;
 +
-+-- get scancode from keyboard
-+process (reset, clock_18)
++-- Input synchronizers (2-FF) into clock_18
++process (clock_18)
 +begin
-+	if reset='1' then
-+		clock_9  <= '0';
-+	else
-+		if rising_edge(clock_18) then
-+				clock_9  <= not clock_9;
-+		end if;
++	if rising_edge(clock_18) then
++		ps2_clk_meta <= ps2_clk;  ps2_clk_s <= ps2_clk_meta;
++		ps2_dat_meta <= ps2_dat;  ps2_dat_s <= ps2_dat_meta;
++		jxadc_meta   <= JXADC;    jxadc_s   <= jxadc_meta;
++		btn_meta     <= btnU & btnD & btnL & btnR;
++		btn_s        <= btn_meta;
 +	end if;
 +end process;
 +
++-- get scancode from keyboard (on clock_18, the core clock; was clock_9 = clock_18/2)
 +keyboard : entity work.io_ps2_keyboard
 +port map (
-+  clk       => clock_9, -- synchronous clock with core
-+  kbd_clk   => ps2_clk,
-+  kbd_dat   => ps2_dat,
++  clk       => clock_18,
++  kbd_clk   => ps2_clk_s,
++  kbd_dat   => ps2_dat_s,
 +  interrupt => kbd_intr,
 +  scancode  => kbd_scancode
 +);
 +
-+-- translate scancode to joystick
-+joystick : entity work.kbd_joystick
-+port map (
-+  clk           => clock_9, -- synchronous clock with core
-+  kbdint        => kbd_intr,
-+  kbdscancode   => std_logic_vector(kbd_scancode),
-+  joyPCFRLDU    => kbd_joy
-+);
++-- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
++-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 4/6 alias the arrows,
++-- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
++-- kbd_joy bit order matches joyPCFRLDU below: 5 = start 1, 6 = start 2, 7 = coin.
++process (clock_18)
++begin
++	if rising_edge(clock_18) then
++		if kbd_intr = '1' then
++			if kbd_scancode = x"F0" then
++				kbd_rel <= '1';
++			elsif kbd_scancode /= x"E0" then
++				kbd_rel <= '0';
++				if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
++				if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
++				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
++				if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
++				if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
++				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
++			end if;
++		end if;
++	end if;
++end process;
 +
-+-- OR-merge the Atari-style joystick on JA with the PS/2 keyboard joystick.
-+-- JA physical map: JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire,
-+-- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
-+-- JA is active-low (pressed shorts to ground); invert so a press reads active-high,
++-- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
++-- JXADC physical map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire,
++-- i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire.
++-- JXADC is active-low (pressed shorts to ground); invert so a press reads active-high,
 +-- matching the core's active-high input boundary and the keyboard path.
-+-- Button debounce (see declarations).
-+btn_raw <= btnU & btnL & btnR;
++-- Debounce (see declarations).
++db_in <= (not jxadc_s(4)) & btn_s;
 +process(clock_18)
 +begin
 +  if rising_edge(clock_18) then
-+    btn_meta <= btn_raw;
-+    btn_sync <= btn_meta;
-+    for i in 0 to 2 loop
-+      if btn_sync(i) = btn_db(i) then
++    for i in 0 to 4 loop
++      if db_in(i) = btn_db(i) then
 +        btn_cnt(i) <= (others => '0');
 +      elsif btn_cnt(i) = (btn_cnt(i)'range => '1') then
-+        btn_db(i)  <= btn_sync(i);
++        btn_db(i)  <= db_in(i);
 +        btn_cnt(i) <= (others => '0');
 +      else
 +        btn_cnt(i) <= btn_cnt(i) + 1;
@@ -632,16 +668,16 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +end process;
 +
 +-- Galaga core takes left/right/fire only (bits 2/3/4); coin=7, start1=5, start2=6.
-+-- Coin/start come from the keyboard and btnU/btnL/btnR
-+-- (JA fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
++-- Coin/start come from the keyboard and btnU/btnD/btnL/btnR
++-- (JXADC fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
 +joyPCFRLDU(0) <= '0';
 +joyPCFRLDU(1) <= '0';
-+joyPCFRLDU(2) <= kbd_joy(2) or not JA(1);                 -- left  (JA2)
-+joyPCFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right (JA1)
-+joyPCFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire  (JA7)
-+joyPCFRLDU(5) <= kbd_joy(5) or btn_db(1); -- start1 = btnL
-+joyPCFRLDU(6) <= kbd_joy(6) or btn_db(0); -- start2 = btnR
-+joyPCFRLDU(7) <= kbd_joy(7) or btn_db(2); -- coin   = btnU
++joyPCFRLDU(2) <= kbd_joy(2) or not jxadc_s(1);               -- left  (JXADC2)
++joyPCFRLDU(3) <= kbd_joy(3) or not jxadc_s(0);               -- right (JXADC1)
++joyPCFRLDU(4) <= kbd_joy(4) or btn_db(4);                    -- fire  (JXADC7, debounced)
++joyPCFRLDU(5) <= kbd_joy(5) or btn_db(1);                    -- start1 = btnL
++joyPCFRLDU(6) <= kbd_joy(6) or btn_db(0);                    -- start2 = btnR
++joyPCFRLDU(7) <= kbd_joy(7) or btn_db(3) or btn_db(2);       -- coin   = btnU / btnD
 +
 +-- pwm sound output
 +process(clock_18)  -- same clock as the DE10 top drove the PWM accumulator
@@ -652,7 +688,7 @@ diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga_de10_lite.vhd b/vhdl_
 +end process;
 +
 +O_PMODAMP2_AIN   <= pwm_accumulator(12);
-+O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-+O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
++O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
++O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 +
 +end struct;

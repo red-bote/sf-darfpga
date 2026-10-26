@@ -1,0 +1,75 @@
+# <Machine>-by-Dar: porting spec
+
+Design record for the Basys 3 port. Procedure and conventions:
+`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+
+## 1. Upstream and reference model
+
+- Archive `<archive>.zip` (<url>), SHA-256 in `contrib/tools/setup_<game>.sh`; extracted to
+  `<src_dir>/`. Core `rtl_dar/<core>.vhd`; DE10 top `<DE10_TOP>`.
+- MAME driver: `<driver>` (<romset>).
+- Closest existing port used as model: <Machine>.
+
+## 2. Clocking
+
+- Original: <crystal and derived clocks, MAME XTAL>.
+- `clk_wiz_0`: request <MHz>, achieved <MHz> (<D / M / O>, VCO <MHz>); signal
+  `<clock name>`. Speed error <%>.
+- Enables: <CPU, pixel, sound rates as clock enables>.
+- Video: pixel <MHz>, h_total <n>, v_total <n> → H <kHz>, V <Hz> (31 kHz: H × 2).
+
+## 3. Reset
+
+`reset <= btnC or not mmcm_locked`; MMCM reset = `btnC`. <Core reset specifics.>
+
+## 4. Core instantiation
+
+<Core entity, ports changed vs the DE10 top, expression actuals routed through signals.>
+
+## 5. Video path
+
+<Native progressive / tv15Khz_mode, or MiST scandoubler: clk_sys, ce_x1, ce_x2, hs/vs
+source, RGB padding and blanking.> sw13: <mux>.
+
+## 6. Audio
+
+<Dar's PWM accumulator, width, enable; channel used.> `SHUTD <= not sw(15)`,
+`GAIN <= not sw(14)`.
+
+## 7. Inputs
+
+- Keyboard: `io_ps2_keyboard` on `<clock>`, wrapper decoder (MAME keys,
+  `../../../PORTING_SPEC.md` §3.1, §4.3).
+- Core inputs: <polarity, P1/P2, edge vs level per input>.
+- Merge: <keys, JXADC, buttons per core input>.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `<clock>`.
+- Debounce: <none | which inputs, window, reason>.
+- Combos: <none | approved combos>.
+
+## 8. Switches and DIPs
+
+| Switch | Core input | Bits | Default (down) | Notes |
+|---|---|---|---|---|
+| <sw> | <port> | <bits> | <Dar constant> | <meaning> |
+
+Fixed (not on a switch): <fields and why>.
+
+## 9. Patches
+
+| Patch | Target | Reason |
+|---|---|---|
+| `contrib/code/<name>.patch` | `<file>` | <synthesis fix / behaviour fix> |
+| `contrib/basys3/code/*_de10_lite_to_basys3.patch` | `<DE10_TOP>` | provenance record (generated) |
+
+## 10. PROM generation
+
+`contrib/tools/prep_roms.sh`: `make_<game>_proms.bat` → shell; romset(s) <...>.
+
+## 11. Build
+
+`make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. <Machine-specific
+notes.>
+
+## 12. Open items
+
+<None, or items with dates.>

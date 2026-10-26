@@ -12,32 +12,20 @@
 --    15 kHz TV (1) -- changed 2026-09-29 from the pristine core's F8
 --    keyboard toggle to match this repo's sw(13) convention used by
 --    Bagman/Berzerk/Defender/etc (no F8 toggle needed).
---  - Atari-style joystick on JA, OR-merged with PS/2 keyboard (JB) for
---    kick/movement. Kick has no directional fire -- the player D pad is a
---    spinner, so LEFT/RIGHT (and SPACE to go faster) drive the on-screen
---    spinner, and UP is the kick button. Note: the upstream DE10-lite header
---    legend says "DOWN = kick" but the code maps the up arrow (kbd_joy bit 0)
---    to the kick input; this port keeps the code behaviour (up = kick).
---  - btnU = coin-in (coin1), btnD = second coin-in (coin2), btnL = P1 start,
---    btnR = P2 start (root PORTING_SPEC.md default mapping); active-high, no
---    board pull-up needed, same convention as btnC. Coin/start come only from
---    these buttons and/or their PS/2 keyboard keys (F1/F2/F3) -- no
---    fire+direction joystick combos. coin2 (tied to '0' upstream) is driven
---    only by btnD, the core exposes no other coin2 source.
---  - Stereo PWM audio in the core; PmodAMP2 (JC) is mono, so O_PMODAMP2_AIN
---    is driven from the left channel only (same choice as Tron).
---  - sw14 = PmodAMP2 shutdown, sw15 = PmodAMP2 gain select. No dip switches
+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, replaces
+--    kbd_joystick; F0 = release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1),
+--    mapping as the hardware-verified rb-fpga/rework Kick port:
+--    Left/Right = spin, Left Alt = spin faster, Left Ctrl = kick,
+--    1/2 = start, 5/6 = coin 1/2, F2 = service toggle.
+--  - Atari-style joystick on JXADC (active low): JXADC1/2 = spin right/left,
+--    JXADC4 = spin faster, JXADC7 = kick.
+--  - btnU = coin 1, btnD = coin 2, btnL = P1 start, btnR = P2 start, btnC = reset.
+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40; keyboard on
+--    clock_40 (2026-10-20, as rework; the former clock_40/6 clock_kbd is removed).
+--  - Stereo PWM audio in the core; PmodAMP2 (JA pins 1/2/4) is mono, so O_PMODAMP2_AIN
+--    is driven from the left channel only, separate_audio = '0' (mixed).
+--  - sw15 up = audio disabled, sw14 up = PmodAMP2 gain. No dip switches
 --    are exposed by the core.
---  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
---    project default since 2026-09 (root PORTING_SPEC.md §3). The original
---    keyboard clock (clock_kbd, clock_40/10 via clock_div) was ~2 MHz and
---    shared with the PWM audio gate (clock_div = "0000") -- below the
---    onboard USB-HID port's >= 6 MHz floor, and retargeting clock_div's
---    threshold would also change the audio rate. Added a new, independent
---    clock_div_kbd counter (clock_40/6 = 6.667 MHz) dedicated to clock_kbd
---    only; clock_div and the PWM gate it drives are unchanged (same fix as
---    the sibling Solar-Fox port).
---  - btnC = reset
 ---------------------------------------------------------------------------------
 -- Educational use only
 -- Do not redistribute synthetized file with roms
@@ -62,7 +50,7 @@ port(
  btnL           : in  std_logic;  -- P1 start
  btnR           : in  std_logic;  -- P2 start
 
- JA             : in  std_logic_vector(4 downto 0);  -- joystick
+ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
  ps2_dat        : in  std_logic;
  ps2_clk        : in  std_logic;
 
@@ -81,13 +69,10 @@ end kick_basys3;
 architecture struct of kick_basys3 is
 
  signal clock_40  : std_logic;
- signal clock_kbd : std_logic;
  signal reset     : std_logic;
  signal mmcm_locked : std_logic;
- signal coin2_in  : std_logic;
 
  signal clock_div : std_logic_vector(3 downto 0);
- signal clock_div_kbd : std_logic_vector(1 downto 0);
 
  signal r         : std_logic_vector(3 downto 0);
  signal g         : std_logic_vector(3 downto 0);
@@ -103,13 +88,29 @@ architecture struct of kick_basys3 is
  signal pwm_accumulator_l : std_logic_vector(17 downto 0);
  signal pwm_accumulator_r : std_logic_vector(17 downto 0);
 
+ -- 2-FF synchronizers (clock_40) for the asynchronous inputs
+ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
+ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
+ signal jxadc_meta, jxadc_s     : std_logic_vector(4 downto 0) := (others => '1');
+ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0'); -- U, D, L, R
+ attribute ASYNC_REG : string;
+ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
+ attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
+
  signal kbd_intr      : std_logic;
  signal kbd_scancode  : std_logic_vector(7 downto 0);
- signal kbd_joy        : std_logic_vector(8 downto 0);
- signal joy_BBBBFRLDU  : std_logic_vector(8 downto 0);
- signal fn_pulse_kbd   : std_logic_vector(7 downto 0);
- signal fn_pulse       : std_logic_vector(7 downto 0);
- signal fn_toggle      : std_logic_vector(7 downto 0);
+ signal kbd_rel       : std_logic := '0';
+ -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
+ --           6 '1', 7 '2', 8 '5', 9 '6', 10 F2
+ signal kbd_key       : std_logic_vector(10 downto 0) := (others => '0');
+ signal kbd_f2_r      : std_logic := '0';
+ signal service       : std_logic := '0'; -- toggled by F2
+ signal joy_BBBBFRLDU : std_logic_vector(8 downto 0);
+ signal coin1_in      : std_logic;
+ signal coin2_in      : std_logic;
+ signal start1_in     : std_logic;
+ signal start2_in     : std_logic;
+ signal kick_in       : std_logic;
 
  signal ctc_zc_to_2   : std_logic;   -- every ~100 scanlines from kick core
  signal ctc_zc_to_2_r : std_logic;
@@ -147,16 +148,16 @@ port map(
  video_hs     => hsync,
  video_vs     => vsync,
 
- separate_audio => fn_toggle(4), -- F5
+ separate_audio => '0', -- mixed : mono amp on the left channel
  audio_out_l    => audio_l,
  audio_out_r    => audio_r,
 
- coin1          => fn_pulse(0), -- F1 or btnU
- coin2          => coin2_in,    -- btnD only
- start1         => fn_pulse(1), -- F2 or btnL
- start2         => fn_pulse(2), -- F3 or btnR
- kick           => joy_BBBBFRLDU(0), -- up arrow or JA up
- service        => fn_toggle(6), -- F7 (allow machine settings access)
+ coin1          => coin1_in,  -- 5 or btnU
+ coin2          => coin2_in,  -- 6 or btnD
+ start1         => start1_in, -- 1 or btnL
+ start2         => start2_in, -- 2 or btnR
+ kick           => kick_in,   -- left ctrl or JXADC7
+ service        => service,   -- F2 toggle (allow machine settings access)
 
  ctc_zc_to_2    => ctc_zc_to_2,
  spin_angle     => spin_count(9 downto 6),
@@ -164,30 +165,22 @@ port map(
  dbg_cpu_addr => dbg_cpu_addr
 );
 
--- OR-merge the Atari-style joystick on JA with the PS/2 keyboard joystick.
--- JA physical map (matches the sibling ports): JA1=right, JA2=left, JA3=down, JA4=up, JA7=fire,
--- i.e. JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire.
--- JA is active-low (pressed shorts to ground); invert so a press reads active-high, matching the
--- core's active-high input boundary and the keyboard path.
-joy_BBBBFRLDU(0) <= kbd_joy(0) or not JA(3);                 -- up / kick  (JA4)
-joy_BBBBFRLDU(1) <= kbd_joy(1) or not JA(2);                 -- down (JA3, unused by core)
-joy_BBBBFRLDU(2) <= kbd_joy(2) or not JA(1);                 -- left -> spin left  (JA2)
-joy_BBBBFRLDU(3) <= kbd_joy(3) or not JA(0);                 -- right -> spin right (JA1)
-joy_BBBBFRLDU(4) <= kbd_joy(4) or not JA(4);                 -- fire / SPACE (speed up) (JA7)
-joy_BBBBFRLDU(8 downto 5) <= kbd_joy(8 downto 5);            -- unused by the kick core
-
--- Coin/start come only from the default buttons (btnU/L/R) OR-merged with the
--- keyboard's F1/F2/F3 (fn_pulse_kbd). No fire+direction joystick combos.
-fn_pulse(0) <= fn_pulse_kbd(0) or btnU; -- coin1 = F1 or btnU
-fn_pulse(1) <= fn_pulse_kbd(1) or btnL; -- start1 = F2 or btnL
-fn_pulse(2) <= fn_pulse_kbd(2) or btnR; -- start2 = F3 or btnR
-fn_pulse(7 downto 3) <= fn_pulse_kbd(7 downto 3);
-
--- coin2: no keyboard or JA path maps to a second coin input, so btnD is the only source
-coin2_in <= btnD;
+-- merge keyboard, buttons and JXADC joystick (active low, inverted).
+-- JXADC(0)=JXADC1, JXADC(1)=JXADC2, JXADC(3)=JXADC4, JXADC(4)=JXADC7.
+coin1_in  <= kbd_key(8) or btn_s(3); -- 5 or btnU
+coin2_in  <= kbd_key(9) or btn_s(2); -- 6 or btnD
+start1_in <= kbd_key(6) or btn_s(1); -- 1 or btnL
+start2_in <= kbd_key(7) or btn_s(0); -- 2 or btnR
+kick_in   <= kbd_key(4) or not jxadc_s(4); -- left ctrl or JXADC7
+joy_BBBBFRLDU(0) <= '0';
+joy_BBBBFRLDU(1) <= '0';
+joy_BBBBFRLDU(2) <= kbd_key(2) or not jxadc_s(1); -- spin left  (JXADC2)
+joy_BBBBFRLDU(3) <= kbd_key(3) or not jxadc_s(0); -- spin right (JXADC1)
+joy_BBBBFRLDU(4) <= kbd_key(5) or not jxadc_s(3); -- spin faster : left alt (JXADC4)
+joy_BBBBFRLDU(8 downto 5) <= "0000";
 
 -- spin angle decoder simulation (verbatim from the DE10-lite top; LEFT/RIGHT spin the
--- spinner between the core's ctc_zc_to_2 strokes, SPACE = joy_BBBBFRLDU(4) goes faster)
+-- spinner between the core's ctc_zc_to_2 strokes, joy_BBBBFRLDU(4) goes faster)
 process (clock_40)
 begin
 	if rising_edge(clock_40) then
@@ -231,44 +224,58 @@ begin
 	end if;
 end process;
 
--- Independent keyboard clock divider (clock_40 / 6 = 6.667 MHz), dedicated
--- to clock_kbd only -- see header comment above.
-process (reset, clock_40)
+-- synchronize asynchronous inputs to the core clock
+process (clock_40)
 begin
-	if reset='1' then
-		clock_div_kbd <= (others => '0');
-		clock_kbd     <= '0';
-	else
-		if rising_edge(clock_40) then
-			if clock_div_kbd = "10" then
-				clock_div_kbd <= (others => '0');
-				clock_kbd     <= not clock_kbd;
-			else
-				clock_div_kbd <= clock_div_kbd + '1';
-			end if;
-		end if;
+	if rising_edge(clock_40) then
+		ps2_clk_meta <= ps2_clk;      ps2_clk_s <= ps2_clk_meta;
+		ps2_dat_meta <= ps2_dat;      ps2_dat_s <= ps2_dat_meta;
+		jxadc_meta   <= JXADC;        jxadc_s   <= jxadc_meta;
+		btn_meta     <= btnU & btnD & btnL & btnR;
+		btn_s        <= btn_meta;
 	end if;
 end process;
 
 keyboard : entity work.io_ps2_keyboard
 port map (
-  clk       => clock_kbd, -- synchronous clock with core
-  kbd_clk   => ps2_clk,
-  kbd_dat   => ps2_dat,
+  clk       => clock_40, -- synchronous clock with core
+  kbd_clk   => ps2_clk_s,
+  kbd_dat   => ps2_dat_s,
   interrupt => kbd_intr,
   scancode  => kbd_scancode
 );
 
--- translate scancode to joystick
-joystick : entity work.kbd_joystick
-port map (
-  clk           => clock_kbd, -- synchronous clock with core
-  kbdint        => kbd_intr,
-  kbdscancode   => std_logic_vector(kbd_scancode),
-  joy_BBBBFRLDU => kbd_joy,
-  fn_pulse      => fn_pulse_kbd,
-  fn_toggle     => fn_toggle
-);
+-- translate scancode to keys (MAME default keys, PS/2 set 2 codes), replaces
+-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the
+-- arrows, Right Ctrl/Alt alias Left Ctrl/Alt).
+process (clock_40)
+begin
+	if rising_edge(clock_40) then
+		if kbd_intr = '1' then
+			if kbd_scancode = x"F0" then
+				kbd_rel <= '1';
+			elsif kbd_scancode /= x"E0" then
+				kbd_rel <= '0';
+				if kbd_scancode = x"75" then kbd_key(0)  <= not kbd_rel; end if; -- up arrow
+				if kbd_scancode = x"72" then kbd_key(1)  <= not kbd_rel; end if; -- down arrow
+				if kbd_scancode = x"6B" then kbd_key(2)  <= not kbd_rel; end if; -- left arrow
+				if kbd_scancode = x"74" then kbd_key(3)  <= not kbd_rel; end if; -- right arrow
+				if kbd_scancode = x"14" then kbd_key(4)  <= not kbd_rel; end if; -- left ctrl
+				if kbd_scancode = x"11" then kbd_key(5)  <= not kbd_rel; end if; -- left alt
+				if kbd_scancode = x"16" then kbd_key(6)  <= not kbd_rel; end if; -- 1
+				if kbd_scancode = x"1E" then kbd_key(7)  <= not kbd_rel; end if; -- 2
+				if kbd_scancode = x"2E" then kbd_key(8)  <= not kbd_rel; end if; -- 5
+				if kbd_scancode = x"36" then kbd_key(9)  <= not kbd_rel; end if; -- 6
+				if kbd_scancode = x"06" then kbd_key(10) <= not kbd_rel; end if; -- F2
+			end if;
+		end if;
+		-- F2 toggles service mode on press (typematic repeat ignored)
+		kbd_f2_r <= kbd_key(10);
+		if kbd_f2_r = '0' and kbd_key(10) = '1' then
+			service <= not service;
+		end if;
+	end if;
+end process;
 
 -- pwm sound output (stereo in the core; PmodAMP2 is mono, so only the left
 -- channel is output -- same choice as the sibling Tron port)
@@ -285,7 +292,7 @@ begin
 end process;
 
 O_PMODAMP2_AIN   <= pwm_accumulator_l(17);
-O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
+O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
+O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 
 end struct;

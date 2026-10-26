@@ -10,9 +10,10 @@ Tool resolution: `$VIVADO` env var, else
 
 ## Log hygiene
 
-Build scripts run from `/tmp` scratch dirs so `vivado.log` / `vivado.jou`
-land outside the repo. When invoking vivado manually, `cd /tmp/opencode`
-(or another /tmp dir) first. Never commit logs, journals, or bitstreams.
+Build scripts run from `/tmp` scratch dirs (`/tmp/<top>_bitstream` for
+`darfpga-bitstream.sh`) so `vivado.log` / `vivado.jou` land outside the repo. When
+invoking vivado manually, `cd` to a `/tmp` directory first. Never commit logs,
+journals, or bitstreams.
 
 ## Invocation
 
@@ -28,8 +29,10 @@ or call the machine's
 directly. Scripts drive `vivado -mode batch -source <script>.tcl`; logs and
 journal land in the cwd, which is why the cwd must be /tmp scratch.
 
-Typical flow: `make setup-<machine>` (sources + PROM VHDL), then clk_wiz /
-patch as available, then synth / bitstream.
+Typical flow: `make setup-<machine>` (sources + PROM VHDL), `clk_wiz`, `patch`,
+`check` (parse-only `check_syntax`, `tools/check-syntax.sh`, not covered by the
+synthesis rule), then synth / bitstream on the user's request. Successful runs append
+to `build-metrics.csv` and copy logs to `build-logs/<game>/` (gitignored).
 
 ## Reading results
 
@@ -62,8 +65,30 @@ cwd hints at what it holds). Before a batch build:
   GUI-saved project state.
 - After an aborted build, clear stale `.lck` files before rerunning.
 
-## Placeholder projects
+## Read-only smoke test (no run launched)
 
-Doc-only ports carry faithful Makefiles/create_project.sh whose deep targets
-(clk_wiz, patch, synth, bitstream) fail until their basys3 assets are ported.
-That is intentional; do not "fix" it by deleting targets.
+Before spending a `synth` run to find a bad `.xpr` source list or a missing generated
+file, open the project read-only and check every source resolves. No run is launched,
+so this is not covered by the synthesis rule. Write the Tcl as a file in `/tmp`:
+
+```tcl
+open_project /path/to/<top>.xpr
+set missing 0
+foreach f [get_files -quiet] {
+    if { ![file exists $f] } { puts "MISSING: $f"; incr missing }
+}
+puts "MISSING_COUNT: $missing"
+close_project
+```
+
+Run `vivado -mode batch -nolog -nojournal -source smoke.tcl` from `/tmp`. Benign:
+`filemgmt 56-3` (missing `.gen` / `.ip_user_files` directories, created on the first
+run) and `Project 1-509` (no run launched yet).
+
+## Expected check_syntax messages
+
+`make check` hides MiST `scandoubler.v` HDL 9-3527 and `clk_wiz` HDL 9-1672. Known
+core-internal HDL 9-3240 (expression actuals in Dar's code): Bagman, Crazy-Kong,
+Satans-Hollow, Tron, Xevious. `check_syntax` is parse-only: Synth 8-2398 (literal actual
+on a Verilog port) and Synth 8-944 (`&` inside a type conversion) appear only at
+synthesis.

@@ -12,7 +12,7 @@
 # All delegation targets, the .PHONY list, and the help matrix are generated
 # from the single PORTS list below (token:directory), so the matrix cannot
 # drift from the targets. Every machine under the list supports the same full
-# step set: setup create-prj clk-wiz patch synth bitstream all clean.
+# step set: setup create-prj clk-wiz patch check synth bitstream all clean.
 #
 # PORTS := <token>:<directory>  (one entry per present machine dir)
 PORTS := \
@@ -37,7 +37,7 @@ PORTS := \
   xevious:Xevious-by-Dar \
   zaxxon:Zaxxon-by-Dar
 
-STEPS := setup create-prj clk-wiz patch synth bitstream all clean
+STEPS := setup create-prj clk-wiz patch check synth bitstream all clean
 
 token      = $(word 1,$(subst :, ,$(1)))
 directory  = $(word 2,$(subst :, ,$(1)))
@@ -48,6 +48,7 @@ setup-$(1):               ; $(MAKE) -C "$(2)" setup
 create-prj-$(1):          ; $(MAKE) -C "$(2)" create_prj
 clk-wiz-$(1):             ; $(MAKE) -C "$(2)" clk_wiz
 patch-$(1):               ; $(MAKE) -C "$(2)" patch
+check-$(1):               ; $(MAKE) -C "$(2)" check
 synth-$(1):               ; $(MAKE) -C "$(2)" synth
 bitstream-$(1):           ; $(MAKE) -C "$(2)" bitstream
 all-$(1):                 ; $(MAKE) -C "$(2)" all
@@ -120,7 +121,7 @@ help:
 	@echo "Machines and their steps:"
 	@for p in $(PORTS); do \
 	  t="$${p%%:*}"; \
-	  printf "  %-16s : setup create-prj clk-wiz patch synth bitstream all clean\n" "$$t"; \
+	  printf "  %-16s : setup create-prj clk-wiz patch check synth bitstream all clean\n" "$$t"; \
 	done
 	@echo
 	@echo "Patch: make patch regenerates every machine's top-level .vhd placement +"

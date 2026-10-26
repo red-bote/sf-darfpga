@@ -1,7 +1,7 @@
 diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd b/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd
 --- a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd
 +++ b/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd
-@@ -1,363 +1,327 @@
+@@ -1,363 +1,357 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Traverse USA by Dar (darfpga@aol.fr) (16/03/2019)
 --- http://darfpga.blogspot.fr
@@ -379,11 +379,11 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +--    floor vs max output divide), so clock_7p16 is divided by 2 in fabric to
 +--    ~3.58 MHz (clock_3p58) for the sound board -- the same approach as the
 +--    Defender port.
-+--  - Joystick on JA (four directions + fire/accel), OR-merged with the
++--  - Joystick on JXADC (four directions + fire/accel), OR-merged with the
 +--    PS/2/USB keyboard and, for coin/start, dedicated buttons (btnU/btnD =
 +--    coin, btnL = P1 start, btnR = P2 start).
-+--  - Mono (left-channel) PWM audio on PmodAMP2 (JC); sw14 = shutdown,
-+--    sw15 = gain select.
++--  - Mono (left-channel) PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled,
++--    sw14 up = gain.
 +--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
 +--    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high).
 +--    Scandoubler clk_sys/ce_x1 are derived locally at 2x / 1x the core pixel
@@ -391,11 +391,11 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +--    wiring a faster clock directly to clk_sys does not work -- clk_sys must
 +--    itself be a derived signal at 2x ce_x1's rate, with ce_x2 tied to '1'.
 +--  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock).
-+ --  - Keyboard clock divider (clock_div/clock_kbd) drives io_ps2_keyboard /
-+ --    kbd_joystick on clock_36 at ~6 MHz (mod-3 toggle, keyboard-only); the
-+ --    PWM accumulator runs on clock_3p58. The pristine top's shared mod-6
-+ --    divider (~3 MHz) is too slow for the Basys 3 onboard USB-HID host
-+ --    (needs >= 6 MHz), per Congo Bongo / Zaxxon / Pooyan hardware data.
++--  - io_ps2_keyboard and the scancode decoder run on clock_36 (2026-10-20,
++--    >= 6 MHz floor met), the core clock, so decoded keys need no clock-domain
++--    crossing. This replaces the fabric clock_kbd (clock_36/6, ~6 MHz) divider,
++--    itself added because the pristine mod-6 divider (~3 MHz) was too slow for
++--    the Basys 3 onboard USB-HID host. The PWM accumulator runs on clock_3p58.
 +--  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr) is not ported;
 +--    the core's debug output is left open.
 +--  - The pristine core declares video_hs/video_vs but does not drive them
@@ -404,10 +404,15 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +--    hsync/vsync (video_hs <= hsync0, a simple video_vs pulse from
 +--    vsync_cnt) so this port can wire them into the scandoubler; see
 +--    contrib/basys3/PORTING_SPEC.md.
-+--  - This core has no genuine fire/coin-multiplex inputs separate from
-+--    movement/accelerate (see PORTING_SPEC.md): JA4 (JA7) and JA3 (JA4) both
-+--    accelerate, JA2 (JA3) brakes, JA1 (JA2)/JA0 (JA1) steer. Space on the
-+--    keyboard also accelerates.
++--  - This core has no fire input; its inputs are steer, accelerate and brake
++--    (see PORTING_SPEC.md): JXADC7 (fire) accelerates, JXADC3 (down, also
++--    down+fire) brakes, JXADC2/JXADC1 steer; JXADC4 (up) unused.
++--  - DIP switches on sw7-0 (bank 2) and sw11-8 (bank 1 bits 3-0); switch down =
++--    Dar's DE10 default.
++--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 =
++--    release, E0 ignored): left/right arrows steer, Left Ctrl = accelerate,
++--    Left Alt = brake, 1/2 = start, 5/6 = coin.
++--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_36.
 +---------------------------------------------------------------------------------
 +-- Educational use only
 +-- Do not redistribute synthetized file with roms
@@ -432,7 +437,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + btnU            : in  std_logic;  -- coin-in
 + btnD            : in  std_logic;  -- coin-in
 +
-+ JA              : in  std_logic_vector(4 downto 0);  -- joystick (steer/brake/accel)
++ JXADC              : in  std_logic_vector(4 downto 0);  -- joystick (steer/brake/accel)
 + ps2_dat         : in  std_logic;
 + ps2_clk         : in  std_logic;
 +
@@ -497,15 +502,33 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + signal audio           : std_logic_vector(10 downto 0);
 + signal pwm_accumulator : std_logic_vector(12 downto 0);
 +
-+ -- keyboard clock divider (keyboard-only; ~6 MHz -- see the divider process)
-+ signal clock_div : std_logic_vector(2 downto 0);
-+ signal clock_kbd : std_logic;
-+
 + signal kbd_intr     : std_logic;
 + signal kbd_scancode : std_logic_vector(7 downto 0);
-+ signal joyPCFRLDU   : std_logic_vector(7 downto 0);
++ signal kbd_rel      : std_logic := '0';
++ -- decoded keys: 2 left, 3 right, 4 accel, 5 coin, 6 start1, 7 start2, 8 brake
++ signal kbd_joy      : std_logic_vector(8 downto 0) := (others => '0');
++
++ -- 2-FF synchronizers on clock_36: PS/2, JXADC and btnU/btnD/btnL/btnR.
++ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
++ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
++ signal jxadc_meta, jxadc_s     : std_logic_vector(4 downto 0) := (others => '1');
++ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0');  -- U, D, L, R
++ attribute ASYNC_REG : string;
++ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
++ attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
 +
 + signal core_accel, core_brake, core_left, core_right    : std_logic;
++
++ -- DIP switches (2026-10-20, sf-darfpga PORTING_SPEC.md section 3.2): switch
++ -- down = Dar's DE10 default, switch up inverts that bit.
++ --   dip2 = sw(7:0):  Diag(7) / Demo(6) / Zippy(5) / Freeze(4) / M-Km(3) /
++ --                    Coin mode(2) / Cocktail(1) / Flip(0), default x"FE"
++ --   dip1 = sw(11:8) on bits 3-0: Cont. play(3) / Fuel consumption(2) /
++ --                    Fuel lost when collision(1-0), default x"FF"; Coinage_B
++ --                    (7-4) fixed at its default (sw12 spare).
++ constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := x"FF";
++ constant DIP2_DEFAULT : std_logic_vector(7 downto 0) := x"FE";
++ signal dip1, dip2 : std_logic_vector(7 downto 0);
 + signal core_coin1, core_start1, core_start2             : std_logic;
 +
 +begin
@@ -548,8 +571,8 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +  video_vs     => vsync,
 +  audio_out    => audio,
 +
-+  dip_switch_1 => x"FF",
-+  dip_switch_2 => x"FE",
++  dip_switch_1 => dip1,
++  dip_switch_2 => dip2,
 +
 +  start2   => core_start2,
 +  start1   => core_start1,
@@ -565,27 +588,6 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +
 +  dbg_cpu_addr => open
 + );
-+
-+ -- keyboard clock divider: divides clock_36 down for io_ps2_keyboard /
-+ -- kbd_joystick (keyboard-only -- no PWM gate shares clock_div here, so
-+ -- changing its period has no audio side effect). Toggle every 3 clocks
-+ -- (mod-3) -> clock_36/6 ~= 6.14 MHz: the pristine mod-6 toggle (~3 MHz)
-+ -- is too slow for the Basys 3 onboard USB-HID host, which needs >= 6 MHz
-+ -- (see Congo Bongo / Arcade_Zaxxon / Pooyan hardware data).
-+ process (reset, clock_36)
-+ begin
-+   if reset = '1' then
-+     clock_div <= "000";
-+     clock_kbd <= '0';
-+   elsif rising_edge(clock_36) then
-+     if clock_div = "010" then
-+       clock_div <= "000";
-+       clock_kbd <= not clock_kbd;
-+     else
-+       clock_div <= clock_div + 1;
-+     end if;
-+   end if;
-+ end process;
 +
 + -- clk_sys/ce_x1 for the scandoubler, 2x / 1x the core pixel rate, derived
 + -- by a mod-6 counter on clock_36 (Galaga's proven pattern).
@@ -605,44 +607,72 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +   end if;
 + end process;
 +
++ -- input synchronizers (2-FF)
++ process (clock_36)
++ begin
++   if rising_edge(clock_36) then
++     ps2_clk_meta <= ps2_clk;  ps2_clk_s <= ps2_clk_meta;
++     ps2_dat_meta <= ps2_dat;  ps2_dat_s <= ps2_dat_meta;
++     jxadc_meta <= JXADC;                     jxadc_s <= jxadc_meta;
++     btn_meta   <= btnU & btnD & btnL & btnR; btn_s   <= btn_meta;
++   end if;
++ end process;
++
 + -- get scancode from keyboard
 + keyboard : entity work.io_ps2_keyboard
 + port map (
-+   clk       => clock_kbd, -- synchronous with core (pristine divider)
-+   kbd_clk   => ps2_clk,
-+   kbd_dat   => ps2_dat,
++   clk       => clock_36, -- core clock, single domain (see header)
++   kbd_clk   => ps2_clk_s,
++   kbd_dat   => ps2_dat_s,
 +   interrupt => kbd_intr,
 +   scancode  => kbd_scancode
 + );
 +
-+ -- translate scancode to joystick / function keys
-+ joystick : entity work.kbd_joystick
-+ port map (
-+   clk          => clock_kbd,
-+   kbdint       => kbd_intr,
-+   kbdscancode  => std_logic_vector(kbd_scancode),
-+   joyPCFRLDU   => joyPCFRLDU
-+ );
++ -- translate scancode to keys (MAME default keys, PS/2 set 2 codes), replaces
++ -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 4/6 alias the arrows,
++ -- Right Ctrl/Alt alias Left Ctrl/Alt), sf-darfpga PORTING_SPEC.md section 3.1.
++ process (clock_36)
++ begin
++   if rising_edge(clock_36) then
++     if kbd_intr = '1' then
++       if kbd_scancode = x"F0" then
++         kbd_rel <= '1';
++       elsif kbd_scancode /= x"E0" then
++         kbd_rel <= '0';
++         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
++         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
++         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : accelerate
++         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6 : coin
++         if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1 : start 1
++         if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2 : start 2
++         if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt : brake
++       end if;
++     end if;
++   end if;
++ end process;
 +
-+ -- OR-merge the joystick on JA with the PS/2 keyboard joystick. JA physical
-+ -- map: JA1=right, JA2=left, JA3=down/brake, JA4=up, JA7=fire/accel, i.e.
-+ -- JA(0)=right, JA(1)=left, JA(2)=down, JA(3)=up, JA(4)=fire. JA is
++ -- OR-merge the joystick on JXADC with the PS/2 keyboard joystick. JXADC physical
++ -- map: JXADC1=right, JXADC2=left, JXADC3=down/brake, JXADC4=up, JXADC7=fire/accel, i.e.
++ -- JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire. JXADC is
 + -- active-low (pressed shorts to ground); invert so a press reads
 + -- active-high, matching the core's active-high input boundary and the
-+ -- keyboard path. There is no fire input on the core: up (JA3, or arrow-UP
-+ -- bit0 of joyPCFRLDU) and fire (JA4, or SPACE bit4) both accelerate, and
-+ -- down (JA2, or arrow-DOWN bit1) brakes.
-+ core_accel <= joyPCFRLDU(0) or joyPCFRLDU(4) or not JA(3) or not JA(4);
-+ core_brake <= joyPCFRLDU(1) or not JA(2);
-+ core_left  <= joyPCFRLDU(2) or not JA(1);
-+ core_right <= joyPCFRLDU(3) or not JA(0);
++ -- keyboard path. There is no fire input on the core: fire (JXADC7)
++ -- accelerates, down (JXADC3) brakes; down+fire asserts both, as fire passes
++ -- through. Up (JXADC4) is unused (accelerate removed from it 2026-10-20, user).
++ core_accel <= kbd_joy(4) or not jxadc_s(4);                   -- left ctrl / JXADC7
++ dip1 <= DIP1_DEFAULT xor (x"0" & sw(11 downto 8));
++ dip2 <= DIP2_DEFAULT xor sw(7 downto 0);
 +
-+ -- Coin/start: keyboard (F1/F2/F3) OR-merged with dedicated buttons.
++ core_brake <= kbd_joy(8) or not jxadc_s(2);                   -- left alt / JXADC3
++ core_left  <= kbd_joy(2) or not jxadc_s(1);                   -- left arrow / JXADC2
++ core_right <= kbd_joy(3) or not jxadc_s(0);                   -- right arrow / JXADC1
++
++ -- Coin/start: keyboard (5/6, 1, 2) OR-merged with dedicated buttons.
 + -- Buttons are active-high (Basys3 board pull-down, same convention as
 + -- btnC). This core has a single coin input; btnU and btnD both trigger it.
-+ core_coin1  <= joyPCFRLDU(5) or btnU or btnD;  -- coin   = F1 or btnU or btnD
-+ core_start1 <= joyPCFRLDU(6) or btnL;          -- start1 = F2 or btnL
-+ core_start2 <= joyPCFRLDU(7) or btnR;          -- start2 = F3 or btnR
++ core_coin1  <= kbd_joy(5) or btn_s(3) or btn_s(2);  -- coin   = 5 / 6, btnU, btnD
++ core_start1 <= kbd_joy(6) or btn_s(1);              -- start1 = 1 or btnL
++ core_start2 <= kbd_joy(7) or btn_s(0);              -- start2 = 2 or btnR
 +
 + -- Pad native 2/3/3-bit RGB to the scan doubler's 6-bit/channel input by
 + -- MSB replication, forced to black while blanked.
@@ -688,7 +718,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + end process;
 +
 + O_PMODAMP2_AIN   <= pwm_accumulator(12);
-+ O_PMODAMP2_SHUTD <= sw(14);  -- shutdown: 0 = off, 1 = on
-+ O_PMODAMP2_GAIN  <= sw(15);  -- gain: 0 = 12 dB, 1 = 6 dB
++ O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
++ O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
 +
 +end struct;

@@ -2,7 +2,7 @@ GAME         := satans_hollow
 SRC_DIR      := vhdl_satans_hollow_rev_0_2_2019_11_22
 TOP_ENTITY   := satans_hollow_basys3
 DISPLAY_NAME := Satan's Hollow (Bally Midway MCR)
-IO_SUMMARY   := USB-HID keyboard; JA joystick; PmodAMP2 mono audio (JC); 4 pushbuttons
-DISPLAY_HINT := sw(13)=0 -> 31 kHz VGA (default), sw(13)=1 -> 15 kHz TV; F8 toggles
+IO_SUMMARY   := USB-HID keyboard (MAME keys) + JXADC joystick (active-low) OR-merged; btnU=coin1, btnD=coin2, btnL/btnR=start1/2, btnC=reset; JA PmodAMP2 PWM audio (left channel); sw15 up = audio off, sw14 up = gain; sw13 up = 15 kHz TV; sw12 = cocktail, sw11 = coin meters; VGA 4-4-4 RGB
+DISPLAY_HINT := sw(13): 0 = 31 kHz VGA, 1 = 15 kHz TV
 
 include ../tools/mk/machine.mk

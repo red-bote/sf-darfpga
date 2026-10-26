@@ -1,7 +1,7 @@
 ## Basys-3 XDC constraints for Computer Space (Basys3 port)
 ## Adapted from vhdl_congo_bongo basys3 XDC (Red~Bote, 2026-09-03).
 ## Pin mapping matches computer_space_basys3.vhd entity ports.
-##   Audio: Pmod JC (same layout as Congo Bongo / Burnin Rubber)
+##   Audio: Pmod JA (same layout as Congo Bongo / Burnin Rubber)
 ##   Keyboard: Onboard USB HID host (C17/B17)
 ##   Switch 14: AMP shutdown | Switch 15: AMP gain | Switch 13: scandoubler on/off
 
@@ -34,17 +34,17 @@ set_property -dict { PACKAGE_PIN W19  IOSTANDARD LVCMOS33 } [get_ports btnL]
 set_property -dict { PACKAGE_PIN T17  IOSTANDARD LVCMOS33 } [get_ports btnR]
 set_property -dict { PACKAGE_PIN U17  IOSTANDARD LVCMOS33 } [get_ports btnD]
 
-## Pmod Header JA  (active-low joystick on active bank)
-set_property -dict { PACKAGE_PIN J1   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[0]}];#Sch name = JA1 = right/CW
-set_property -dict { PACKAGE_PIN L2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[1]}];#Sch name = JA2 = left/CCW
-set_property -dict { PACKAGE_PIN J2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[2]}];#Sch name = JA3 = spare
-set_property -dict { PACKAGE_PIN G2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[3]}];#Sch name = JA4 = up/thrust
-set_property -dict { PACKAGE_PIN H1   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JA[4]}];#Sch name = JA7 = fire
+## Pmod Header JXADC  (active-low joystick on active bank)
+set_property -dict { PACKAGE_PIN J3   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[0]}];#Sch name = JXADC1 = right/CW
+set_property -dict { PACKAGE_PIN L3   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[1]}];#Sch name = JXADC2 = left/CCW
+set_property -dict { PACKAGE_PIN M2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[2]}];#Sch name = JXADC3 = spare
+set_property -dict { PACKAGE_PIN N2   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[3]}];#Sch name = JXADC4 = up/thrust
+set_property -dict { PACKAGE_PIN K3   IOSTANDARD LVCMOS33   PULLUP true } [get_ports {JXADC[4]}];#Sch name = JXADC7 = fire
 
-## Pmod Header JC  (PmodAMP2 audio)
-set_property -dict { PACKAGE_PIN K17  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_AIN]
-set_property -dict { PACKAGE_PIN M18  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_GAIN]
-set_property -dict { PACKAGE_PIN P18  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_SHUTD]
+## Pmod Header JA  (PmodAMP2 audio)
+set_property -dict { PACKAGE_PIN J1  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_AIN]
+set_property -dict { PACKAGE_PIN L2  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_GAIN]
+set_property -dict { PACKAGE_PIN G2  IOSTANDARD LVCMOS33 } [get_ports O_PMODAMP2_SHUTD]
 
 ## VGA Connector
 set_property -dict { PACKAGE_PIN G19  IOSTANDARD LVCMOS33 } [get_ports {vgaRed[0]}]
