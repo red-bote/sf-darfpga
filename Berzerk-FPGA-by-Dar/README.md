@@ -1,6 +1,6 @@
 # Berzerk-FPGA-by-Dar
 
-Basys 3 port of Berzerk (Stern, 1980), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Berzerk (Stern, 1980), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_berzerk_rev_0_1_2018_08_08.zip` (rev 0.1,
 08/08/2018), `dloads/`. Basys 3 port by Red~Bote; Dar's release notes: `README.txt` in the
 extracted archive.

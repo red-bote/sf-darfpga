@@ -1,6 +1,6 @@
 # Tron-by-Dar
 
-Basys 3 port of Tron (Midway MCR, 1982), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Tron (Midway MCR, 1982), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_tron_rev_0_3_2019_11_22.zip` (rev 0.3,
 2019-11-22), `dloads/`. Dar's release notes: `README.txt` in the extracted archive.
 

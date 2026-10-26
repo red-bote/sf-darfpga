@@ -1,6 +1,6 @@
 # Xevious-by-Dar
 
-Basys 3 port of Xevious (Namco, 1982), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Xevious (Namco, 1982), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_xevious_de2_de10_lite_2017_05_01.zip`
 (2017-05-01), `dloads/`. Upstream release notes: `README.txt` in the extracted archive.
 
@@ -58,7 +58,7 @@ The core's DIP banks `dip_a`/`dip_b` are constants inside `rtl_dar/xevious.vhd:4
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | right, left, down + bomb, up, fire |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
-| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 
@@ -96,11 +96,13 @@ None open.
   `grep -c video_hs .../rtl_dar/xevious.vhd` gives 2).
 - `rtl_dar/xevious.vhd`: sprite address `xor spflips` width mismatch, Vivado rejects it
   (`contrib/code/xevious_synth_fix_xor_spflips.patch`).
-- MiST `scandoubler.v`: unpacked array range Vivado rejects (`contrib/code/scandoubler_fix.patch`).
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
+  applied to the project copy).
 
 ## Third-party sources
 
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

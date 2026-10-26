@@ -1,7 +1,7 @@
 diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd
 --- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd
 +++ b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd
-@@ -1,404 +1,278 @@
+@@ -1,404 +1,272 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Popeye by Dar (darfpga@aol.fr) (26/12/2019)
 --- http://darfpga.blogspot.fr
@@ -407,32 +407,30 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Popeye (Nintendo, 1982) by Dar (darfpga@aol.fr) (26/12/2019)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Popeye by Red~Bote, derived from popeye_de10_lite.vhd by
++-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from popeye_de10_lite.vhd (DE10-lite rev 03 27/01/2020):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 40.32 MHz
-+--  - Joystick on JXADC, OR-merged with the PS/2 keyboard; keyboard decoded in
-+--    this wrapper, MAME default keys (2026-10-20, replaces kbd_joystick; F0 =
-+--    release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1), mapping as the
-+--    hardware-verified rb-fpga/rework Popeye port: arrows, Left Ctrl = punch,
-+--    1/2 = start, 5/6 = coin, 9 = service (held)
-+--  - btnU/btnD = coin, btnL/btnR = start; sw7-0 = dip switch 2 (switch up = bit
-+--    set in Dar's value, sw2 <= not sw(7 downto 0))
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40; keyboard on
-+--    clock_40 (2026-10-20, as rework; the former clock_40/6 clock_kbd is removed)
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
-+--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (native core rate),
-+--    1 = 15 kHz TV (native rate, composite sync on HS, VS high)
-+--  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
-+--  - No LEDs / 7-segment: the shared Basys-3-Master.xdc leaves them commented.
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_40 = 40.32 MHz from 100 MHz
++--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID); player 2
++--  mirrors player 1
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
++--  Native 31 kHz VGA; sw13 = 15 kHz TV (csync on HS)
++--  Keyboard: MAME default keys (arrows, Left Ctrl = punch, 1/2 = start, 5/6 = coin,
++--  9 = service, held)
++--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
++--  DIP switches: sw2 on sw7-0 (inverted), sw1 coinage on sw11-8
++--  No LEDs / 7-segment
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -497,7 +495,7 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + signal kbd_intr      : std_logic;
 + signal kbd_scancode  : std_logic_vector(7 downto 0);
 + signal kbd_rel       : std_logic := '0';
-+ -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++ -- kbd_key: 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
 + --           6 '1', 7 '2', 8 '5', 9 '6', 10 '9'
 + signal kbd_key       : std_logic_vector(10 downto 0) := (others => '0');
 +
@@ -513,10 +511,10 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + signal joy_coin      : std_logic;
 + signal joy_service   : std_logic;
 + signal sw1_in        : std_logic_vector(6 downto 0); -- dip switch 1 (active low)
-+ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
-+ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
++ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
++ -- default, switch up inverts the bit.
 + -- sw1: coinage (bits 3-0) on sw11-8; copyright (6-5) and N.U. (4) fixed.
-+ constant SW1_DEFAULT : std_logic_vector(6 downto 0) := not ("10" & '1' & "1111");  -- Dar's value
++ constant SW1_DEFAULT : std_logic_vector(6 downto 0) := not ("10" & '1' & "1111");  -- DE10 default
 + signal sw2_in        : std_logic_vector(7 downto 0); -- dip switch 2 (active low)
 +
 +begin
@@ -566,16 +564,15 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 +  down2          => joy_down,
 +  fire2          => joy_fire,
 +
-+  sw1            => sw1_in, -- Dar: "10" & '1' & "1111" Copyright (2b) / N.U.(1b) / coinage (4b)
-+  sw2            => sw2_in, -- sw7-0 (Dar: "00111101") Cocktail(1b) / Music(1b) / Bonus(2b) / diff(2b) / life(2b)
++  sw1            => sw1_in, -- DE10: "10" & '1' & "1111" Copyright (2b) / N.U.(1b) / coinage (4b)
++  sw2            => sw2_in, -- sw7-0 (DE10: "00111101") Cocktail(1b) / Music(1b) / Bonus(2b) / diff(2b) / life(2b)
 +
 +  service        => joy_service,
 +
 +  dbg_cpu_addr   => open
 + );
 +
-+ -- Adapt the core's 3/3/2-bit RGB to 4 bits/color, blanking on blankn
-+ -- (faithful to the DE10 wrapper).
++-- adapt video to 4bits/color only and blank
 + vga_r <= r & '0' when blankn = '1' else "0000";
 + vga_g <= g & '0' when blankn = '1' else "0000";
 + vga_b <= b & "00" when blankn = '1' else "0000";
@@ -587,8 +584,6 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + vga_hs <= csync when sw(13) = '1' else hsync;
 + vga_vs <= '1'   when sw(13) = '1' else vsync;
 +
-+ -- clock_div: unchanged, still gates the PWM accumulator below
-+ -- (clock_div = "0000").
 + process (reset, clock_40)
 + begin
 +  if reset = '1' then
@@ -660,7 +655,7 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + joy_down    <= kbd_key(1) or not jxadc_s(2);  -- down  (JXADC3)
 + joy_left    <= kbd_key(2) or not jxadc_s(1);  -- left  (JXADC2)
 + joy_right   <= kbd_key(3) or not jxadc_s(0);  -- right (JXADC1)
-+ joy_fire    <= kbd_key(4) or not jxadc_s(4);  -- punch : left ctrl (JXADC7)
++ joy_fire    <= kbd_key(4) or not jxadc_s(4);  -- punch: left ctrl (JXADC7)
 + joy_coin    <= kbd_key(8) or kbd_key(9) or btn_s(3) or btn_s(2); -- 5, 6, btnU, btnD
 + joy_start1  <= kbd_key(6) or btn_s(1);        -- 1 or btnL
 + joy_start2  <= kbd_key(7) or btn_s(0);        -- 2 or btnR
@@ -668,8 +663,7 @@ diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye_de10_lite.vhd b/vhdl_
 + sw1_in      <= SW1_DEFAULT xor ("000" & sw(11 downto 8));  -- coinage (bits 3-0) on sw11-8
 + sw2_in      <= not sw(7 downto 0);            -- dip switch 2 from sw7-0
 +
-+ -- pwm sound output (18-bit accumulator, updating once per clock_div cycle,
-+ -- same as the DE10 top)
++-- pwm sound output
 + process(clock_40)
 + begin
 +  if rising_edge(clock_40) then

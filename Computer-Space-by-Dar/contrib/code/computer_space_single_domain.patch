@@ -6,7 +6,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_top.vhd b
  		reset  			: in  std_logic;
  		clock_50 		: in  std_logic;
 -		game_clk			: in  std_logic;
-+		game_ce			: in  std_logic; -- 6 MHz enable (was game_clk) -- Basys3: 48 MHz single domain
++		game_ce			: in  std_logic; -- 6 MHz enable (replaces game_clk)
 +		game_ce_n		: in  std_logic; -- 6 MHz enable, half-pixel offset
  
  		signal_ccw 		: in  std_logic;
@@ -67,7 +67,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sync_star_board.vhd b/vh
  	port (
  	reset,
 -	game_clk 			-- Fundamental game
-+	game_ce,			-- 6 MHz enable (was game_clk) -- Basys3: 48 MHz single domain
++	game_ce,			-- 6 MHz enable (replaces game_clk)
 +	game_ce_n 			-- half-pixel offset enable
 +							-- game_clk was the Fundamental game
  							-- clock for the whole game's
@@ -99,7 +99,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/scan_counter.vhd b/vhdl_
  entity scan_counter is 
  	port(
 -	game_clk											: in std_logic; 	
-+	super_clk, game_ce, game_ce_n				: in std_logic; -- Basys3: 48 MHz single domain
++	super_clk, game_ce, game_ce_n				: in std_logic; -- 48 MHz single domain
  	hsync												: out std_logic;
  	vsync												: out std_logic;
  	star_video_out,
@@ -118,8 +118,8 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/scan_counter.vhd b/vhdl_
  
 -b2_12 <= game_clk;
 -b5_10 <= not game_clk;
-+b2_12 <= game_ce;   -- enable (was game_clk)
-+b5_10 <= game_ce_n; -- enable (was not game_clk)
++b2_12 <= game_ce;   -- enable (replaces game_clk)
++b5_10 <= game_ce_n; -- enable (replaces not game_clk)
  
  -----------------------------------------------------------------------------	
  -- GENERATE SYNC SIGNAL AND SCAN COUNTER VALUES 									--
@@ -152,7 +152,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/v74161.vhd b/vhdl_comput
  
  entity v74161 is
  port ( CLK, CLRN, LDN, ENP, ENT: in STD_LOGIC :='0';
-+CE: in STD_LOGIC := '1'; -- Basys3: 48 MHz single domain clock enable
++CE: in STD_LOGIC := '1'; -- 48 MHz single domain clock enable
  D: in UNSIGNED (7 downto 0) := "00000000";
  Q: out UNSIGNED (7 downto 0):= "00000000";
  RCO: out STD_LOGIC  :='0');
@@ -172,7 +172,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/v74161_16bit.vhd b/vhdl_
  
  entity v74161_16bit is
  port ( CLK, CLRN, LDN, ENP, ENT: in STD_LOGIC :='0';
-+CE: in STD_LOGIC := '1'; -- Basys3: 48 MHz single domain clock enable
++CE: in STD_LOGIC := '1'; -- 48 MHz single domain clock enable
  D: in UNSIGNED (15 downto 0) := "0000000000000000";
  Q: out UNSIGNED (15 downto 0):= "0000000000000000";
  RCO: out STD_LOGIC  :='0');
@@ -192,7 +192,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/composite_sync.vhd b/vhd
  entity composite_sync is
  port(
  	clk : in std_logic;
-+	ce  : in std_logic := '1'; -- Basys3: 48 MHz single domain pixel enable
++	ce  : in std_logic := '1'; -- 48 MHz single domain pixel enable
  	hsync : in std_logic;
  	vsync : in std_logic;
  	csync : out std_logic;
@@ -213,7 +213,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  begin
  if clock_50'event and clock_50='1' then
 -	if thrust_and_rotate_clk_count = 2777778 then  
-+	if thrust_and_rotate_clk_count = 2666667 then  -- Basys3 48 MHz (50 MHz: 2777778)  
++	if thrust_and_rotate_clk_count = 2666667 then  -- 48 MHz (50 MHz: 2777778)  
  		thrust_and_rotate_clk_count <= 0;
  		thrust_and_rotate_clk_buffer <=  not (thrust_and_rotate_clk_buffer);
  	else
@@ -222,7 +222,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  begin
  if clock_50'event and clock_50='1' then
 -	if explosion_clk_count = 4166667 then  
-+	if explosion_clk_count = 4000000 then  -- Basys3 48 MHz (50 MHz: 4166667)  
++	if explosion_clk_count = 4000000 then  -- 48 MHz (50 MHz: 4166667)  
  		explosion_clk_count <= 0;
  		explosion_clk_buffer <=  not (explosion_clk_buffer);
  	else
@@ -231,7 +231,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  begin
  if clock_50'event and clock_50='1' then
 -	if explosion_rotate_clk_count = 147 then
-+	if explosion_rotate_clk_count = 141 then -- Basys3 48 MHz (50 MHz: 147)
++	if explosion_rotate_clk_count = 141 then -- 48 MHz (50 MHz: 147)
  		explosion_rotate_clk_count <= 0;
  		explosion_rotate_clk_buffer <=  not (explosion_rotate_clk_buffer);
  	else
@@ -240,7 +240,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  begin
  if clock_50'event and clock_50='1' then
 -	if seconds_clk_count = 25000000 then 
-+	if seconds_clk_count = 24000000 then -- Basys3 48 MHz (50 MHz: 25000000) 
++	if seconds_clk_count = 24000000 then -- 48 MHz (50 MHz: 25000000) 
  		seconds_clk_count <= 0;
  		seconds_clk_buffer <=  not (seconds_clk_buffer);
  	else
@@ -249,28 +249,28 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  timer_base_clk <= clock_50;
  	
 -rocket_missile_life_time_duration <= 115000000; -- 2,3s
-+rocket_missile_life_time_duration <= 110400000; -- 2,3s (Basys3 48 MHz; 50 MHz: 115000000)
++rocket_missile_life_time_duration <= 110400000; -- 2,3s (48 MHz; 50 MHz: 115000000)
  -- calculate rocket_missile_life_time_duration as:
  -- rocket_missile_life_time_duration / timer_base_clk  = 2,3s
  -- reaching a life time of 2.3 seconds
  -- as measured on real CS board set
  
 -saucer_missile_life_time_duration <= 115000000; -- 2,3 s
-+saucer_missile_life_time_duration <= 110400000; -- 2,3 s (Basys3 48 MHz; 50 MHz: 115000000)
++saucer_missile_life_time_duration <= 110400000; -- 2,3 s (48 MHz; 50 MHz: 115000000)
  -- calculate saucer_missile_life_time_duration as:
  -- saucer_missile_life_time_duration / timer_base_clk = 2.3s
  -- reaching a life time of 2.3 seconds
  -- as measured on real CS board set
  
 -saucer_missile_hold_duration <= 10000000; -- 0.2s
-+saucer_missile_hold_duration <= 9600000; -- 0.2s (Basys3 48 MHz; 50 MHz: 10000000)
++saucer_missile_hold_duration <= 9600000; -- 0.2s (48 MHz; 50 MHz: 10000000)
  -- calculate saucer_missile_hold_duration as:
  -- saucer_missile_hold_duration / timer_base_clk = 0,2s
  -- reaching a hold time of 0.2 seconds
  -- as measured on real CS board set
  
 -signal_delay_duration <= 150000; -- 0,003s (should actually be only 3us)
-+signal_delay_duration <= 144000; -- 0,003s (Basys3 48 MHz; 50 MHz: 150000) (should actually be only 3us)
++signal_delay_duration <= 144000; -- 0,003s (48 MHz; 50 MHz: 150000) (should actually be only 3us)
  -- calculate signal_delay_duration as:
  -- signal_delay_duration / timer_base_clk = 0,003s
  -- reaching a signal delay time of 0.003 seconds
@@ -282,7 +282,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sound.vhd b/vhdl_compute
  			when FREQ_COUNT =>
  				sample_rate_count <= sample_rate_count +1;
 -				if sample_rate_count > 4535 then   -- 12kHz 
-+				if sample_rate_count > 4354 then   -- 12kHz (Basys3 48 MHz; 50 MHz: 4535) 
++				if sample_rate_count > 4354 then   -- 12kHz (48 MHz; 50 MHz: 4535) 
  					state <= READ_BYTE;
  					sample_rate_count <= 1;
  				else
@@ -294,7 +294,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_sound.vhd
  	else
  		if rising_edge(clock_50) then
 -			if noise_cnt = 4544 then   -- 11kHz
-+			if noise_cnt = 4362 then   -- 11kHz (Basys3 48 MHz; 50 MHz: 4544)
++			if noise_cnt = 4362 then   -- 11kHz (48 MHz; 50 MHz: 4544)
  				noise_cnt <= 0;
  				noise_reg <= noise_reg(62 downto 0) & not (noise_reg(16) xor noise_reg(13));
  		else

@@ -1,6 +1,6 @@
 # Bagman-FPGA-Dar
 
-Basys 3 port of Bagman (Valadon Automation / Stern, 1982), original core by Dar
+Basys 3 port of Bagman (Valadon Automation / Stern, 1982), FPGA core by Dar
 (darfpga@aol.fr), <http://darfpga.blogspot.fr>. Source:
 `vhdl_bagman_rev_0_1_2018_06_05.zip` (rev 0.1, 05/06/2018), `dloads/`. Basys 3 port by
 Red~Bote; Dar's release notes: `README.txt` in the extracted archive.

@@ -10,8 +10,7 @@
 # 2. Copy the .xpr (references the local mist import directly).
 # 3. Copy Basys-3-Master.xdc into constrs_1/imports/digilent-xdc-master/.
 # 4. Copy the MiST scandoubler.v (contrib/code/) into sources_1/imports/mist/ and
-#    apply scandoubler_fix.patch to the copy (2026-10-05; replaces the DECA
-#    vga_scandoubler.v, see contrib/basys3/PORTING_SPEC.md section 5).
+#    apply scandoubler_fix.patch to the copy.
 #
 # clk_wiz_0 IP generation (make_clk_wiz_0.sh) and the top level are separate.
 
@@ -42,7 +41,7 @@ cp -f "$CONTRIB/vivado/pooyan_basys3.xpr" "$PROJ_DIR/pooyan_basys3.xpr"
 step "3/4 Copying Basys-3-Master.xdc"
 cp -f "$CONTRIB/vivado/pooyan_basys3.xdc" "$CONSTRS_IMPORT/Basys-3-Master.xdc"
 
-step "4/4 Copying scandoubler.v (single-value array size -> full range)"
+step "4/4 Copying scandoubler.v (Vivado fixes: block labels, array range)"
 cp -f "$ROOT/contrib/code/scandoubler.v" "$SOURCES_IMPORT/scandoubler.v"
 # Vivado 2020.2 Verilog-2001 parser rejects the single-value unpacked array
 # size 'sd_buffer[2*2**HCNT_WIDTH]' (Synth 8-2671); the canonical import stays

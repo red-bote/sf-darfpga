@@ -1,7 +1,7 @@
 diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.vhd b/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.vhd
 --- a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.vhd
 +++ b/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.vhd
-@@ -1,345 +1,304 @@
+@@ -1,345 +1,295 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level burger time by Dar (darfpga@aol.fr) (27/12/2017)
 --- http://darfpga.blogspot.fr
@@ -348,41 +348,32 @@ diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.v
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Burger Time (Data East, 1982) by Dar (darfpga@aol.fr) (27/12/2017)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Burger Time by Red~Bote, derived from
++-- burger_time_de10_lite.vhd by Dar (darfpga@aol.fr, http://darfpga.blogspot.fr);
++-- see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from burger_time_de10_lite.vhd (DE10-lite rev 27/12/2017):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12 MHz (clock_12); the
-+--    6 MHz scandoubler ce_x1 (clock_6) is a clock_12 toggle enable
-+--  - Joystick on JXADC (movement + pepper fire), OR-merged with the PS/2 keyboard
-+--    (onboard USB-HID, C17/B17) and dedicated buttons; Player 2 mirrors Player 1
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
-+--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
-+--    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high)
-+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
-+--    E0 ignored): arrows, Left Ctrl = pepper, 1/2 = start, 5/6 = coin
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_12
-+--  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
-+--  - btnU/btnD = coin-in, btnL = P1 start, btnR = P2 start (OR-merged with the
-+--    keyboard 5/6, 1, 2). No fire+direction combos for coin/start, per
-+--    root PORTING_SPEC.md.
-+--  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr, cpu address
-+--    trace) is not ported; the core's debug output is left open.
-+--  - No led port: the pristine top's ledr assignment is dead code (commented
-+--    out, never driven), matching the other ports' convention of leaving led
-+--    unconstrained when the core doesn't drive it.
-+--  - The core's video_hs/video_vs outputs are left open ("not tested") in
-+--    the pristine top, which derives sync only from video_csync. This port
-+--    wires video_hs/video_vs into the scandoubler instead (see
-+--    contrib/basys3/PORTING_SPEC.md), an unverified-until-synthesis choice,
-+--    matching the Burnin-Rubber port of the same core family.
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_12 = 12 MHz from 100 MHz; the 6 MHz scandoubler ce_x1
++--  is a clock_12 toggle enable
++--  Joystick on JXADC (movement + pepper), OR-merged with the PS/2 keyboard
++--  (onboard USB-HID); player 2 mirrors player 1
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
++--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
++--  Scandoubler takes the core video_hs/video_vs (the DE10 top uses csync only)
++--  Keyboard: MAME default keys (arrows, Left Ctrl = pepper, 1/2 = start, 5/6 = coin)
++--  PS/2, JXADC and buttons 2-FF synchronized on clock_12
++--  btnC = reset (also resets the MMCM), btnU/btnD = coin, btnL/btnR = start
++--  DE10 7-segment CPU address debug display not ported; no led output
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -409,11 +400,11 @@ diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.v
 + O_PMODAMP2_GAIN : out std_logic;
 + O_PMODAMP2_SHUTD: out std_logic;
 +
-+ vgaRed   : out std_logic_vector(3 downto 0);
-+ vgaGreen : out std_logic_vector(3 downto 0);
-+ vgaBlue  : out std_logic_vector(3 downto 0);
-+ vgaHsync : out std_logic;
-+ vgaVsync : out std_logic
++ vga_r  : out std_logic_vector(3 downto 0);
++ vga_g  : out std_logic_vector(3 downto 0);
++ vga_b  : out std_logic_vector(3 downto 0);
++ vga_hs : out std_logic;
++ vga_vs : out std_logic
 +);
 +end burger_time_basys3;
 +
@@ -488,8 +479,8 @@ diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.v
 + reset <= btnC or not mmcm_locked;
 +
 + -- Scandoubler ce_x1: 6 MHz pixel-rate enable made by toggling on clock_12
-+ -- (single clock domain; was MMCM clk_out2, which failed hold timing as a
-+ -- data enable in the clock_12 domain). Pattern as defender_basys3.vhd.
++ -- (single clock domain; a separate MMCM output used as this enable fails hold
++ -- timing in the clock_12 domain).
 + process(clock_12)
 + begin
 +   if rising_edge(clock_12) then
@@ -562,7 +553,7 @@ diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.v
 +
 + -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
 + -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
-+ -- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
++ -- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
 + -- kbd_joy keeps the joyHBCPPFRLDU bit order: 5 = start 1, 6 = start 2, 7 = coin.
 + process (clock_12)
 + begin
@@ -576,10 +567,10 @@ diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.v
 +         if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
 +         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 +         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : pepper
-+         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-+         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
++         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: pepper
++         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
++         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
++         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
 +       end if;
 +     end if;
 +   end if;
@@ -632,13 +623,13 @@ diff --git a/vhdl_burger_time_rev_0_0_2017_12_27/rtl_dar/burger_time_de10_lite.v
 + --   0 = 31 kHz VGA (scan-doubled, top 4 bits of each 6-bit channel)
 + --   1 = 15 kHz TV  (native core rate, composite sync on HS, VS held high
 + --       -- requires a 15 kHz RGB monitor or RGB->composite converter)
-+ vgaHsync <= hsync_o             when sw(13) = '0' else csync;
-+ vgaVsync <= vsync_o             when sw(13) = '0' else '1';
-+ vgaRed   <= vga_r_o(5 downto 2) when sw(13) = '0' else r & '0';
-+ vgaGreen <= vga_g_o(5 downto 2) when sw(13) = '0' else g & '0';
-+ vgaBlue  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & "00";
++ vga_hs <= hsync_o             when sw(13) = '0' else csync;
++ vga_vs <= vsync_o             when sw(13) = '0' else '1';
++ vga_r  <= vga_r_o(5 downto 2) when sw(13) = '0' else r & '0';
++ vga_g  <= vga_g_o(5 downto 2) when sw(13) = '0' else g & '0';
++ vga_b  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & "00";
 +
-+ -- pwm sound output (reproduces the pristine top's exact accumulator).
++ -- pwm sound output
 + process(clock_12)
 + begin
 +   if rising_edge(clock_12) then

@@ -1,7 +1,7 @@
 diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd
 --- a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd
 +++ b/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd
-@@ -1,424 +1,334 @@
+@@ -1,424 +1,328 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Tron (Midway MCR) by Dar (darfpga@aol.fr) (19/10/2019)
 --- http://darfpga.blogspot.fr
@@ -427,39 +427,33 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Tron (Midway MCR) by Dar (darfpga@aol.fr) (19/10/2019)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Tron by Red~Bote, derived from tron_de10_lite.vhd by
++-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from tron_de10_lite.vhd (DE10-lite rev 03 22/11/2019):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single 40 MHz clock
-+--    (core + sound board), matching the sibling Kick-Midway-MCR-by-Dar port
-+--  - Core generates progressive 31 kHz video natively (tv15Khz_mode); no
-+--    external scandoubler is imported. sw(13) selects 31 kHz VGA (0) /
-+--    15 kHz TV (1) -- changed 2026-09-29 from the pristine core's F8
-+--    keyboard toggle to match this repo's sw(13) convention used by
-+--    Bagman/Berzerk/Defender/etc (no F8 toggle needed).
-+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, replaces
-+--    kbd_joystick; F0 = release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1):
-+--    arrows = move (8-way), Left Ctrl = fire, Z / X = spinner left / right,
-+--    Left Alt = spinner faster, 1/2 = start, 5/6 = coin 1/2, F2 = service
-+--    toggle, F6 = continue toggle (Dar's key kept).
-+--  - Atari-style joystick on JXADC (active low): JXADC1/2/3/4/7 = right/left/
-+--    down/up/fire. The spinner ("angle") stays keyboard-only, as on the
-+--    pristine DE10-lite top.
-+--  - btnU = coin 1, btnD = coin 2, btnL = 1P start, btnR = 2P start, btnC = reset.
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40; keyboard on
-+--    clock_40 (2026-10-20; the former clock_40/6 clock_kbd is removed).
-+--  - Stereo PWM audio in the core; PmodAMP2 (JA pins 1/2/4) is mono, so O_PMODAMP2_AIN
-+--    is driven from the left channel only, separate_audio = '0' (mixed, as Kick).
-+--  - sw15 up = audio disabled, sw14 up = PmodAMP2 gain. No dip switches
-+--    are exposed by the core (none on the DE10-lite top either).
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives a single 40 MHz clock (core + sound board) from 100 MHz
++--  Core generates 31 kHz VGA natively (no scandoubler); sw13 = 15 kHz TV in place
++--  of the F8 keyboard toggle
++--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID); the
++--  spinner stays keyboard-only
++--  Keyboard on clock_40: MAME default keys (arrows, Left Ctrl = fire, Z/X = spinner
++--  left/right, Left Alt = spinner faster, 1/2 = start, 5/6 = coin 1/2, F2 = service
++--  toggle); F6 continue toggle kept
++--  Stereo core audio mixed (separate_audio = '0'); PWM on PmodAMP2 (JA pins 1/2/4)
++--  from the left channel; sw15 up = audio off, sw14 up = gain
++--  btnC = reset, btnU = coin 1, btnD = coin 2, btnL/btnR = start
++--  PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40
++--  DIP switches: sw12 = cocktail, sw11 = coin meters
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -529,14 +523,14 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 + signal kbd_intr      : std_logic;
 + signal kbd_scancode  : std_logic_vector(7 downto 0);
 + signal kbd_rel       : std_logic := '0';
-+ -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++ -- kbd_key: 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
 + --           6 '1', 7 '2', 8 '5', 9 '6', 10 F2, 11 F6, 12 Z, 13 X
 + signal kbd_key       : std_logic_vector(13 downto 0) := (others => '0');
 + signal kbd_f2_r      : std_logic := '0';
 + signal kbd_f6_r      : std_logic := '0';
 + signal service       : std_logic := '0'; -- toggled by F2
 + signal continue_en   : std_logic := '0'; -- toggled by F6
-+ -- joy_BBBBFRLDU : 0 up, 1 down, 2 left, 3 right, 4 fire,
++ -- joy_BBBBFRLDU: 0 up, 1 down, 2 left, 3 right, 4 fire,
 + --                 5 spin right (X), 6 spin left (Z), 7 spin faster (Left Alt)
 + signal joy_BBBBFRLDU : std_logic_vector(7 downto 0);
 + signal coin1_in      : std_logic;
@@ -549,9 +543,9 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +
 + signal dbg_cpu_addr : std_logic_vector(15 downto 0);
 +
-+ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
-+ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
-+ -- cocktail on sw12, coin_meters on sw11 (Dar '0' / '1').
++ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
++ -- default, switch up inverts the bit. cocktail on sw12 (default '0'),
++ -- coin_meters on sw11 (default '1').
 + constant COCKTAIL_DEFAULT    : std_logic := '0';
 + constant COIN_METERS_DEFAULT : std_logic := '1';
 + signal cocktail_in, coin_meters_in : std_logic;
@@ -560,7 +554,7 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +cocktail_in    <= COCKTAIL_DEFAULT xor sw(12);     -- cocktail on sw12
 +coin_meters_in <= COIN_METERS_DEFAULT xor sw(11);  -- coin meters on sw11
 +
-+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
++reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks
 +
 +tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 +
@@ -588,7 +582,7 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 + video_hs     => hsync,
 + video_vs     => vsync,
 +
-+ separate_audio => '0', -- mixed : mono amp on the left channel
++ separate_audio => '0', -- mixed: mono amp on the left channel
 + audio_out_l    => audio_l,
 + audio_out_r    => audio_r,
 +
@@ -631,12 +625,12 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +joy_BBBBFRLDU(1) <= kbd_key(1) or not jxadc_s(2); -- down  (JXADC3)
 +joy_BBBBFRLDU(2) <= kbd_key(2) or not jxadc_s(1); -- left  (JXADC2)
 +joy_BBBBFRLDU(3) <= kbd_key(3) or not jxadc_s(0); -- right (JXADC1)
-+joy_BBBBFRLDU(4) <= kbd_key(4) or not jxadc_s(4); -- fire : left ctrl (JXADC7)
-+joy_BBBBFRLDU(5) <= kbd_key(13); -- X : spin right (Dar 'g')
-+joy_BBBBFRLDU(6) <= kbd_key(12); -- Z : spin left  (Dar 'f')
-+joy_BBBBFRLDU(7) <= kbd_key(5);  -- left alt : spin faster (Dar 't')
++joy_BBBBFRLDU(4) <= kbd_key(4) or not jxadc_s(4); -- fire: left ctrl (JXADC7)
++joy_BBBBFRLDU(5) <= kbd_key(13); -- X: spin right (source 'g')
++joy_BBBBFRLDU(6) <= kbd_key(12); -- Z: spin left  (source 'f')
++joy_BBBBFRLDU(7) <= kbd_key(5);  -- left alt: spin faster (source 't')
 +
-+-- spin angle decoder simulation (verbatim from the DE10-lite top; keyboard-only)
++-- spin angle decoder simulation
 +process (clock_40)
 +begin
 +	if rising_edge(clock_40) then
@@ -656,8 +650,8 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +	end if;
 +end process;
 +
-+-- adapt video to 4bits/color only and blank (core generates progressive 31 kHz / interlaced
-+-- 15 kHz timing natively via tv15Khz_mode; no external scandoubler)
++-- adapt video to 4bits/color only and blank (core generates progressive 31 kHz /
++-- interlaced 15 kHz timing natively via tv15Khz_mode; no external scandoubler)
 +vga_r <= r & '0' when blankn = '1' else "0000";
 +vga_g <= g & '0' when blankn = '1' else "0000";
 +vga_b <= b & '0' when blankn = '1' else "0000";
@@ -665,7 +659,7 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +vga_hs <= csync when tv15Khz_mode = '1' else hsync;
 +vga_vs <= '1'   when tv15Khz_mode = '1' else vsync;
 +
-+-- clock_div: unchanged, still gates the PWM accumulator below (clock_div = "0000").
++-- clock_div gates the PWM accumulator below (clock_div = "0000").
 +process (reset, clock_40)
 +begin
 +	if reset='1' then
@@ -742,7 +736,7 @@ diff --git a/vhdl_tron_rev_0_3_2019_11_22/rtl_dar/tron_de10_lite.vhd b/vhdl_tron
 +end process;
 +
 +-- pwm sound output (stereo in the core; PmodAMP2 is mono, so only the left
-+-- channel is output -- same choice as the sibling Kick port)
++-- channel is output)
 +process(clock_40)
 +begin
 +  if rising_edge(clock_40) then

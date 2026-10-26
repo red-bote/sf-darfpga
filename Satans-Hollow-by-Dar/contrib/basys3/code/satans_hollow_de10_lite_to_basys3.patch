@@ -1,7 +1,7 @@
 diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_lite.vhd b/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_lite.vhd
 --- a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_lite.vhd
 +++ b/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_lite.vhd
-@@ -1,388 +1,316 @@
+@@ -1,388 +1,289 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Satan Hollow (Midway MCR) by Dar (darfpga@aol.fr) (19/10/2019)
 --- http://darfpga.blogspot.fr
@@ -390,55 +390,34 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 -
 -
 -end struct;
-+-------------------------------------------------------------------------------
-+-- Basys3 Top level for Satan's Hollow (Bally Midway MCR, 1981) by Dar
-+-- (darfpga@aol.fr) (22/11/2019)
-+-- http://darfpga.blogspot.fr
++---------------------------------------------------------------------------------
++-- Basys 3 top level for Satan's Hollow by Red~Bote, derived from
++-- satans_hollow_de10_lite.vhd by Dar (darfpga@aol.fr, http://darfpga.blogspot.fr);
++-- see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from satans_hollow_de10_lite.vhd (DE10-lite rev 02 22/11/2019):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single clock_40
-+--    (40 MHz) used for everything: the core, the sound YM2149, the PWM audio
-+--    accumulators and the keyboard -- exactly as the pristine top's
-+--    max10_pll_40M (50 -> 40 MHz) did on the DE10-lite. reset comes from btnC
-+--    (active high, ORed with !mmcm_locked).
-+--  - Video path reproduced from the pristine top: the core drives the real
-+--    video_hs/video_vs and selects the timing natively (no line_doubler, no
-+--    external scandoubler). Display mode is selected by sw(13) alone (0 = 31
-+--    kHz progressive VGA, 1 = 15 kHz interlaced TV) -- changed 2026-09-29 to
-+--    drop the F8 keyboard XOR and match this repo's plain sw(13) convention:
-+--      0 = 31 kHz progressive VGA (pixel data at the core's native rate)
-+--      1 = 15 kHz interlaced TV (native composite sync on HS, VS held high)
-+--    HS/VS are muxed exactly as the pristine assignments. RGB is padded
-+--    3/3/3 -> 4/4/4 (r&'0', g&'0', b&'0') the same way in both modes.
-+--  - Keyboard on the Basys3 onboard USB-HID connector (ps2_clk = C17,
-+--    ps2_dat = B17), io_ps2_keyboard on clock_40. Scancodes decoded in this
-+--    wrapper, MAME default keys (2026-10-20, replaces kbd_joystick; F0 =
-+--    release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1), mapping as the
-+--    hardware-verified rb-fpga/rework Satan's Hollow port:
-+--      Left/Right = move, Left Ctrl = fire, Left Alt = shield,
-+--      1/2 = start, 5/6 = coin 1/2, F2 = service toggle
-+--  - JXADC joystick (active-low, inverted): JXADC1 = right, JXADC2 = left,
-+--    JXADC3 = shield, JXADC7 = fire
-+--  - Pushbuttons: btnU = coin 1, btnD = coin 2, btnL = start1, btnR = start2,
-+--    btnC = reset
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4): reproduces the pristine left-channel
-+--    18-bit accumulator exactly, gated on clock_div = "0000" (effective 4 MHz
-+--    update) on clock_40, adding ('0'&audio_l&'0') i.e. audio doubled; output
-+--    is bit 17. The right-channel accumulator is kept in lockstep but is not
-+--    wired to the mono amp; separate_audio = '0' (mixed, 2026-10-20, as
-+--    rework). sw15 up = audio disabled, sw14 up = gain.
-+--  - DE10-lite's 7-segment debug hex display (decodeur_7_seg on
-+--    dbg_cpu_addr) and unused peripheral shims (usb_host_max3421e,
-+--    sgtl5000_dac) are not ported; dbg_cpu_addr is left open.
-+-------------------------------------------------------------------------------
++---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
-+-------------------------------------------------------------------------------
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_40 = 40 MHz from 100 MHz (core, sound, PWM, keyboard)
++--  Joystick on JXADC (JXADC1/2 = right/left, JXADC7 = fire, JXADC3 = shield),
++--  OR-merged with the PS/2 keyboard (onboard USB-HID)
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4), left channel, separate_audio = '0'
++--  (mixed); sw15 up = audio off, sw14 up = gain
++--  Native 31 kHz VGA; sw13 = 15 kHz interlaced TV (csync on HS)
++--  Keyboard: MAME default keys (Left/Right, Left Ctrl = fire, Left Alt = shield,
++--  1/2 = start, 5/6 = coin, F2 = service toggle)
++--  btnC = reset, btnU/btnD = coin 1/2, btnL/btnR = start
++--  DIP switches: cocktail on sw12, coin_meters on sw11
++--  7-segment debug display and unused DE10 peripherals not ported
++---------------------------------------------------------------------------------
 +
 +library ieee;
 +use ieee.std_logic_1164.all;
@@ -493,9 +472,6 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +  signal pwm_accumulator_l: std_logic_vector(17 downto 0);
 +  signal pwm_accumulator_r: std_logic_vector(17 downto 0);
 +
-+  -- clock_div gate for the PWM accumulators (pristine clock_kbd divider,
-+  -- clock_40 / 20; clock_kbd itself is no longer used by the keyboard, which
-+  -- now runs on clock_40 for the onboard USB-HID host)
 +  signal clock_div : std_logic_vector(3 downto 0);
 +
 +  -- 2-FF synchronizers (clock_40) for the asynchronous inputs
@@ -510,7 +486,7 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +  signal kbd_intr     : std_logic;
 +  signal kbd_scancode : std_logic_vector(7 downto 0);
 +  signal kbd_rel      : std_logic := '0';
-+  -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++  -- kbd_key: 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
 +  --           6 '1', 7 '2', 8 '5', 9 '6', 10 F2
 +  signal kbd_key      : std_logic_vector(10 downto 0) := (others => '0');
 +  signal kbd_f2_r     : std_logic := '0';
@@ -524,9 +500,9 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +  signal fire_in      : std_logic;
 +  signal shield_in    : std_logic;
 +
-+ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
-+ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
-+ -- cocktail on sw12, coin_meters on sw11 (Dar '0' / '0').
++ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
++ -- default, switch up inverts the bit.
++ -- cocktail on sw12, coin_meters on sw11 (DE10 '0' / '0').
 + constant COCKTAIL_DEFAULT    : std_logic := '0';
 + constant COIN_METERS_DEFAULT : std_logic := '0';
 + signal cocktail_in, coin_meters_in : std_logic;
@@ -546,8 +522,8 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +  );
 +
 +  -- display mode: sw(13) alone selects the mode (0 = 31 kHz VGA, 1 = 15 kHz
-+  -- TV) -- changed 2026-09-29 to drop the F8 keyboard XOR.
-+  -- (pristine: tv15Khz_mode <= not fn_toggle(7), which defaulted to 15 kHz)
++  -- TV).
++  -- (DE10 top: tv15Khz_mode <= not fn_toggle(7), default 15 kHz)
 +  tv15Khz_mode <= sw(13);
 +
 +  -- Satans hollow
@@ -565,7 +541,7 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +    video_hs     => hsync,
 +    video_vs     => vsync,
 +
-+    separate_audio => '0', -- mixed : mono amp on the left channel
++    separate_audio => '0', -- mixed: mono amp on the left channel
 +    audio_out_l    => audio_l,
 +    audio_out_r    => audio_r,
 +
@@ -585,15 +561,15 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +    fire2_c        => shield_in,
 +
 +    coin_meters    => coin_meters_in,  -- sw11
-+    cocktail       => cocktail_in,     -- sw12; pristine hard-coded '0' (F7 toggle "KO atm")
++    cocktail       => cocktail_in,     -- sw12; DE10 top hard-coded '0' (F7 toggle "KO atm")
 +
 +    service        => service,  -- F2 toggle (allow machine settings access)
 +
 +    dbg_cpu_addr   => open
 +  );
 +
-+  -- pristine clock_div divider (same process as the DE10 top; clock_kbd no
-+  -- longer produced, clock_div counts for the PWM accumulator gate only)
++  -- clock_kbd not produced; clock_div (clock_40 / 20) gates the PWM accumulators
++  -- only, the keyboard runs on clock_40
 +  process(reset, clock_40)
 +  begin
 +    if reset = '1' then
@@ -672,11 +648,10 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +  start2_in <= kbd_key(7) or btn_s(0); -- 2 or btnR
 +  left_in   <= kbd_key(2) or not jxadc_s(1); -- left  (JXADC2)
 +  right_in  <= kbd_key(3) or not jxadc_s(0); -- right (JXADC1)
-+  fire_in   <= kbd_key(4) or not jxadc_s(4); -- fire : left ctrl (JXADC7)
-+  shield_in <= kbd_key(5) or not jxadc_s(2); -- shield : left alt (JXADC3)
++  fire_in   <= kbd_key(4) or not jxadc_s(4); -- fire: left ctrl (JXADC7)
++  shield_in <= kbd_key(5) or not jxadc_s(2); -- shield: left alt (JXADC3)
 +
-+  -- Pad native 3/3/3-bit RGB to the VGA connector's 4-bit/channel input by
-+  -- MSB replication (identical to the pristine vga_r/vga_g/vga_b).
++  -- adapt video to 4bits/color only and blank
 +  vga_r <= r & '0' when blankn = '1' else "0000";
 +  vga_g <= g & '0' when blankn = '1' else "0000";
 +  vga_b <= b & '0' when blankn = '1' else "0000";
@@ -687,9 +662,7 @@ diff --git a/vhdl_satans_hollow_rev_0_2_2019_11_22/rtl_dar/satans_hollow_de10_li
 +  vga_hs <= csync when tv15Khz_mode = '1' else hsync;
 +  vga_vs <= '1'   when tv15Khz_mode = '1' else vsync;
 +
-+  -- pwm sound output (reproduces the pristine top's exact left/right
-+  -- accumulators, gated on clock_div = "0000"). Only the left channel is
-+  -- wired to the mono PmodAMP2.
++  -- pwm sound output; only the left channel is wired to the mono PmodAMP2
 +  process(clock_40)
 +  begin
 +    if rising_edge(clock_40) then

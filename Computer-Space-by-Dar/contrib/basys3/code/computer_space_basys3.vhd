@@ -1,74 +1,41 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Computer Space (Nutting Associates, 1971)
--- by Dar (darfpga@aol.fr) (22/11/2017 v1.1)
--- http://darfpga.blogspot.fr
+-- Basys 3 top level for Computer Space by Red~Bote, derived from
+-- computer_space_de10_lite.vhd by Dar (darfpga@aol.fr,
+-- http://darfpga.blogspot.fr); see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port by Red~Bote.
+-- v0.1 (10/26/2026) : initial Basys 3 release
 --
--- Ported from computer_space_de10_lite.vhd (DE10-lite rev 22/11/2017 v1.1):
---  - Single clock domain (2026-10-02, PORTING_SPEC §Clocking): one MMCM
---    output clk_out1 = 48.000 MHz (100 MHz in) clocks the core (clock_50 /
---    super_clk nets, names kept from upstream), scandoubler clk_sys,
---    keyboard and PWM. A 3-bit counter derives the clock enables:
---       game_ce   (count = 7)       6 MHz, replaces rising_edge(game_clk)
---       game_ce_n (count = 3)       6 MHz, replaces the star counter's
---                                   rising_edge(not game_clk)
---       ce_pix2   (count(1:0) = 3)  12 MHz scandoubler ce_x2
---    The scandoubler's exactly-2x requirement holds as ce_x2 = 2x ce_x1.
---    The core's 50 MHz-sized timer/sound constants are rescaled x0.96 by
---    contrib/code/computer_space_single_domain.patch; game_clk-clocked
---    logic uses game_ce via that patch and
---    computer_space_motion_single_domain.patch. Replaces the former
---    50 / 6 / 12 MHz three-output scheme, which failed setup and hold on
---    its clock-domain crossings.
---  - 6 MHz pixel rate (2.7% above Dar's 5.842 MHz): the MMCM cannot derive
---    5.842 MHz from 100 MHz; video timing scales by 6/5.842 ~ 1.027.
---  - Keyboard input is the Basys 3's onboard USB-A "USB HID" host port
---    (C17/B17): the onboard PIC24 USB-HID host presents a plugged-in USB
---    keyboard to the FPGA fabric over the same PS/2 protocol/pins a direct
---    PS/2 device uses, so io_ps2_keyboard.vhd is unchanged -- a pin remap
---    in Basys-3-Master.xdc, not a logic change (same approach as
---    vhdl_congo_bongo and Arcade-Zaxxon).
---  - Keyboard clock = clk_core (48 MHz); ps2_clk/ps2_dat pass a 2-FF
---    synchronizer first (was game_clk 6 MHz, unsynchronized).
---  - Mono (left-channel) PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled,
---    sw14 up = gain. audio_out/wav_out from the core are unused (the
---    sound ROMs and the computer_space_sound simulator both feed the same
---    internal audio bus; only `audio` is driven by the top).
---  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
---    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS
---    high). Scandoubler clk_sys = clk_core, ce_x1 = game_ce, ce_x2 = ce_pix2.
---  - Video: the core outputs 4-bit video[normal/inverse, objects, scores,
---    stars]; the DE10 top maps the 3 object bits through a normal/inverse
---    monochrome level lookup (video(3) picks normal vs reverse-video). This
---    is reproduced here; all three RGB channels are driven from the same
---    level so the picture is white-on-black, matching the original. Blanking
---    forced to black while blank.
---  - Composite sync via the core's composite_sync entity (as the DE10 top).
---  - btnC = reset (active-high; also resets MMCM; core held until lock).
---  - Controls: rotate left/right, thrust, fire, start. Keyboard (decoded in
---    this wrapper, MAME-style keys, 2026-10-20; F0 = release, E0 ignored): left /
---    right arrows, up arrow (thrust), Left Ctrl (fire), 1 / 2 (start); replaces
---    kbd_joystick (space / F2).
---  - JXADC header doubles as a joystick, OR-merged with the keyboard (same
---    active-high core boundary). Physical map (Congo Bongo convention):
---    JXADC1=right/CW, JXADC2=left/CCW, JXADC4=up/thrust, JXADC7=fire, i.e. JXADC(0)=right,
---    JXADC(1)=left, JXADC(2)=spare, JXADC(3)=up, JXADC(4)=fire. JXADC is active-low (press
---    shorts to ground; XDC PULLUP true); invert 'not' so a press reads
---    active-high like the keyboard/buttons. There is no core "down" input, so
---    JXADC3 is unconnected/spare.
---  - Pushbuttons btnU/btnD/btnL/btnR are active-high (board pull-down) and are
---    OR'd into start, so any of the four starts a round alongside F2.
---  - No ROMs / no PROM generation: Computer Space is a discrete TTL game.
---    Sound waveforms live in .hex files in rtl/ and are loaded at BRAM-init
---    by the six Xilinx ROM replacements (rom_*.vhd, same entities as the
---    excluded Altera altsyncram ROMs). The Altera PLL file
---    (de10_lite/max10_pll_6M_5p84M.vhd) is unused.
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  Single clock domain: clk_wiz_0 derives clk_core = 48.000 MHz from 100 MHz; it
+--  clocks the core (clock_50 / super_clk), scandoubler, keyboard and PWM. A 3-bit
+--  counter derives the enables:
+--     game_ce   (count = 7)       6 MHz, replaces rising_edge(game_clk)
+--     game_ce_n (count = 3)       6 MHz, replaces the star counter's
+--                                 rising_edge(not game_clk)
+--     ce_pix2   (count(1:0) = 3)  12 MHz scandoubler ce_x2 (exactly 2 x ce_x1)
+--  Core 50 MHz timer/sound constants rescaled x0.96 and game_clk logic moved to
+--  game_ce by core patches
+--  6 MHz pixel rate, 2.7% above the DE10 5.842 MHz (not derivable from 100 MHz)
+--  Joystick on JXADC (JXADC1 = CW, JXADC2 = CCW, JXADC4 = thrust, JXADC7 = fire;
+--  JXADC3 spare), OR-merged with the PS/2 keyboard (onboard USB-HID)
+--  Mono (left-channel) PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio
+--  off, sw14 up = gain; core audio_out/wav_out unused
+--  31 kHz VGA via the MiST scandoubler (ce_x1 = game_ce, ce_x2 = ce_pix2);
+--  sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME-style keys (left/right arrows = rotate, up arrow = thrust,
+--  Left Ctrl = fire, 1/2 = start)
+--  PS/2, JXADC and buttons 2-FF synchronized on clk_core
+--  btnC = reset (also resets the MMCM); btnU/btnD/btnL/btnR = start
+--  No ROM generation: sound waveforms are .hex files loaded at BRAM init by the
+--  Xilinx ROM replacements (rom_*.vhd); the Altera PLL is unused
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -95,11 +62,11 @@ port(
  O_PMODAMP2_GAIN  : out std_logic;         -- AMP gain  (sw14)
  O_PMODAMP2_SHUTD : out std_logic;         -- AMP shutdown (sw15)
 
- vgaRed   : out std_logic_vector(3 downto 0);
- vgaGreen : out std_logic_vector(3 downto 0);
- vgaBlue  : out std_logic_vector(3 downto 0);
- vgaHsync : out std_logic;
- vgaVsync : out std_logic
+ vga_r  : out std_logic_vector(3 downto 0);
+ vga_g  : out std_logic_vector(3 downto 0);
+ vga_b  : out std_logic_vector(3 downto 0);
+ vga_hs : out std_logic;
+ vga_vs : out std_logic
 );
 end computer_space_basys3;
 
@@ -221,7 +188,7 @@ begin
 
  -- translate scancode to joystick (PS/2 set 2 codes), replaces kbd_joystick.
  -- F0 marks a release; E0 is ignored (keypad 8/4/6 alias the arrows, Right Ctrl
- -- aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+ -- aliases Left Ctrl), PORTING_SPEC.md 3.1.
  process(clk_core)
  begin
   if rising_edge(clk_core) then
@@ -230,11 +197,11 @@ begin
      kbd_rel <= '1';
     elsif kbd_scancode /= x"E0" then
      kbd_rel <= '0';
-     if kbd_scancode = x"75" then joyPCFRLDU(0) <= not kbd_rel; end if; -- up arrow : thrust
-     if kbd_scancode = x"6B" then joyPCFRLDU(2) <= not kbd_rel; end if; -- left arrow : CCW
-     if kbd_scancode = x"74" then joyPCFRLDU(3) <= not kbd_rel; end if; -- right arrow : CW
-     if kbd_scancode = x"14" then joyPCFRLDU(4) <= not kbd_rel; end if; -- left ctrl : fire
-     if kbd_scancode = x"16" or kbd_scancode = x"1E" then joyPCFRLDU(6) <= not kbd_rel; end if; -- 1 / 2 : start
+     if kbd_scancode = x"75" then joyPCFRLDU(0) <= not kbd_rel; end if; -- up arrow: thrust
+     if kbd_scancode = x"6B" then joyPCFRLDU(2) <= not kbd_rel; end if; -- left arrow: CCW
+     if kbd_scancode = x"74" then joyPCFRLDU(3) <= not kbd_rel; end if; -- right arrow: CW
+     if kbd_scancode = x"14" then joyPCFRLDU(4) <= not kbd_rel; end if; -- left ctrl: fire
+     if kbd_scancode = x"16" or kbd_scancode = x"1E" then joyPCFRLDU(6) <= not kbd_rel; end if; -- 1 / 2: start
     end if;
    end if;
   end if;
@@ -266,7 +233,7 @@ begin
  );
 
  -----------------------------------------------------------------------
- -- Composite sync (reused verbatim from the DE10-lite top)
+ -- Composite sync
  -----------------------------------------------------------------------
  composite_sync : entity work.composite_sync
  port map(
@@ -279,7 +246,7 @@ begin
  );
 
  -----------------------------------------------------------------------
- -- Video adaptation (reused verbatim from the DE10-lite top).
+ -- Video adaptation.
  --   video bits layout [normal/inverse, saucer+rocket+missile, scores, stars]
  -- Maps the 3 object bits to monochrome video levels; video(3) selects
  -- normal (0) vs inverse (1) video. All three RGB channels are driven from
@@ -327,15 +294,14 @@ begin
  -- Display mode switch via sw(13):
  --   0 = 31 kHz VGA (scan-doubled)
  --   1 = 15 kHz TV  (composite sync on HS, VS high, native rate)
- vgaHsync <= hsync_o    when sw(13) = '0' else csync;
- vgaVsync <= vsync_o    when sw(13) = '0' else '1';
- vgaRed   <= vga_r_o(5 downto 2) when sw(13) = '0' else muxed_video;
- vgaGreen <= vga_g_o(5 downto 2) when sw(13) = '0' else muxed_video;
- vgaBlue  <= vga_b_o(5 downto 2) when sw(13) = '0' else muxed_video;
+ vga_hs <= hsync_o    when sw(13) = '0' else csync;
+ vga_vs <= vsync_o    when sw(13) = '0' else '1';
+ vga_r  <= vga_r_o(5 downto 2) when sw(13) = '0' else muxed_video;
+ vga_g  <= vga_g_o(5 downto 2) when sw(13) = '0' else muxed_video;
+ vga_b  <= vga_b_o(5 downto 2) when sw(13) = '0' else muxed_video;
 
  -----------------------------------------------------------------------
- -- PWM audio output (reproduces the DE10-lite top's exact accumulator,
- -- left channel only)
+ -- PWM audio output (left channel only)
  -----------------------------------------------------------------------
  audio_us <= '0' & to_unsigned(audio + 32767, 16);
 

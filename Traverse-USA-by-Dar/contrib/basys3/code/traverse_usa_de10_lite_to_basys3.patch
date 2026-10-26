@@ -1,7 +1,7 @@
 diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd b/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd
 --- a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd
 +++ b/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite.vhd
-@@ -1,363 +1,357 @@
+@@ -1,363 +1,331 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Traverse USA by Dar (darfpga@aol.fr) (16/03/2019)
 --- http://darfpga.blogspot.fr
@@ -366,58 +366,34 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Traverse USA / Zippy Race (Irem M-52, 1983) by Dar
-+-- (darfpga@aol.fr) (16/03/2019)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Traverse USA by Red~Bote, derived from
++-- traverse_usa_de10_lite.vhd by Dar (darfpga@aol.fr, http://darfpga.blogspot.fr);
++-- see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from traverse_usa_de10_lite.vhd (DE10-lite rev 16/03/2019):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives clock_36 (36.86 MHz,
-+--    core) and clock_7p16 (7.16 MHz). The sound board wants the pristine
-+--    3.58 MHz; an exact 3.58 MHz cannot come directly off the MMCM (VCO
-+--    floor vs max output divide), so clock_7p16 is divided by 2 in fabric to
-+--    ~3.58 MHz (clock_3p58) for the sound board -- the same approach as the
-+--    Defender port.
-+--  - Joystick on JXADC (four directions + fire/accel), OR-merged with the
-+--    PS/2/USB keyboard and, for coin/start, dedicated buttons (btnU/btnD =
-+--    coin, btnL = P1 start, btnR = P2 start).
-+--  - Mono (left-channel) PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled,
-+--    sw14 up = gain.
-+--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
-+--    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high).
-+--    Scandoubler clk_sys/ce_x1 are derived locally at 2x / 1x the core pixel
-+--    rate (a mod-6 counter on clock_36), matching Galaga's proven pattern:
-+--    wiring a faster clock directly to clk_sys does not work -- clk_sys must
-+--    itself be a derived signal at 2x ce_x1's rate, with ce_x2 tied to '1'.
-+--  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock).
-+--  - io_ps2_keyboard and the scancode decoder run on clock_36 (2026-10-20,
-+--    >= 6 MHz floor met), the core clock, so decoded keys need no clock-domain
-+--    crossing. This replaces the fabric clock_kbd (clock_36/6, ~6 MHz) divider,
-+--    itself added because the pristine mod-6 divider (~3 MHz) was too slow for
-+--    the Basys 3 onboard USB-HID host. The PWM accumulator runs on clock_3p58.
-+--  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr) is not ported;
-+--    the core's debug output is left open.
-+--  - The pristine core declares video_hs/video_vs but does not drive them
-+--    (dead ports; only video_csync is real, verified in traverse_usa.vhd).
-+--    contrib/code/traverse_usa_expose_video_timing.patch adds real
-+--    hsync/vsync (video_hs <= hsync0, a simple video_vs pulse from
-+--    vsync_cnt) so this port can wire them into the scandoubler; see
-+--    contrib/basys3/PORTING_SPEC.md.
-+--  - This core has no fire input; its inputs are steer, accelerate and brake
-+--    (see PORTING_SPEC.md): JXADC7 (fire) accelerates, JXADC3 (down, also
-+--    down+fire) brakes, JXADC2/JXADC1 steer; JXADC4 (up) unused.
-+--  - DIP switches on sw7-0 (bank 2) and sw11-8 (bank 1 bits 3-0); switch down =
-+--    Dar's DE10 default.
-+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 =
-+--    release, E0 ignored): left/right arrows steer, Left Ctrl = accelerate,
-+--    Left Alt = brake, 1/2 = start, 5/6 = coin.
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_36.
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_36 (36.86 MHz, core) and clock_7p16 from 100 MHz; the
++--  sound board clock_3p58 = clock_7p16 / 2 in fabric (MMCM cannot give 3.58 MHz)
++--  Core inputs are steer, accelerate and brake (no fire): joystick on JXADC, fire =
++--  accelerate, down = brake, up unused; OR-merged with the PS/2 keyboard (USB-HID)
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
++--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
++--  video_hs/video_vs driven by a core patch (undriven in the source core)
++--  Keyboard on clock_36: MAME default keys (left/right arrows, Left Ctrl =
++--  accelerate, Left Alt = brake, 1/2 = start, 5/6 = coin)
++--  btnC = reset (MMCM and core), btnU/btnD = coin, btnL/btnR = start
++--  PS/2, JXADC and buttons pass 2-FF synchronizers on clock_36
++--  DIP switches on sw7-0 (bank 2) and sw11-8 (bank 1 bits 3-0)
++--  7-segment debug display not ported
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -445,11 +421,11 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + O_PMODAMP2_GAIN : out std_logic;
 + O_PMODAMP2_SHUTD: out std_logic;
 +
-+ vgaRed   : out std_logic_vector(3 downto 0);
-+ vgaGreen : out std_logic_vector(3 downto 0);
-+ vgaBlue  : out std_logic_vector(3 downto 0);
-+ vgaHsync : out std_logic;
-+ vgaVsync : out std_logic
++ vga_r  : out std_logic_vector(3 downto 0);
++ vga_g  : out std_logic_vector(3 downto 0);
++ vga_b  : out std_logic_vector(3 downto 0);
++ vga_hs : out std_logic;
++ vga_vs : out std_logic
 +);
 +end traverse_usa_basys3;
 +
@@ -492,9 +468,8 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + signal vga_r_o, vga_g_o, vga_b_o : std_logic_vector(5 downto 0);
 + signal hsync_o, vsync_o          : std_logic;
 +
-+ -- scandoubler clk_sys (12 MHz) / ce_x1 (6 MHz), derived by a mod-6 counter
-+ -- on clock_36 (matching Galaga's proven pattern; a bare fast clock wired to
-+ -- clk_sys does not work -- see the header note).
++ -- scandoubler clk_sys (12 MHz) / ce_x1 (6 MHz), ce_x2 = '1', derived by a
++ -- mod-6 counter on clock_36.
 + signal scandoubler_slot : std_logic_vector(2 downto 0);
 + signal sd_clock_12      : std_logic;
 + signal sd_clock_6       : std_logic;
@@ -519,8 +494,8 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +
 + signal core_accel, core_brake, core_left, core_right    : std_logic;
 +
-+ -- DIP switches (2026-10-20, sf-darfpga PORTING_SPEC.md section 3.2): switch
-+ -- down = Dar's DE10 default, switch up inverts that bit.
++ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
++ -- default, switch up inverts the bit.
 + --   dip2 = sw(7:0):  Diag(7) / Demo(6) / Zippy(5) / Freeze(4) / M-Km(3) /
 + --                    Coin mode(2) / Cocktail(1) / Flip(0), default x"FE"
 + --   dip1 = sw(11:8) on bits 3-0: Cont. play(3) / Fuel consumption(2) /
@@ -547,7 +522,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + );
 +
 + -- Sound board clock: ~3.58 MHz = clk_out2 (7.16 MHz) / 2 in fabric
-+ -- (Defender pattern; exact 3.58 MHz cannot come directly off the MMCM).
++ -- (exact 3.58 MHz cannot come directly off the MMCM).
 + process(clock_7p16)
 + begin
 +   if rising_edge(clock_7p16) then
@@ -590,7 +565,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + );
 +
 + -- clk_sys/ce_x1 for the scandoubler, 2x / 1x the core pixel rate, derived
-+ -- by a mod-6 counter on clock_36 (Galaga's proven pattern).
++ -- by a mod-6 counter on clock_36.
 + process (clock_36)
 + begin
 +   if rising_edge(clock_36) then
@@ -621,7 +596,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + -- get scancode from keyboard
 + keyboard : entity work.io_ps2_keyboard
 + port map (
-+   clk       => clock_36, -- core clock, single domain (see header)
++   clk       => clock_36, -- core clock, single domain
 +   kbd_clk   => ps2_clk_s,
 +   kbd_dat   => ps2_dat_s,
 +   interrupt => kbd_intr,
@@ -630,7 +605,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +
 + -- translate scancode to keys (MAME default keys, PS/2 set 2 codes), replaces
 + -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 4/6 alias the arrows,
-+ -- Right Ctrl/Alt alias Left Ctrl/Alt), sf-darfpga PORTING_SPEC.md section 3.1.
++ -- Right Ctrl/Alt alias Left Ctrl/Alt), PORTING_SPEC.md 3.1.
 + process (clock_36)
 + begin
 +   if rising_edge(clock_36) then
@@ -641,11 +616,11 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 +         kbd_rel <= '0';
 +         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 +         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : accelerate
-+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6 : coin
-+         if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1 : start 1
-+         if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2 : start 2
-+         if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt : brake
++         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: accelerate
++         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6: coin
++         if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1: start 1
++         if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2: start 2
++         if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt: brake
 +       end if;
 +     end if;
 +   end if;
@@ -658,7 +633,7 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + -- active-high, matching the core's active-high input boundary and the
 + -- keyboard path. There is no fire input on the core: fire (JXADC7)
 + -- accelerates, down (JXADC3) brakes; down+fire asserts both, as fire passes
-+ -- through. Up (JXADC4) is unused (accelerate removed from it 2026-10-20, user).
++ -- through. Up (JXADC4) is unused.
 + core_accel <= kbd_joy(4) or not jxadc_s(4);                   -- left ctrl / JXADC7
 + dip1 <= DIP1_DEFAULT xor (x"0" & sw(11 downto 8));
 + dip2 <= DIP2_DEFAULT xor sw(7 downto 0);
@@ -702,14 +677,13 @@ diff --git a/vhdl_traverse_usa_rev_0_0_2019_03_16/rtl_dar/traverse_usa_de10_lite
 + --   0 = 31 kHz VGA (scan-doubled, top 4 bits of each 6-bit channel)
 + --   1 = 15 kHz TV  (native core rate, composite sync on HS, VS held high
 + --       -- requires a 15 kHz RGB monitor or RGB->composite converter)
-+ vgaHsync <= hsync_o             when sw(13) = '0' else csync;
-+ vgaVsync <= vsync_o             when sw(13) = '0' else '1';
-+ vgaRed   <= vga_r_o(5 downto 2) when sw(13) = '0' else r & "00";
-+ vgaGreen <= vga_g_o(5 downto 2) when sw(13) = '0' else g & '0';
-+ vgaBlue  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & '0';
++ vga_hs <= hsync_o             when sw(13) = '0' else csync;
++ vga_vs <= vsync_o             when sw(13) = '0' else '1';
++ vga_r  <= vga_r_o(5 downto 2) when sw(13) = '0' else r & "00";
++ vga_g  <= vga_g_o(5 downto 2) when sw(13) = '0' else g & '0';
++ vga_b  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & '0';
 +
-+ -- pwm sound output (reproduces the pristine top's exact accumulator,
-+ -- mono/left channel on clock_3p58).
++ -- pwm sound output (mono, left channel)
 + process(clock_3p58)
 + begin
 +   if rising_edge(clock_3p58) then

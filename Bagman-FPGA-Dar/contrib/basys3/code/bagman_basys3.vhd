@@ -1,26 +1,25 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Bagman (Stern, 1982) by Dar (darfpga@aol.fr) (04/06/2018)
--- http://darfpga.blogspot.fr
+-- Basys 3 top level for Bagman by Red~Bote, derived from bagman_de10_lite.vhd by
+-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port by Red~Bote.
+-- v0.1 (10/26/2026) : initial Basys 3 release
 --
--- Ported from bagman_de10_lite.vhd (DE10-lite rev 04/06/2018):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 12.288 MHz (signal
---    clock_12; sf-darfpga/CLOCKING_SPEC.md)
---  - Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID, C17/B17)
---  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
---  - Display mode via sw(13): 0 = 31 kHz progressive VGA (internal line
---    doubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high)
---  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
---    E0 ignored): arrows, Left Ctrl = jump, 1/2 = start, 5/6 = coin
---  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_12
---  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
---  - btnU/btnD = coin, btnL = P1 start, btnR = P2 start
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  clk_wiz_0 derives clock_12 = 12.288 MHz from 100 MHz
+--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
+--  31 kHz VGA via the core line doubler; sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME default keys (arrows, Left Ctrl = jump, 1/2 = start, 5/6 = coin)
+--  PS/2, JXADC and buttons 2-FF synchronized on clock_12
+--  btnC = reset (also resets the MMCM), btnU/btnD = coin, btnL/btnR = start
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -141,7 +140,7 @@ begin
  );
 
  -- Adapt the core's 3/3/2-bit RGB to 4 bits/color (both modes).
- -- (The DE10 wrapper gated RGB with blankn forced to '1'; dropped here.)
+ -- (The DE10 top gates RGB with blankn forced to '1'; not ported.)
  vga_r <= r & '0';
  vga_g <= g & '0';
  vga_b <= b & "00";
@@ -176,7 +175,7 @@ begin
 
  -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
  -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
- -- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+ -- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
  -- kbd_joy keeps the joyHBCPPFRLDU bit order: 5 = start 1, 6 = start 2, 7 = coin.
  process (clock_12)
  begin
@@ -190,22 +189,23 @@ begin
          if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
          if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
          if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : jump
-         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: jump
+         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
+         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
        end if;
      end if;
    end if;
  end process;
 
  -- OR-merge the joystick on JXADC with the PS/2 keyboard joystick.
- -- JXADC physical map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=jump/fire,
- -- i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire.
+ -- JXADC physical map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up,
+ -- JXADC7=jump/fire, i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up,
+ -- JXADC(4)=fire.
  -- JXADC is active-low (pressed shorts to ground); invert so a press reads
  -- active-high, matching the core's active-high input boundary and the
  -- keyboard path. Player 2 mirrors player 1 inputs. Coin/start come from the
- -- keyboard and btnU/btnD/btnL/btnR (JXADC fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
+ -- keyboard and btnU/btnD/btnL/btnR.
  joy_up     <= kbd_joy(0) or not jxadc_s(3);                        -- up    (JXADC4)
  joy_down   <= kbd_joy(1) or not jxadc_s(2);                        -- down  (JXADC3)
  joy_left   <= kbd_joy(2) or not jxadc_s(1);                        -- left  (JXADC2)
@@ -216,7 +216,7 @@ begin
  joy_coin   <= kbd_joy(7) or btn_s(3) or btn_s(2); -- coin   = 5 / 6 or btnU / btnD
 
  -- pwm sound output
- process(clock_12)  -- same clock as the DE10 top drove the PWM accumulator
+ process(clock_12)
  begin
    if rising_edge(clock_12) then
      pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio(12 downto 1)));

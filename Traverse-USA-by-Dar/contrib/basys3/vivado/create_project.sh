@@ -42,7 +42,7 @@ cp -f "$CONTRIB/vivado/traverse_usa_basys3.xpr" "$PROJ_DIR/traverse_usa_basys3.x
 step "3/4 Copying Basys-3-Master.xdc"
 cp -f "$CONTRIB/vivado/Basys-3-Master.xdc" "$CONSTRS_IMPORT/Basys-3-Master.xdc"
 
-step "4/4 Copying scandoubler.v (single-value array size -> full range)"
+step "4/4 Copying scandoubler.v (Vivado fixes: block labels, array range)"
 cp -f "$ROOT/contrib/code/scandoubler.v" "$SOURCES_IMPORT/scandoubler.v"
 # Vivado 2020.2 Verilog-2001 parser rejects the single-value unpacked array
 # size 'sd_buffer[2*2**HCNT_WIDTH]' (Synth 8-2671); the canonical import stays

@@ -1,43 +1,32 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Defender (Williams, 1980/1981?) by Dar (darfpga@aol.fr) (07/10/2017)
--- http://darfpga.blogspot.fr
+-- Basys 3 top level for Defender by Red~Bote, derived from defender_de10_lite.vhd by
+-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port by Red~Bote.
+-- v0.1 (10/26/2026) : initial Basys 3 release
 --
--- Ported from defender_de10_lite.vhd (DE10-lite rev 07/10/2017):
---  - 100 MHz board oscillator; clk_wiz_0 MMCM derives 12 MHz (clock_12, core)
---    and 7.16 MHz (clock_7p16). The sound board wants the pristine 3.58 MHz;
---    an exact 3.58 MHz cannot come directly off the MMCM (VCO floor ~600 MHz
---    vs max output divide 128), so clock_7p16 is divided by 2 in fabric to
---    ~3.58 MHz (clock_3p58) for the sound board.
---  - Joystick on JXADC (thrust/reverse/down/up/fire), OR-merged with the PS/2
---    keyboard; coin/start on buttons (btnU/btnD coin, btnL/btnR start) and keys.
---    JXADC down+fire = smart bomb, up+fire = hyperspace (2026-10-21; were
---    left/right+fire, which fired with thrust/reverse). In a combo the
---    direction passes through, fire does not. No fire+direction combos for coin/start.
---  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
---    E0 ignored): up/down arrows, Left Ctrl = fire, Left Alt = thrust, Z = reverse,
---    Space = smart bomb, Left Shift = hyperspace, 1/2 = start, 5/6 = coin,
---    9 = auto-up (toggle), F2 = advance, F1 = high-score reset
---  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_12; JXADC fire
---    debounced (10.9 ms, 2026-10-21)
---  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
---  - Display mode via sw(13): 0 = 31 kHz progressive VGA (external MiST
---    scandoubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high)
---  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
---  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr, cpu address
---    trace) is not ported; the core's debug output is left open.
---  - The core's video_hs/video_vs outputs are left open ("not tested") in the
---    pristine top, which derives sync only from video_csync. This port wires
---    video_hs/video_vs into the scandoubler instead (see
---    contrib/basys3/PORTING_SPEC.md), as the Burnin-Rubber/BurgerTime ports of
---    the same core family; hardware-verified.
---  - sw_coktail_table on sw12 (down = '1', upright, the pristine top's value).
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  clk_wiz_0 derives clock_12 = 12 MHz (core) and clock_7p16 = 7.16 MHz from 100 MHz;
+--  clock_7p16 / 2 in fabric = 3.58 MHz sound board clock (below the MMCM range)
+--  Joystick on JXADC (right = thrust, left = reverse), OR-merged with the PS/2
+--  keyboard (onboard USB-HID); JXADC fire debounced
+--  JXADC down+fire = smart bomb, up+fire = hyperspace (fire suppressed in a combo)
+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
+--  31 kHz VGA via the MiST scandoubler, fed from video_hs/video_vs (unused in the
+--  DE10 top); sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME default keys (up/down arrows, Left Ctrl = fire, Left Alt = thrust,
+--  Z = reverse, Space = smart bomb, Left Shift = hyperspace, 1/2 = start, 5/6 = coin,
+--  9 = auto-up toggle, F2 = advance, F1 = high-score reset)
+--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
+--  DIP: sw12 = sw_coktail_table (down = upright)
+--  The DE10 7-segment debug display is not ported
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -64,11 +53,11 @@ port(
  O_PMODAMP2_GAIN : out std_logic;
  O_PMODAMP2_SHUTD: out std_logic;
 
- vgaRed   : out std_logic_vector(3 downto 0);
- vgaGreen : out std_logic_vector(3 downto 0);
- vgaBlue  : out std_logic_vector(3 downto 0);
- vgaHsync : out std_logic;
- vgaVsync : out std_logic
+ vga_r  : out std_logic_vector(3 downto 0);
+ vga_g  : out std_logic_vector(3 downto 0);
+ vga_b  : out std_logic_vector(3 downto 0);
+ vga_hs : out std_logic;
+ vga_vs : out std_logic
 );
 end defender_basys3;
 
@@ -130,12 +119,6 @@ architecture struct of defender_basys3 is
  signal ja_s   : std_logic_vector(4 downto 0);
  signal btnU_s, btnL_s, btnR_s, btnD_s : std_logic;
 
- -- JXADC fire debounce (2026-10-21): fire_db follows the synchronized, inverted
- -- JXADC7 only after it has been stable for 2**17 clock_12 cycles (10.9 ms), as
- -- Galaga. The down/up+fire smart bomb / hyperspace combos showed no effect on
- -- hardware with a CX40-type joystick while the keys worked; that joystick's fire
- -- contact bounces (Galaga, 2026-10-21). The combo fix was suppressing fire (below);
- -- the debounce is kept for the bouncing fire contact.
  signal fire_db  : std_logic := '0';
  signal fire_cnt : unsigned(16 downto 0) := (others => '0');
 
@@ -159,9 +142,9 @@ architecture struct of defender_basys3 is
  signal joy_smart_bomb : std_logic;
  signal joy_hyperspace : std_logic;
 
- -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
- -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
- -- sw_coktail_table on sw12 (Dar '1' = upright).
+ -- DIP switch on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
+ -- default, switch up inverts the bit.
+ -- sw_coktail_table on sw12 (DE10 default '1' = upright).
  constant COCKTAIL_DEFAULT : std_logic := '1';
  signal cocktail_in : std_logic;
 begin
@@ -249,7 +232,8 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
 
  ja_s   <= in_s(1)(4 downto 0);
 
- -- JXADC fire debounce (see declarations)
+ -- JXADC fire debounce: fire_db follows the inverted JXADC7 after 2**17 stable
+ -- clock_12 cycles (10.9 ms); the CX40-type joystick's fire contact bounces.
  process (clock_12)
  begin
    if rising_edge(clock_12) then
@@ -280,7 +264,7 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
 
  -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
  -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2 alias the arrows,
- -- Right Ctrl/Alt alias Left Ctrl/Alt), sf-darfpga PORTING_SPEC.md section 3.1.
+ -- Right Ctrl/Alt alias Left Ctrl/Alt), PORTING_SPEC.md 3.1.
  -- Key 9 toggles auto-up on its make code only (typematic repeats ignored).
  process (clock_12)
  begin
@@ -292,17 +276,17 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
          kbd_rel <= '0';
          if kbd_scancode = x"75" then kbd_joy(0)  <= not kbd_rel; end if; -- up arrow
          if kbd_scancode = x"72" then kbd_joy(1)  <= not kbd_rel; end if; -- down arrow
-         if kbd_scancode = x"1A" then kbd_joy(2)  <= not kbd_rel; end if; -- Z : reverse
-         if kbd_scancode = x"11" then kbd_joy(3)  <= not kbd_rel; end if; -- left alt : thrust
-         if kbd_scancode = x"14" then kbd_joy(4)  <= not kbd_rel; end if; -- left ctrl : fire
-         if kbd_scancode = x"16" then kbd_joy(5)  <= not kbd_rel; end if; -- 1 : start 1
-         if kbd_scancode = x"1E" then kbd_joy(6)  <= not kbd_rel; end if; -- 2 : start 2
-         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
-         if kbd_scancode = x"29" then kbd_joy(8)  <= not kbd_rel; end if; -- space : smart bomb
-         if kbd_scancode = x"12" then kbd_joy(9)  <= not kbd_rel; end if; -- left shift : hyperspace
-         if kbd_scancode = x"06" then kbd_joy(10) <= not kbd_rel; end if; -- F2 : advance
-         if kbd_scancode = x"05" then kbd_joy(11) <= not kbd_rel; end if; -- F1 : high-score reset
-         if kbd_scancode = x"46" then                                     -- 9 : auto-up toggle
+         if kbd_scancode = x"1A" then kbd_joy(2)  <= not kbd_rel; end if; -- Z: reverse
+         if kbd_scancode = x"11" then kbd_joy(3)  <= not kbd_rel; end if; -- left alt: thrust
+         if kbd_scancode = x"14" then kbd_joy(4)  <= not kbd_rel; end if; -- left ctrl: fire
+         if kbd_scancode = x"16" then kbd_joy(5)  <= not kbd_rel; end if; -- 1: start 1
+         if kbd_scancode = x"1E" then kbd_joy(6)  <= not kbd_rel; end if; -- 2: start 2
+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
+         if kbd_scancode = x"29" then kbd_joy(8)  <= not kbd_rel; end if; -- space: smart bomb
+         if kbd_scancode = x"12" then kbd_joy(9)  <= not kbd_rel; end if; -- left shift: hyperspace
+         if kbd_scancode = x"06" then kbd_joy(10) <= not kbd_rel; end if; -- F2: advance
+         if kbd_scancode = x"05" then kbd_joy(11) <= not kbd_rel; end if; -- F1: high-score reset
+         if kbd_scancode = x"46" then                                     -- 9: auto-up toggle
            kbd_9_held <= not kbd_rel;
            if kbd_rel = '0' and kbd_9_held = '0' then auto_up <= not auto_up; end if;
          end if;
@@ -312,8 +296,9 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
  end process;
 
  -- OR-merge the joystick on JXADC with the PS/2 keyboard joystick. JXADC physical
- -- map: JXADC1=right(Thrust), JXADC2=left(Reverse), JXADC3=down, JXADC4=up, JXADC7=fire, i.e.
- -- JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire. JXADC is
+ -- map: JXADC1=right(Thrust), JXADC2=left(Reverse), JXADC3=down, JXADC4=up,
+ -- JXADC7=fire, i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up,
+ -- JXADC(4)=fire. JXADC is
  -- active-low (pressed shorts to ground); invert so a press reads
  -- active-high, matching the core's active-high input boundary and the
  -- keyboard path.
@@ -321,12 +306,9 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
  joy_down    <= kbd_joy(1) or not ja_s(2);   -- down    (JXADC3)
  joy_reverse <= kbd_joy(2) or not ja_s(1);   -- reverse (JXADC2, left)
  joy_thrust  <= kbd_joy(3) or not ja_s(0);   -- thrust  (JXADC1, right)
- -- JXADC fire with JXADC up or down held is a combo (2026-10-21): it drives smart
- -- bomb / hyperspace only, not fire. With fire passed through, fire and hyperspace
- -- rose together and the game showed no hyperspace / smart bomb on hardware
- -- (keyboard Space / Left Shift with Left Ctrl already held worked). Up/down still
- -- pass through (joystick up held + Left Shift hyperspaced on hardware). With fire
- -- suppressed, both combos work on hardware (2026-10-21).
+ -- JXADC fire with up or down held is a combo: it drives smart bomb / hyperspace
+ -- only, not fire (fire rising with the combo masks it in the game). Up/down pass
+ -- through.
  joy_fire    <= kbd_joy(4) or (fire_db and ja_s(2) and ja_s(3));  -- fire (JXADC7, debounced, not in a combo)
  joy_smart_bomb <= kbd_joy(8) or (not ja_s(2) and fire_db);  -- Space / JXADC down+fire
  joy_hyperspace <= kbd_joy(9) or (not ja_s(3) and fire_db);  -- Left Shift / JXADC up+fire
@@ -366,14 +348,13 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
  --   0 = 31 kHz VGA (scan-doubled, top 4 bits of each 6-bit channel)
  --   1 = 15 kHz TV  (native core rate, composite sync on HS, VS held high
  --       -- requires a 15 kHz RGB monitor or RGB->composite converter)
- vgaHsync <= hsync_o             when sw(13) = '0' else csync;
- vgaVsync <= vsync_o             when sw(13) = '0' else '1';
- vgaRed   <= vga_r_o(5 downto 2) when sw(13) = '0' else r & '0';
- vgaGreen <= vga_g_o(5 downto 2) when sw(13) = '0' else g & '0';
- vgaBlue  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & "00";
+ vga_hs <= hsync_o             when sw(13) = '0' else csync;
+ vga_vs <= vsync_o             when sw(13) = '0' else '1';
+ vga_r  <= vga_r_o(5 downto 2) when sw(13) = '0' else r & '0';
+ vga_g  <= vga_g_o(5 downto 2) when sw(13) = '0' else g & '0';
+ vga_b  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & "00";
 
- -- pwm sound output (reproduces the pristine top's exact accumulator, run on
- -- the sound board clock). audio_out is 8 bits.
+ -- pwm sound output (audio_out is 8 bits)
  -- (concatenations assigned to typed signals first: inside a type conversion the
  --  result type of '&' is ambiguous with in_sync_t visible)
  pwm_prev <= '0' & pwm_accumulator(11 downto 0);

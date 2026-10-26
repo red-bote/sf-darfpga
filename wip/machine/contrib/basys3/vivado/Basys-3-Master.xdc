@@ -2,7 +2,7 @@
 ## Derived from the Digilent Basys-3-Master.xdc (github.com/Digilent/digilent-xdc).
 ## Active lines match the skeleton wrapper port names (clk, sw, btnC/U/D/L/R, JXADC,
 ## O_PMODAMP2_*, vga_r/g/b, vga_hs/vs, ps2_clk/ps2_dat). Rename get_ports if the wrapper
-## uses other names (e.g. vgaRed/vgaHsync); every top-level port must be constrained
+## uses other names; every top-level port must be constrained
 ## (Place 30-58), and no unused line may stay active.
 
 # Clock signal

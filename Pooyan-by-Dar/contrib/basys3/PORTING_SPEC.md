@@ -69,7 +69,8 @@ mmcm_locked` and released synchronously to `clk_core` (2-stage); MMCM reset = `b
 
 ## 5. Video path
 
-- MiST `scandoubler.v` (Till Harbaum, GPL-3.0), `contrib/code/scandoubler.v`, with
+- MiST `scandoubler.v` (Till Harbaum, GPL-3.0; `mist-devel/mist-modules@147aa5c`),
+  `contrib/code/scandoubler.v`, with
   `contrib/code/scandoubler_fix.patch` applied to the project copy. Replaced the two-clock
   DECA `vga_scandoubler.v` on 2026-10-05.
 - `clk_sys = clk_core`, `ce_x1 = ce6`, `ce_x2 = ce12` (exactly 2 × `ce_x1`).
@@ -121,7 +122,7 @@ DIP switches hardware-verified (dip 2, 2026-10; Coinage A 2026-10-21).
 | `contrib/basys3/code/pooyan_t80_xor_width.patch` | `rtl_t80_350/T80.vhd` | operand widths of `&` differ (T80.vhd:562); Vivado rejects |
 | `contrib/basys3/code/pooyan_single_domain.patch` | `rtl_dar/pooyan.vhd`, `pooyan_sound_board.vhd`, `gen_ram.vhd` | single clock domain (§2); CRLF, applied with `--binary` |
 | `contrib/basys3/code/pooyan_vcnt_264_lines.patch` | `rtl_dar/pooyan.vhd` | `vcnt` reload `0x0F9` → `0x0F8`: 264 lines, V 60.61 Hz (Dar 263, 60.84 Hz), MAME `set_raw(18.432_MHz_XTAL / 3, 384, 0, 256, 264, 16, 240)`; 2026-10-06, `../../../CLOCKING_SPEC.md` 5.7 |
-| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array range |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/pooyan_de10_lite_to_basys3.patch` | `rtl_dar/pooyan_de10_lite.vhd` | provenance record (generated) |
 
 Pooyan keeps its core patches in `contrib/basys3/code/`; new ports use `contrib/code/`.

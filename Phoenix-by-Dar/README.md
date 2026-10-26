@@ -1,6 +1,6 @@
 # Phoenix-by-Dar
 
-Basys 3 port of Phoenix (Amstar, 1980), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Phoenix (Amstar, 1980), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_phoenix_DE10_lite.zip`, `dloads/`. Basys 3 port
 by Red~Bote. Dar's release notes: `README.txt` in the extracted archive (upstream: "TV mode
 only RGB 15kHz").
@@ -56,7 +56,7 @@ Shield combos pass fire through. Buttons debounced (11.9 ms).
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 
@@ -90,12 +90,13 @@ no top-level folder and no PROM `.bat`; `prep_roms.sh` runs a reconstructed
   attempts reverted, PORTING_SPEC §7).
 - btnC did not reset the sound: `contrib/code/phoenix_sound_reset.patch` (2026-10-07).
 - Keyboard moved from JB1/JB3 to the onboard USB-HID host (2026-09-23, XDC only).
-- MiST `scandoubler.v`: unpacked array declared with a full range; Vivado rejects the
-  single-value size (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
+  applied to the project copy).
 
 ## Third-party sources
 
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

@@ -1,6 +1,6 @@
 # Satans-Hollow-by-Dar
 
-Basys 3 port of Satan's Hollow (Bally Midway MCR, 1981), original core by Dar
+Basys 3 port of Satan's Hollow (Bally Midway MCR, 1981), FPGA core by Dar
 (darfpga@aol.fr), <http://darfpga.blogspot.fr>. Source:
 `vhdl_satans_hollow_rev_0_2_2019_11_22.zip` (rev 0.2, 2019-11-22), `dloads/`. Basys 3 port
 by Red~Bote. Dar's release notes: `README.txt` in the extracted archive.

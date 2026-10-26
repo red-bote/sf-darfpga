@@ -1,7 +1,7 @@
 diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd
 --- a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd
 +++ b/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd
-@@ -1,387 +1,287 @@
+@@ -1,387 +1,270 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Solar Fox (Midway MCR) by Dar (darfpga@aol.fr) (19/10/2019)
 --- http://darfpga.blogspot.fr
@@ -390,46 +390,30 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Solar Fox (Bally Midway, 1981) by Dar (darfpga@aol.fr) (19/10/2019)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Solar Fox by Red~Bote, derived from solarfox_de10_lite.vhd by
++-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from solarfox_de10_lite.vhd (DE10-lite rev 01 2019/11/22):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single 40 MHz clock
-+--    (core + sound board), matching the sibling Kick-Midway-MCR port (same
-+--    Midway-family DE10-lite generation, same solved MMCM values).
-+--  - Core generates progressive 31 kHz video natively (tv15Khz_mode); no
-+--    external scandoubler is imported. sw(13) selects 31 kHz VGA (0) /
-+--    15 kHz TV (1); default-off feeds 31 kHz VGA at power-on, matching the
-+--    other ports' sw(13) convention (no F8 toggle needed).
-+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, replaces
-+--    kbd_joystick; F0 = release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1),
-+--    mapping as the hardware-verified rb-fpga/rework Solar Fox port:
-+--    arrows = move, Left Ctrl = fire, Left Alt = fast / start, 5/6 = coin 1/2,
-+--    F2 = service toggle.
-+--  - JXADC joystick (active-low, inverted): JXADC1/2/3/4/7 = right/left/down/
-+--    up/fire; JXADC direction + fire also asserts fast.
-+--  - btnU = coin 1, btnD = coin 2, btnL = fast / start, btnR unused,
-+--    btnC = reset.
-+--  - Single player only: up2/down2/left2/right2/fire2/fast2 are tied to '0',
-+--    matching the pristine top. The core has no cocktail support (DE10-lite
-+--    header: "Cocktail mode : NO").
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40; keyboard on
-+--    clock_40 (2026-10-20, as rework; the former clock_40/6 clock_kbd is removed).
-+--  - Stereo PWM audio in the core; PmodAMP2 (JA pins 1/2/4) is mono, so O_PMODAMP2_AIN
-+--    is driven from the left channel only, separate_audio = '0' (mixed).
-+--  - sw15 up = audio disabled, sw14 up = PmodAMP2 gain. No dip switches
-+--    are exposed by the core.
-+--  - No led port: the pristine top's ledr assignment is dead code (commented
-+--    out, references an undefined signal, never actually driven), matching
-+--    every other machine's convention of leaving led unconstrained when the
-+--    core doesn't drive it.
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_40 = 40 MHz from 100 MHz (core, sound board, keyboard)
++--  Joystick on JXADC (direction + fire also = fast), OR-merged with the PS/2
++--  keyboard (onboard USB-HID); single player, no cocktail
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4), left channel, separate_audio = '0'
++--  (mixed); sw15 up = audio off, sw14 up = gain
++--  Native 31 kHz VGA; sw13 = 15 kHz interlaced TV (csync on HS)
++--  Keyboard: MAME default keys (arrows, Left Ctrl = fire, Left Alt = fast / start,
++--  5/6 = coin, F2 = service toggle)
++--  btnC = reset, btnU/btnD = coin 1/2, btnL = fast / start, btnR unused
++--  No DIP switches exposed by the core; no LEDs
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -499,7 +483,7 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 + signal kbd_intr      : std_logic;
 + signal kbd_scancode  : std_logic_vector(7 downto 0);
 + signal kbd_rel       : std_logic := '0';
-+ -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++ -- kbd_key: 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
 + --           6 '1', 7 '2', 8 '5', 9 '6', 10 F2
 + signal kbd_key       : std_logic_vector(10 downto 0) := (others => '0');
 + signal kbd_f2_r      : std_logic := '0';
@@ -511,7 +495,7 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 +
 +begin
 +
-+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
++reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks
 +
 +tv15Khz_mode <= sw(13); -- 0 = 31 kHz VGA, 1 = 15 kHz TV
 +
@@ -539,13 +523,13 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 + video_hs     => hsync,
 + video_vs     => vsync,
 +
-+ separate_audio => '0', -- mixed : mono amp on the left channel
++ separate_audio => '0', -- mixed: mono amp on the left channel
 + audio_out_l    => audio_l,
 + audio_out_r    => audio_r,
 +
 + coin1          => coin1_in, -- 5 or btnU
 + coin2          => coin2_in, -- 6 or btnD
-+ fast1          => fast1_in, -- left alt, btnL or JXADC direction + fire : fast / start
++ fast1          => fast1_in, -- left alt, btnL or JXADC direction + fire: fast / start
 + fast2          => '0',
 +
 + fire1          => joy_BBBBFRLDU(4), -- left ctrl or JXADC7
@@ -571,12 +555,12 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 +-- JXADC(4)=fire (JXADC7); active-low, inverted so a press reads active-high.
 +coin1_in  <= kbd_key(8) or btn_s(3); -- 5 or btnU
 +coin2_in  <= kbd_key(9) or btn_s(2); -- 6 or btnD
-+fast1_in  <= kbd_key(5) or btn_s(1) or (not jxadc_s(4) and not (jxadc_s(3) and jxadc_s(2) and jxadc_s(1) and jxadc_s(0))); -- left alt, btnL or JXADC direction + fire : fast / start
++fast1_in  <= kbd_key(5) or btn_s(1) or (not jxadc_s(4) and not (jxadc_s(3) and jxadc_s(2) and jxadc_s(1) and jxadc_s(0))); -- left alt, btnL or JXADC direction + fire: fast / start
 +joy_BBBBFRLDU(0) <= kbd_key(0) or not jxadc_s(3); -- up    (JXADC4)
 +joy_BBBBFRLDU(1) <= kbd_key(1) or not jxadc_s(2); -- down  (JXADC3)
 +joy_BBBBFRLDU(2) <= kbd_key(2) or not jxadc_s(1); -- left  (JXADC2)
 +joy_BBBBFRLDU(3) <= kbd_key(3) or not jxadc_s(0); -- right (JXADC1)
-+joy_BBBBFRLDU(4) <= kbd_key(4) or not jxadc_s(4); -- fire : left ctrl (JXADC7)
++joy_BBBBFRLDU(4) <= kbd_key(4) or not jxadc_s(4); -- fire: left ctrl (JXADC7)
 +
 +-- adapt video to 4bits/color only and blank (core generates progressive
 +-- 31 kHz / interlaced 15 kHz timing natively via tv15Khz_mode; no external
@@ -588,7 +572,6 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 +vga_hs <= csync when tv15Khz_mode = '1' else hsync;
 +vga_vs <= '1'   when tv15Khz_mode = '1' else vsync;
 +
-+-- clock_div: unchanged, still gates the PWM accumulator below (clock_div = "0000").
 +process (reset, clock_40)
 +begin
 +	if reset='1' then
@@ -658,7 +641,7 @@ diff --git a/vhdl_solar_fox_rev_0_1_2019_11_22/rtl_dar/solarfox_de10_lite.vhd b/
 +end process;
 +
 +-- pwm sound output (stereo in the core; PmodAMP2 is mono, so only the left
-+-- channel is output -- same choice as the sibling Kick port)
++-- channel is output)
 +process(clock_40)
 +begin
 +  if rising_edge(clock_40) then

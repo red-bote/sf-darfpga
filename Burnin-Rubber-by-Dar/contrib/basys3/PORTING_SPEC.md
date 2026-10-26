@@ -89,7 +89,7 @@ Fixed: `dip_sw1 <= "10011111"`, `dip_sw2 <= "00010111"` are constants inside the
 | Patch | Target | Reason |
 |---|---|---|
 | `contrib/code/burnin_rubber_vsync_before_vblank.patch` | `rtl_dar/burnin_rubber.vhd` | `vsync_cnt` reset at `vcnt = 248`: vsync no longer overlaps the last 8 active lines (2026-09-28) |
-| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array full range (Vivado) |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/burnin_rubber_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
 Retired 2026-09-28: `burnin_rubber_vcnt_272_lines.patch` (272 lines, 57.44 Hz); it caused

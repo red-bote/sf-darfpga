@@ -122,16 +122,16 @@ table.
 - `sw(13) = '0'`: 31 kHz VGA, sync from the scandoubler, top 4 of 6 bits:
 
   ```vhdl
-  vgaHsync <= hsync_o;  vgaVsync <= vsync_o;
-  vgaRed   <= vga_r_o(5 downto 2);
-  vgaGreen <= vga_g_o(5 downto 2);
-  vgaBlue  <= vga_b_o(5 downto 2);
+  vga_hs <= hsync_o;  vga_vs <= vsync_o;
+  vga_r   <= vga_r_o(5 downto 2);
+  vga_g <= vga_g_o(5 downto 2);
+  vga_b  <= vga_b_o(5 downto 2);
   ```
 - `sw(13) = '1'`: 15 kHz TV, native RGB padded with zeros, csync on HS, VS high:
 
   ```vhdl
-  vgaRed <= r & "00";  vgaGreen <= g & '0';  vgaBlue <= b & '0';
-  vgaHsync <= csync;  vgaVsync <= '1';
+  vga_r <= r & "00";  vga_g <= g & '0';  vga_b <= b & '0';
+  vga_hs <= csync;  vga_vs <= '1';
   ```
 - Caveat: the patched `video_hs`/`video_vs` are not validated on hardware in Dar's
   original release; validated on the Basys 3 build.
@@ -182,7 +182,7 @@ hardcoded). Fixed: Coinage_B (`dip_switch_1` bits 7-4). sw12 spare.
 | Patch | Target | Reason |
 |---|---|---|
 | `contrib/code/traverse_usa_expose_video_timing.patch` | `rtl_dar/traverse_usa.vhd` | enables the dormant `video_hs`/`video_vs` drivers (§5); behaviour fix, the pristine core synthesizes but has no VGA sync. Verify: `grep -n 'video_hs <= hsync0' <SRC_DIR>/rtl_dar/traverse_usa.vhd` |
-| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado 2020.2 Verilog-2001 parser fix |
+| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/traverse_usa_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
 No width/sensitivity synthesis fix was needed for this core.

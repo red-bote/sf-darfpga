@@ -1,26 +1,27 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Galaga (Namco/Midway, 1981) by Dar (darfpga@aol.fr) (06/11/2017)
--- http://darfpga.blogspot.fr
+-- Basys 3 top level for Galaga by Red~Bote, derived from galaga_de10_lite.vhd by
+-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port by Red~Bote.
+-- v0.1 (10/26/2026) : initial Basys 3 release
 --
--- Ported from galaga_de10_lite.vhd (DE10-lite rev 06/11/2017):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 36.864 MHz (signal
---    clock_36; sf-darfpga/CLOCKING_SPEC.md)
---  - Atari-style joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
---  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
---  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
---    sw(13) switches to 15 kHz TV (native RGB + composite sync on HS)
---  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_18; buttons and
---    JXADC fire debounced (14 ms)
---  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
---    E0 ignored): left/right arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin
---  - btnC = reset, btnU/btnD = coin, btnL/btnR = start
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  clk_wiz_0 derives clock_36 = 36.864 MHz from 100 MHz; core clock_18 = clock_36/2
+--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
+--  Inputs synchronized on clock_18; buttons and JXADC fire debounced (14 ms)
+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
+--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME default keys (left/right arrows, Left Ctrl = fire, 1/2 = start,
+--  5/6 = coin)
+--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
+--  DIP: sw12 = b_test (up = test/service mode)
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -119,29 +120,20 @@ architecture struct of galaga_basys3 is
  attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
  attribute ASYNC_REG of jxadc_meta, jxadc_s, btn_meta, btn_s : signal is "TRUE";
 
- -- Debounce (2026-10-02): the output follows the synchronized input only after it
- -- has been stable for 2**18 clock_18 cycles (18.432 MHz: 14.2 ms). Added because
- -- this core edge-detects coin on press, so release bounce counted extra coins.
- -- Clocked on clock_18, the core's own clock, so btn_db changes on core clock edges
- -- (a first version on clock_36 changed it next to clock_18 edges; btnU then
- -- registered inconsistently). Index 4 = JXADC fire (bouncy fire seen on the
- -- rb-fpga/rework hardware 2026-10-19); 3..0 = btnU, btnD, btnL, btnR. Fire was
- -- 2-FF only for one test (2026-10-20, clean with a CX40-type joystick); restored
- -- 2026-10-21 after fire triggered on both press and release (release bounce).
  signal db_in   : std_logic_vector(4 downto 0);
  signal btn_db  : std_logic_vector(4 downto 0) := (others => '0');
  type btn_cnt_t is array (0 to 4) of unsigned(17 downto 0);
  signal btn_cnt : btn_cnt_t := (others => (others => '0'));
- -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
- -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
- -- b_test on sw12 (Dar '1' = off).
+ -- DIP switch on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
+ -- default, switch up inverts the bit.
+ -- b_test on sw12 (DE10 default '1' = off).
  constant B_TEST_DEFAULT : std_logic := '1';
  signal b_test_in : std_logic;
 begin
 
 b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
 
-reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (CLOCKING_SPEC.md 6)
 
 -- Clock 36.864 MHz (signal clock_36) for the core clock chain and the scan
 -- doubler's clock divider.
@@ -266,7 +258,7 @@ begin
 	end if;
 end process;
 
--- get scancode from keyboard (on clock_18, the core clock; was clock_9 = clock_18/2)
+-- get scancode from keyboard (on clock_18, the core clock)
 keyboard : entity work.io_ps2_keyboard
 port map (
   clk       => clock_18,
@@ -278,7 +270,7 @@ port map (
 
 -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
 -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 4/6 alias the arrows,
--- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+-- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
 -- kbd_joy bit order matches joyPCFRLDU below: 5 = start 1, 6 = start 2, 7 = coin.
 process (clock_18)
 begin
@@ -290,10 +282,10 @@ begin
 				kbd_rel <= '0';
 				if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 				if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
-				if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-				if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
+				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
+				if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
+				if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
+				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
 			end if;
 		end if;
 	end if;
@@ -304,7 +296,9 @@ end process;
 -- i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire.
 -- JXADC is active-low (pressed shorts to ground); invert so a press reads active-high,
 -- matching the core's active-high input boundary and the keyboard path.
--- Debounce (see declarations).
+-- Debounce: btn_db follows its input after 2**18 stable clock_18 cycles (14.2 ms).
+-- The core edge-detects coin, so bounce counted extra coins; fire bounced on release.
+-- Clocked on clock_18, the core clock. Index 4 = JXADC fire, 3..0 = btnU/D/L/R.
 db_in <= (not jxadc_s(4)) & btn_s;
 process(clock_18)
 begin
@@ -323,8 +317,7 @@ begin
 end process;
 
 -- Galaga core takes left/right/fire only (bits 2/3/4); coin=7, start1=5, start2=6.
--- Coin/start come from the keyboard and btnU/btnD/btnL/btnR
--- (JXADC fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
+-- Coin/start come from the keyboard and btnU/btnD/btnL/btnR.
 joyPCFRLDU(0) <= '0';
 joyPCFRLDU(1) <= '0';
 joyPCFRLDU(2) <= kbd_joy(2) or not jxadc_s(1);               -- left  (JXADC2)
@@ -335,7 +328,7 @@ joyPCFRLDU(6) <= kbd_joy(6) or btn_db(0);                    -- start2 = btnR
 joyPCFRLDU(7) <= kbd_joy(7) or btn_db(3) or btn_db(2);       -- coin   = btnU / btnD
 
 -- pwm sound output
-process(clock_18)  -- same clock as the DE10 top drove the PWM accumulator
+process(clock_18)
 begin
   if rising_edge(clock_18) then
     pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned(audio & "000"));

@@ -1,7 +1,7 @@
 diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 --- a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +++ b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
-@@ -1,387 +1,354 @@
+@@ -1,387 +1,355 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Xevious by Dar (darfpga@aol.fr) (01/05/2017)
 --- http://darfpga.blogspot.fr
@@ -390,28 +390,31 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Xevious (Namco, 1982) by Dar (darfpga@aol.fr) (05/01/2017)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Xevious by Red~Bote, derived from xevious_de10_lite.vhd by
++-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from xevious_de10_lite.vhd (DE10-lite 2017/05/01):
-+--  - 100 MHz board oscillator; clk_wiz_0 MMCM derives the 18.432 MHz core
-+--    clock (signal clock_18), also used by the PS/2 keyboard
-+--  - Atari-style joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID, C17/B17)
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
-+--  - 31 kHz VGA on the Basys3 VGA connector via the imported MiST scandoubler;
-+--    sw(13) switches to 15 kHz TV (native RGB + composite sync on HS)
-+--  - btnC = reset; btnU/btnD = coin, btnL = start1, btnR = start2
-+--  - PS/2 pins, JXADC and btnU/D/L/R pass through 2-FF synchronizers on
-+--    clock_18 before use (stuck/missed inputs seen without them)
-+--  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
-+--    E0 ignored): arrows, Left Ctrl = fire, Left Alt = bomb, 1/2 = start, 5/6 = coin
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives the 18.432 MHz core clock (clock_18) from 100 MHz; single
++--  domain, also used by the PS/2 keyboard
++--  Joystick on JXADC (down or up+fire = bomb), OR-merged with the PS/2 keyboard
++--  (onboard USB-HID)
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
++--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
++--  Keyboard: MAME default keys (arrows, Left Ctrl = fire, Left Alt = bomb, 1/2 =
++--  start, 5/6 = coin)
++--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
++--  PS/2, JXADC and buttons pass 2-FF synchronizers on clock_18; buttons debounced
++--  DIP switch: sw12 = b_test (test/service mode)
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -491,7 +494,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 + signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
 + signal ja_meta, ja_s           : std_logic_vector(4 downto 0) := (others => '1');
 + signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0');  -- D, U, L, R
-+ -- Button debounce (2026-10-02): btn_s must be stable for 2**18 clock_18
++ -- Button debounce: btn_s must be stable for 2**18 clock_18
 + -- cycles (18.432 MHz: 14.2 ms) before btn_db follows. This core
 + -- edge-detects coin on press, so release bounce counted extra coins.
 + signal btn_db                  : std_logic_vector(3 downto 0) := (others => '0');
@@ -520,20 +523,19 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +     );
 + end component;
 +
-+ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
-+ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
-+ -- b_test on sw12 (Dar '1' = off).
++ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
++ -- default, switch up inverts the bit. b_test on sw12 (default '1' = off).
 + constant B_TEST_DEFAULT : std_logic := '1';
 + signal b_test_in : std_logic;
 +begin
 +
 +b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
 +
-+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6)
++reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks
 +
 +-- Clock 18.432 MHz (signal name clock_18 kept) for the xevious core, the
 +-- scandoubler's clock chain and the PS/2 keyboard decoder (single domain,
-+-- sf-darfpga/CLOCKING_SPEC.md section 5.2).
++-- CLOCKING_SPEC.md 5.2).
 +clocks : entity work.clk_wiz_0
 +port map(
 + clk_in1  => clk,
@@ -543,8 +545,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +);
 +
 +-- Xevious core + character/graphics ROM.
-+-- ROM clocked on the inverted core clock (asserting edge mid-slot), matching
-+-- the DE10 reference.
++-- ROM clocked on the inverted core clock (asserting edge mid-slot).
 +xevious : entity work.xevious
 +port map(
 + clock_18     => clock_18,
@@ -653,8 +654,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +
 +-- The PS/2 pins, JXADC and the buttons are asynchronous to clock_18.
 +-- io_ps2_keyboard has no synchronizer of its own: an edge near a clock
-+-- edge can drop a bit, giving missed or stuck keys (same failure and fix
-+-- as pinballwiz/NEXYS2-Pacman PORTING_SPEC section 11).
++-- edge can drop a bit, giving missed or stuck keys.
 +process(clock_18)
 +begin
 +  if rising_edge(clock_18) then
@@ -687,7 +687,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +
 +-- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
 +-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
-+-- Right Ctrl/Alt alias Left Ctrl/Alt), sf-darfpga PORTING_SPEC.md section 3.1.
++-- Right Ctrl/Alt alias Left Ctrl/Alt), PORTING_SPEC.md 3.1.
 +-- kbd_joy bit order matches joyBCPPFRLDU below.
 +process (clock_18)
 +begin
@@ -701,18 +701,19 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +        if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
 +        if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 +        if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+        if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
-+        if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-+        if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-+        if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
-+        if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt : bomb
++        if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
++        if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
++        if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
++        if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
++        if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt: bomb
 +      end if;
 +    end if;
 +  end if;
 +end process;
 +
 +-- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
-+-- JXADC physical map (JXADC[0]=JXADC1, JXADC[1]=JXADC2, JXADC[2]=JXADC3, JXADC[3]=JXADC4, JXADC[4]=JXADC7):
++-- JXADC physical map (JXADC[0]=JXADC1, JXADC[1]=JXADC2, JXADC[2]=JXADC3, JXADC[3]=JXADC4,
++-- JXADC[4]=JXADC7):
 +--   JXADC[0]=right, JXADC[1]=left, JXADC[2]=down and bomb, JXADC[3]=up, JXADC[4]=fire;
 +--   up + fire also gives bomb (up and fire pass through).
 +--   The synchronized JXADC (ja_s) and debounced buttons (btn_db) are used below.
@@ -731,7 +732,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +                   or (not ja_s(3) and not ja_s(4));          -- bomb    (Left Alt / JXADC3 / JXADC up+fire)
 +
 +-- pwm sound output
-+process(clock_18)  -- same clock as the DE10 top drove the PWM accumulator
++process(clock_18)
 +begin
 +  if rising_edge(clock_18) then
 +    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio));

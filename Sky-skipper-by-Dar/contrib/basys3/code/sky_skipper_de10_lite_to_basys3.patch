@@ -1,7 +1,7 @@
 diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd b/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
 --- a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
 +++ b/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vhd
-@@ -1,410 +1,314 @@
+@@ -1,410 +1,284 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level for Sky skipper by Dar (darfpga@aol.fr) (26/12/2019)
 --- http://darfpga.blogspot.fr
@@ -412,59 +412,34 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 -
 -
 -end struct;
-+-------------------------------------------------------------------------------
-+-- Basys3 Top level for Sky Skipper (Nintendo, 1981) by Dar
-+-- (darfpga@aol.fr) (28/01/2020)
-+-- http://darfpga.blogspot.fr
++---------------------------------------------------------------------------------
++-- Basys 3 top level for Sky Skipper by Red~Bote, derived from
++-- sky_skipper_de10_lite.vhd by Dar (darfpga@aol.fr, http://darfpga.blogspot.fr);
++-- see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from sky_skipper_de10_lite.vhd (DE10-lite rev 28/01/2020):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single clock_40
-+--    (40 MHz) used for everything: the core, the sound YM2149, the PWM audio
-+--    accumulator and the keyboard -- exactly as the pristine top's
-+--    max10_pll_40M (50 -> 40 MHz) did on the DE10-lite. reset comes from btnC
-+--    (active high, ORed with !mmcm_locked).
-+--  - Video path reproduced from the pristine top: the core drives the real
-+--    video_hs/video_vs and selects the timing natively (no line_doubler, no
-+--    external scandoubler). Display mode is selected by sw(13) alone (0 = 31
-+--    kHz progressive VGA, 1 = 15 kHz interlaced TV) -- changed 2026-09-29 to
-+--    drop the F8 keyboard XOR and match this repo's plain sw(13) convention:
-+--      0 = 31 kHz progressive VGA (pixel data on a 20 MHz clock)
-+--      1 = 15 kHz interlaced TV (native composite sync on HS, VS held high)
-+--    HS/VS are muxed exactly as the pristine assignments. RGB is padded
-+--    3/3/2 -> 4/4/4 (r&'0', g&'0', b&"00") the same way in both modes. The
-+--    core outputs inverted video (video_r/g/b <= not palette_do), which is
-+--    passed through unchanged.
-+--  - Keyboard on the Basys3 onboard USB-HID connector (ps2_clk = C17,
-+--    ps2_dat = B17), io_ps2_keyboard on clock_40. Scancodes decoded in this
-+--    wrapper, MAME default keys (2026-10-20, replaces kbd_joystick; F0 =
-+--    release, E0 ignored, sf-darfpga PORTING_SPEC.md 3.1), mapping as the
-+--    hardware-verified rb-fpga/rework Sky Skipper port:
-+--      arrows = move, Left Ctrl = speed up (fire10/fire20),
-+--      Left Alt = bomb (fire11/fire21), 1/2 = start, 5/6 = coin 1/2,
-+--      9 = service1 (held)
-+--  - JXADC joystick (active-low, inverted): JXADC1/2/3/4 = right/left/down/up,
-+--    any JXADC direction also = speed up, JXADC7 = bomb. Player 2 mirrors
-+--    player 1 (the core has no independent P2 controls).
-+--  - Pushbuttons: btnU = coin1, btnD = coin2, btnL = start1, btnR = start2
-+--    (btnC = reset).
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_40.
-+--  - DIP switches: sw1 = "0000000" (Dar's not("1111111"), normal coinage);
-+--    sw2 = sw(7 downto 0), not inverted (as rework, hardware 2026-10-19).
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4): reproduces the pristine 18-bit
-+--    accumulator exactly, gated on clock_div = "0000" (effective 4 MHz
-+--    update) on clock_40, adding ('0'&audio&'0') i.e. audio doubled; output is
-+--    bit 17. sw15 up = audio disabled, sw14 up = gain.
-+--  - DE10-lite's 7-segment debug hex display (decodeur_7_seg on
-+--    dbg_cpu_addr) and unused peripheral shims (usb_host_max3421e,
-+--    sgtl5000_dac) are not ported; dbg_cpu_addr is left open.
-+-------------------------------------------------------------------------------
++---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
-+-------------------------------------------------------------------------------
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_40 = 40 MHz from 100 MHz (core, sound, PWM, keyboard)
++--  Joystick on JXADC (any direction also = speed up, JXADC7 = bomb), OR-merged with
++--  the PS/2 keyboard (onboard USB-HID); player 2 mirrors player 1
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
++--  Native 31 kHz VGA; sw13 = 15 kHz interlaced TV (csync on HS); core video
++--  inverted, passed through
++--  Keyboard: MAME default keys (arrows, Left Ctrl = speed up, Left Alt = bomb,
++--  1/2 = start, 5/6 = coin, 9 = service, held)
++--  btnC = reset, btnU/btnD = coin 1/2, btnL/btnR = start
++--  DIP switches: sw2 on sw7-0 (not inverted), sw1 coinage on sw11-8
++--  7-segment debug display and unused DE10 peripherals not ported
++---------------------------------------------------------------------------------
 +
 +library ieee;
 +use ieee.std_logic_1164.all;
@@ -517,9 +492,6 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  signal audio           : std_logic_vector(15 downto 0);
 +  signal pwm_accumulator : std_logic_vector(17 downto 0);
 +
-+  -- clock_div gate for the PWM accumulator (pristine clock_kbd divider,
-+  -- clock_40 / 20; clock_kbd itself is no longer used by the keyboard, which
-+  -- now runs on clock_40 for the onboard USB-HID host)
 +  signal clock_div : std_logic_vector(3 downto 0);
 +
 +  -- 2-FF synchronizers (clock_40) for the asynchronous inputs
@@ -534,7 +506,7 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  signal kbd_intr     : std_logic;
 +  signal kbd_scancode : std_logic_vector(7 downto 0);
 +  signal kbd_rel      : std_logic := '0';
-+  -- kbd_key : 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
++  -- kbd_key: 0 up, 1 down, 2 left, 3 right, 4 left ctrl, 5 left alt,
 +  --           6 '1', 7 '2', 8 '5', 9 '6', 10 '9'
 +  signal kbd_key      : std_logic_vector(10 downto 0) := (others => '0');
 +  signal joy_BBBBFRLDU: std_logic_vector(5 downto 0);
@@ -544,8 +516,8 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  signal start2_in    : std_logic;
 +  signal sw2_in       : std_logic_vector(7 downto 0); -- dip switch 2
 +
-+ -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
-+ -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
++ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
++ -- default, switch up inverts the bit.
 + -- sw1: coinage DCBA (bits 3-0) on sw11-8; n.u. bits (6-4) fixed.
 + constant SW1_DEFAULT : std_logic_vector(6 downto 0) := "0000000";
 + signal sw1_in : std_logic_vector(6 downto 0);
@@ -564,8 +536,8 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  );
 +
 +  -- display mode: sw(13) alone selects the mode (0 = 31 kHz VGA, 1 = 15 kHz
-+  -- TV) -- changed 2026-09-29 to drop the F8 keyboard XOR.
-+  -- (pristine: tv15Khz_mode <= not fn_toggle(7), which defaulted to 15 kHz)
++  -- TV).
++  -- (DE10 top: tv15Khz_mode <= not fn_toggle(7), default 15 kHz)
 +  tv15Khz_mode <= sw(13);
 +
 +  -- Sky Skipper
@@ -605,18 +577,18 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +    fire21         => joy_BBBBFRLDU(5),
 +
 +  --      ...DCBA
-+    sw1            => sw1_in,     --  Dar: not("1111111") n.u.(3b hard wired)  / coinage(DCBA) on sw11-8
++    sw1            => sw1_in,     --  DE10: not("1111111") n.u.(3b hard wired)  / coinage(DCBA) on sw11-8
 +
 +  --      PONMLKJI
-+    sw2            => sw2_in,  -- sw7-0 (Dar: not("11111101")) cocktail(P) / service2(O) / bonus(N) / difficulty(MLK) / lives(IJ)
++    sw2            => sw2_in,  -- sw7-0 (DE10: not("11111101")) cocktail(P) / service2(O) / bonus(N) / difficulty(MLK) / lives(IJ)
 +
 +    service1       => kbd_key(10),  -- 9 (MAME service 1)
 +
 +    dbg_cpu_addr   => open
 +  );
 +
-+  -- pristine clock_div divider (same process as the DE10 top; clock_kbd no
-+  -- longer produced, clock_div counts for the PWM accumulator gate only)
++  -- clock_kbd not produced; clock_div (clock_40 / 20) gates the PWM accumulator
++  -- only, the keyboard runs on clock_40
 +  process(reset, clock_40)
 +  begin
 +    if reset = '1' then
@@ -688,17 +660,16 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  coin2_in  <= kbd_key(9) or btn_s(2); -- 6 or btnD
 +  start1_in <= kbd_key(6) or btn_s(1); -- 1 or btnL
 +  start2_in <= kbd_key(7) or btn_s(0); -- 2 or btnR
-+  sw2_in    <= sw(7 downto 0);         -- dip switch 2 from sw7-0 (not inverted, rework hardware 2026-10-19)
++  sw2_in    <= sw(7 downto 0);         -- dip switch 2 from sw7-0 (not inverted)
 +  joy_BBBBFRLDU(0) <= kbd_key(0) or not jxadc_s(3); -- up    (JXADC4)
 +  joy_BBBBFRLDU(1) <= kbd_key(1) or not jxadc_s(2); -- down  (JXADC3)
 +  joy_BBBBFRLDU(2) <= kbd_key(2) or not jxadc_s(1); -- left  (JXADC2)
 +  joy_BBBBFRLDU(3) <= kbd_key(3) or not jxadc_s(0); -- right (JXADC1)
-+  -- fire10 (speed up) : left ctrl, or any JXADC direction
++  -- fire10 (speed up): left ctrl, or any JXADC direction
 +  joy_BBBBFRLDU(4) <= kbd_key(4) or not (jxadc_s(3) and jxadc_s(2) and jxadc_s(1) and jxadc_s(0));
-+  joy_BBBBFRLDU(5) <= kbd_key(5) or not jxadc_s(4); -- fire11 (bomb) : left alt (JXADC7)
++  joy_BBBBFRLDU(5) <= kbd_key(5) or not jxadc_s(4); -- fire11 (bomb): left alt (JXADC7)
 +
-+  -- Pad native 3/3/2-bit RGB to the VGA connector's 4-bit/channel input by
-+  -- MSB replication (identical to the pristine vga_r/vga_g/vga_b).
++  -- adapt video to 4bits/color only and blank
 +  vga_r <= r & '0'  when blankn = '1' else "0000";
 +  vga_g <= g & '0'  when blankn = '1' else "0000";
 +  vga_b <= b & "00" when blankn = '1' else "0000";
@@ -709,8 +680,7 @@ diff --git a/vhdl_sky_skipper_rev_01_2020_01_28/rtl_dar/sky_skipper_de10_lite.vh
 +  vga_hs <= csync when tv15Khz_mode = '1' else hsync;
 +  vga_vs <= '1'   when tv15Khz_mode = '1' else vsync;
 +
-+  -- pwm sound output (reproduces the pristine top's exact accumulator, gated
-+  -- on clock_div = "0000").
++  -- pwm sound output
 +  process(clock_40)
 +  begin
 +    if rising_edge(clock_40) then

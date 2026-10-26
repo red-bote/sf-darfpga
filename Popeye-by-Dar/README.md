@@ -1,6 +1,6 @@
 # Popeye-by-Dar
 
-Basys 3 port of Popeye (Nintendo, 1982), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Popeye (Nintendo, 1982), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_popeye_rev_0_3_2020_01_27.zip` (rev 0.3,
 2020-01-27), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
 extracted archive.
@@ -60,7 +60,7 @@ DIP 2 is `not sw(7 downto 0)` (as rework, hardware 2026-10-19); Dar's DE10 value
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 

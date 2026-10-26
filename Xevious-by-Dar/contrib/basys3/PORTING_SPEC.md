@@ -113,7 +113,7 @@ and `dip_b` (freeze, difficulty, coin B) are constants inside `rtl_dar/xevious.v
 |---|---|---|
 | `contrib/code/xevious_expose_hsync_vsync.patch` | `rtl_dar/xevious.vhd` | separate hsync/vsync for the scandoubler (§5) |
 | `contrib/code/xevious_synth_fix_xor_spflips.patch` | `rtl_dar/xevious.vhd` | `xor spflips` operand widths differ; Vivado rejects |
-| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array range |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/xevious_de10_lite_to_basys3.patch` | `rtl_dar/xevious_de10_lite.vhd` | provenance record (generated) |
 
 ## 10. PROM generation

@@ -1,7 +1,7 @@
 diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd
 --- a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd
 +++ b/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd
-@@ -1,209 +1,320 @@
+@@ -1,209 +1,279 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level Phoenix by Dar (darfpga@aol.fr) (30/01/2025)
 --- http://darfpga.blogspot.fr
@@ -212,71 +212,36 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Phoenix (Amstar, 1980) by Dar (darfpga@aol.fr) (30/01/2025)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Phoenix by Red~Bote, derived from phoenix_de10_lite.vhd by
++-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from phoenix_de10_lite.vhd (DE10-lite rev 30/01/2025):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 11 MHz (clock_11, core
-+--    + pixel clock) and 50 MHz (clock_50, fed straight to the core's sound
-+--    effect/music blocks exactly like the pristine top's board oscillator)
-+--  - The pristine phoenix core (rtl_dar/phoenix.vhd) exposed ONLY composite
-+--    sync (video_csync) -- no separate hsync/vsync existed anywhere in the
-+--    upstream design (see contrib/basys3/PORTING_SPEC.md). A first
-+--    implementation attempt worked around this with a duration-threshold
-+--    sync separator inferring hs/vs from video_csync in this wrapper;
-+--    hardware bring-up confirmed sound and PS/2 keyboard working (core,
-+--    clocking, reset all correct) but produced no VGA display. This wrapper
-+--    now instead uses contrib/code/phoenix_expose_hsync_vsync.patch, which
-+--    exposes real, separately-generated video_hs/video_vs from the core
-+--    (derived from its already-internal pulse_a/vblank_n signals -- no
-+--    threshold-guessing),
-+--    fed directly into the MiST scandoubler for 31 kHz VGA, exactly like
-+--    Burnin-Rubber/Galaga's native hs/vs wiring. Hardware bring-up confirmed
-+--    this works (VGA display now appears).
-+--  - Display mode via sw(13): 0 = 31 kHz progressive VGA (scandoubler,
-+--    fed by the core's real hs/vs above), 1 = 15 kHz TV (video_csync
-+--    straight onto vgaHsync, vgaVsync held high, native RGB passed through)
-+--    -- this branch exactly reproduces the pristine DE10-lite top's own
-+--    output path.
-+--  - JXADC joystick and btnU/btnD/btnL/btnR (2026-10-02, third attempt): the
-+--    core gains an active-high ext_joy input (contrib/code/
-+--    phoenix_external_inputs.patch) OR-merged with the keyboard's JoyPCFRLDU
-+--    BEFORE the core's single inversion to the active-low CPU inputs, so the
-+--    external path uses exactly the keyboard's bits. JXADC1 = right, JXADC2 = left,
-+--    JXADC4 = up (protection), JXADC7 = fire; btnU/btnD = coin, btnL = 1P start,
-+--    btnR = 2P start. JXADC is 2-FF synchronized, buttons synchronized and
-+--    debounced (~12 ms) on clock_11. Two earlier attempts (2026-09-22/25,
-+--    reverted; root KNOWN_ISSUES.md) registered no input. Hardware-confirmed
-+--    2026-10-02.
-+--  - audio_select is 3 bits on the core (100/101/110/111 solo effect1/
-+--    effect2/effect3/melody, else mixed); wired to sw(10 downto 8) here
-+--    (the pristine DE10-lite top hardcodes it to "000", i.e. always mixed).
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
-+--    (reproduces the pristine top's 13-bit accumulator verbatim).
-+--  - btnC = reset (also resets the MMCM; core held in reset until MMCM
-+--    lock).
-+--  - ps2_dat/ps2_clk are wired to the onboard USB-HID host (C17/B17), the
-+--    project default since 2026-09 (root PORTING_SPEC.md §3) -- pure XDC
-+--    pin choice. Hardware-confirmed working 2026-09-23 on the core's own
-+--    PS/2 decode (clock_11).
-+--  - Keyboard decoded in this wrapper (2026-10-20), MAME default keys, F0 =
-+--    release, E0 ignored: left/right arrows, Left Ctrl = fire, Left Alt =
-+--    shield, 1/2 = start, 5/6 = coin. The wrapper's io_ps2_keyboard (clock_11,
-+--    PS/2 2-FF synchronized) and decoder drive ext_joy; the core's ps2_clk/
-+--    ps2_dat are tied idle ('1'), so its internal kbd_joystick path stays
-+--    inactive (no core patch). Shield also on JXADC up, up+fire, down+fire.
-+--  - No led port: the pristine top's ledr debug pattern is not ported (a
-+--    led(7:0) ext_joy diagnostic was used during the 2026-10-02 bring-up).
-+--  - The DE10-lite 7-segment debug hex display is not ported, matching
-+--    every other machine (no Basys3 board in this repo carries 7-segment
-+--    wiring).
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_11 = 11 MHz (core, pixel clock) and clock_50 = 50 MHz
++--  (core sound effect/music blocks) from 100 MHz
++--  Joystick on JXADC (JXADC1/2 = right/left, JXADC7 = fire, JXADC4 = shield,
++--  up+fire/down+fire = shield), OR-merged with the PS/2 keyboard (onboard USB-HID)
++--  into the core's active-high ext_joy input (added by a core patch); the
++--  core's own PS/2 inputs are tied idle; buttons debounced (12 ms)
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain;
++--  sw10-8 = audio_select (100/101/110/111 = effect1/effect2/effect3/melody solo,
++--  else mixed)
++--  31 kHz VGA via the MiST scandoubler, fed from the core's video_hs/video_vs
++--  (exposed by a core patch); sw13 = 15 kHz TV (csync on HS)
++--  Keyboard: MAME default keys (left/right arrows, Left Ctrl = fire, Left Alt =
++--  shield, 1/2 = start, 5/6 = coin)
++--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
++--  DIP: sw7-0 = dip_switch
++--  The DE10 ledr debug pattern and 7-segment debug display are not ported
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -303,11 +268,11 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + O_PMODAMP2_GAIN : out std_logic;
 + O_PMODAMP2_SHUTD: out std_logic;
 +
-+ vgaRed   : out std_logic_vector(3 downto 0);
-+ vgaGreen : out std_logic_vector(3 downto 0);
-+ vgaBlue  : out std_logic_vector(3 downto 0);
-+ vgaHsync : out std_logic;
-+ vgaVsync : out std_logic
++ vga_r  : out std_logic_vector(3 downto 0);
++ vga_g  : out std_logic_vector(3 downto 0);
++ vga_b  : out std_logic_vector(3 downto 0);
++ vga_hs : out std_logic;
++ vga_vs : out std_logic
 +);
 +end phoenix_basys3;
 +
@@ -343,8 +308,7 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + signal video_clk : std_logic;
 + signal csync     : std_logic;
 +
-+ -- Real hsync/vsync from the core (contrib/code/phoenix_expose_hsync_vsync.patch)
-+ -- -- direct connections, no separator needed.
++ -- Real hsync/vsync from the core (exposed by a core patch)
 + signal hs, vs : std_logic;
 +
 + signal vga_r_i, vga_g_i, vga_b_i : std_logic_vector(5 downto 0);
@@ -354,9 +318,8 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + signal audio           : std_logic_vector(11 downto 0);
 + signal pwm_accumulator : std_logic_vector(12 downto 0);
 +
-+ -- External player inputs (see header). JXADC is synchronized; buttons are
-+ -- synchronized and debounced: output follows only after 2**17 stable
-+ -- clock_11 cycles (11 MHz: 11.9 ms).
++ -- External player inputs. JXADC is synchronized; buttons are synchronized and
++ -- debounced: output follows only after 2**17 stable clock_11 cycles (11.9 ms).
 + signal ja_meta, ja_sync    : std_logic_vector(4 downto 0) := (others => '1');
 + signal btn_meta, btn_sync  : std_logic_vector(3 downto 0) := (others => '0');  -- U, D, L, R
 + signal btn_db              : std_logic_vector(3 downto 0) := (others => '0');
@@ -424,8 +387,7 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 +
 + -- translate scancode to keys (MAME default keys, PS/2 set 2 codes), replaces
 + -- the core's kbd_joystick. F0 marks a release; E0 is ignored (keypad 4/6 alias
-+ -- the arrows, Right Ctrl/Alt alias Left Ctrl/Alt), sf-darfpga PORTING_SPEC.md
-+ -- section 3.1.
++ -- the arrows, Right Ctrl/Alt alias Left Ctrl/Alt), PORTING_SPEC.md 3.1.
 + process(clock_11)
 + begin
 +   if rising_edge(clock_11) then
@@ -434,13 +396,13 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 +         kbd_rel <= '1';
 +       elsif kbd_scancode /= x"E0" then
 +         kbd_rel <= '0';
-+         if kbd_scancode = x"11" then kbd_joy(0) <= not kbd_rel; end if; -- left alt : shield
++         if kbd_scancode = x"11" then kbd_joy(0) <= not kbd_rel; end if; -- left alt: shield
 +         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 +         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
-+         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-+         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
++         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
++         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
++         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
++         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
 +       end if;
 +     end if;
 +   end if;
@@ -482,8 +444,7 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 + -- Pad native 2-bit/channel RGB to the scan doubler's 6-bit/channel input
 + -- by triple replication. No external blanking gate is needed: the core
 + -- already forces video_r/g/b to "00" internally during hblank/vblank (see
-+ -- PORTING_SPEC.md) -- the pristine DE10-lite top relies on the same thing
-+ -- (its blankn is tied constant true).
++ -- PORTING_SPEC.md).
 + vga_r_i <= r & r & r;
 + vga_g_i <= g & g & g;
 + vga_b_i <= b & b & b;
@@ -508,17 +469,15 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix_de10_lite.vhd b/vhdl_phoenix
 +
 + -- Display mode switch via sw(13):
 + --   0 = 31 kHz VGA (scan-doubled, top 4 bits of each 6-bit channel)
-+ --   1 = 15 kHz TV  (native core rate, composite sync on HS, VS held high
-+ --       -- requires a 15 kHz RGB monitor or RGB->composite converter;
-+ --       reproduces the pristine DE10-lite top's own output exactly)
-+ vgaHsync <= hsync_o             when sw(13) = '0' else csync;
-+ vgaVsync <= vsync_o             when sw(13) = '0' else '1';
-+ vgaRed   <= vga_r_o(5 downto 2) when sw(13) = '0' else r & "00";
-+ vgaGreen <= vga_g_o(5 downto 2) when sw(13) = '0' else g & "00";
-+ vgaBlue  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & "00";
++ --   1 = 15 kHz TV  (native core rate, composite sync on HS, VS held high;
++ --       requires a 15 kHz RGB monitor or RGB->composite converter)
++ vga_hs <= hsync_o             when sw(13) = '0' else csync;
++ vga_vs <= vsync_o             when sw(13) = '0' else '1';
++ vga_r  <= vga_r_o(5 downto 2) when sw(13) = '0' else r & "00";
++ vga_g  <= vga_g_o(5 downto 2) when sw(13) = '0' else g & "00";
++ vga_b  <= vga_b_o(5 downto 2) when sw(13) = '0' else b & "00";
 +
-+ -- pwm sound output (reproduces the pristine top's exact accumulator,
-+ -- clocked on clock_11 -- "use same clock as pooyan_sound_board").
++ -- pwm sound output
 + process(clock_11)
 + begin
 +   if rising_edge(clock_11) then

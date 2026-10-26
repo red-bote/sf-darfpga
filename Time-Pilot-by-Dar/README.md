@@ -1,6 +1,6 @@
 # Time-Pilot-by-Dar
 
-Basys 3 port of Time Pilot (Konami, 1982), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Time Pilot (Konami, 1982), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_time_pilot_rev_0_0_2017_11_05.zip`
 (2017-11-05), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
 extracted archive.
@@ -57,7 +57,7 @@ Coinage B (`dip_switch_1` bits 7-4) fixed at Dar's value.
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 
@@ -90,8 +90,9 @@ None open.
   (`contrib/code/time_pilot_single_domain.patch`, 2026-10-05; `../KNOWN_ISSUES.md`).
 - 260-line frame (61.54 Hz) → 264 lines, 60.61 Hz
   (`contrib/code/time_pilot_vcnt_264_lines.patch`, 2026-10-06).
-- MiST `scandoubler.v`: unpacked array declared with a full range; Vivado rejects the
-  single-value size (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
+  applied to the project copy).
 - Raw PS/2 at 24.57 MHz misbehaved (2026-10-05); 2-FF synchronizer on `ps2_clk`/`ps2_dat`.
 
 ## Third-party sources
@@ -99,4 +100,4 @@ None open.
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

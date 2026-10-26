@@ -1,7 +1,7 @@
 diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd
 --- a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd
 +++ b/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd
-@@ -1,337 +1,259 @@
+@@ -1,337 +1,223 @@
 ----------------------------------------------------------------------------------
 --- DE10_lite Top level crazy_kong by Dar (darfpga@aol.fr) (09/05/2018)
 --- http://darfpga.blogspot.fr
@@ -340,61 +340,28 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 -
 -end struct;
 +---------------------------------------------------------------------------------
-+-- Basys3 Top level for Crazy Kong (Crazy-Climber-derived hardware,
-+-- Kyoei/Falcon, 1981; per MAME's cclimber.cpp driver and Dar's README the
-+-- core plays Crazy Kong Part II / Falcon) by Dar
-+-- (darfpga@aol.fr) (06/06/2018)
-+-- http://darfpga.blogspot.fr
++-- Basys 3 top level for Crazy Kong by Red~Bote, derived from ckong_de10_lite.vhd by
++-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
 +--
-+-- Basys3 port by Red~Bote.
++-- v0.1 (10/26/2026) : initial Basys 3 release
 +--
-+-- Ported from ckong_de10_lite.vhd (DE10-lite rev 06/06/2018):
-+--  - 100 MHz board oscillator, clk_wiz_0 MMCM derives a single clock_12
-+--    (12.288 MHz, CPU 3.072 MHz as the original; sf-darfpga/CLOCKING_SPEC.md)
-+--    used for everything: the core, the sound, the PWM audio accumulator
-+--    and the keyboard (pristine DE10-lite max10_pll_12M gave 12 MHz).
-+--  - Joystick on JXADC (four directions + fire/jump), OR-merged with the
-+--    PS/2/USB keyboard and, for coin/start, dedicated buttons (btnU/btnD =
-+--    coin, btnL = P1 start, btnR = P2 start). Core inputs are active-high;
-+--    JXADC is active-low, so a press is inverted to active-high like the
-+--    keyboard path.
-+--  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain.
-+--    Reproduces the pristine process exactly: 13-bit accumulator on
-+--    clock_12, adding audio(15 downto 4), output is bit 12.
-+--  - Display mode via sw(13), replacing the DE10's sw(0):
-+--      0 = 31 kHz progressive VGA: the core's internal line_doubler
-+--          (tv15Khz_mode = '0') drives the real video_hs/video_vs -- no
-+--          external scandoubler is needed for this core.
-+--      1 = 15 kHz TV: native composite sync on HS (video_csync), VS held
-+--          high (needs a 15 kHz RGB monitor or RGB->composite converter).
-+--    RGB is padded 3/3/2 -> 4/4/4 the same way in both modes (r&'0', g&'0',
-+--    b&"00"), exactly as the pristine vga_r/vga_g/vga_b assignments.
-+--  - Keyboard on the Basys3 onboard USB-HID connector (ps2_clk = C17,
-+--    ps2_dat = B17), NOT on a Pmod. io_ps2_keyboard and the decoder run at
-+--    clock_12 = 12 MHz, which is comfortably above the >= 6 MHz this onboard
-+--    host needs (Congo Bongo / Arcade_Zaxxon / Pooyan data) -- no divider is
-+--    required (unlike Traverse-USA, whose shared pristine divider was ~3 MHz).
-+--  - Keyboard map (wrapper decoder, MAME defaults, 2026-10-20; replaces
-+--    kbd_joystick; F0 = release, E0 ignored; kbd_joy keeps the joyHBCPPFRLDU
-+--    bit order):
-+--      bit0 = Up arrow (0x75)  -> up
-+--      bit1 = Down arrow (0x72)-> down
-+--      bit2 = Left arrow (0x6B)-> left
-+--      bit3 = Right arrow(0x74)-> right
-+--      bit4 = Left Ctrl (0x14) -> jump
-+--      bit5 = 1 (0x16)         -> start 1
-+--      bit6 = 2 (0x1E)         -> start 2
-+--      bit7 = 5 / 6 (0x2E/0x36)-> coin
-+--  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_12.
-+--  - Player 2 mirrors player 1 (one keyboard set is decoded; the core
-+--    has no independent P2 controls, only cocktail-mode duplicates).
-+--  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr) is not ported;
-+--    the core's debug output is left open.
 +---------------------------------------------------------------------------------
 +-- Educational use only
-+-- Do not redistribute synthetized file with roms
++-- Do not redistribute synthesized file with roms
 +-- Do not redistribute roms whatever the form
 +-- Use at your own risk
++---------------------------------------------------------------------------------
++--
++-- Main features:
++--  clk_wiz_0 derives clock_12 = 12.288 MHz from 100 MHz, used for the core, sound,
++--  PWM accumulator and keyboard (CPU 3.072 MHz as the original)
++--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
++--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
++--  31 kHz VGA via the core's internal line doubler; sw13 = 15 kHz TV (csync on HS)
++--  Keyboard: MAME default keys (arrows, Left Ctrl = jump, 1/2 = start, 5/6 = coin)
++--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
++--  Player 2 controls mirror player 1; the DE10 7-segment debug display is not ported
 +---------------------------------------------------------------------------------
 +
 +library ieee;
@@ -421,11 +388,11 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 + O_PMODAMP2_GAIN : out std_logic;
 + O_PMODAMP2_SHUTD: out std_logic;
 +
-+ vgaRed   : out std_logic_vector(3 downto 0);
-+ vgaGreen : out std_logic_vector(3 downto 0);
-+ vgaBlue  : out std_logic_vector(3 downto 0);
-+ vgaHsync : out std_logic;
-+ vgaVsync : out std_logic
++ vga_r  : out std_logic_vector(3 downto 0);
++ vga_g  : out std_logic_vector(3 downto 0);
++ vga_b  : out std_logic_vector(3 downto 0);
++ vga_hs : out std_logic;
++ vga_vs : out std_logic
 +);
 +end ckong_basys3;
 +
@@ -476,7 +443,6 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 +  locked   => mmcm_locked
 + );
 +
-+ -- Crazy Kong (video_clk is unused, matching the pristine DE10 top)
 + ckong_inst : entity work.ckong
 + port map(
 +  clock_12   => clock_12,
@@ -531,7 +497,7 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 +
 + -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
 + -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
-+ -- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
++ -- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
 + -- kbd_joy keeps the joyHBCPPFRLDU bit order: 5 = start 1, 6 = start 2, 7 = coin.
 + process (clock_12)
 + begin
@@ -545,10 +511,10 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 +         if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
 +         if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 +         if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : jump
-+         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-+         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
++         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: jump
++         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
++         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
++         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
 +       end if;
 +     end if;
 +   end if;
@@ -573,19 +539,17 @@ diff --git a/vhdl_ckong_rev_0_1_2018_06_06/rtl_dar/ckong_de10_lite.vhd b/vhdl_ck
 + core_start1 <= kbd_joy(5) or btn_s(1);          -- start1 = 1 or btnL
 + core_start2 <= kbd_joy(6) or btn_s(0);          -- start2 = 2 or btnR
 +
-+ -- Pad native 3/3/2-bit RGB to the VGA connector's 4-bit/channel input by
-+ -- MSB replication (identical to the pristine vga_r/vga_g/vga_b).
-+ vgaRed   <= r & '0';
-+ vgaGreen <= g & '0';
-+ vgaBlue  <= b & "00";
++ vga_r  <= r & '0';
++ vga_g  <= g & '0';
++ vga_b  <= b & "00";
 +
 + -- Display mode switch via sw(13):
 + --   0 = 31 kHz VGA (internal line doubler, real hsync/vsync)
 + --   1 = 15 kHz TV  (native rate, composite sync on HS, VS held high)
-+ vgaHsync <= csync when sw(13) = '1' else hsync;
-+ vgaVsync <= '1'   when sw(13) = '1' else vsync;
++ vga_hs <= csync when sw(13) = '1' else hsync;
++ vga_vs <= '1'   when sw(13) = '1' else vsync;
 +
-+ -- pwm sound output (reproduces the pristine top's exact accumulator).
++ -- pwm sound output
 + process(clock_12)
 + begin
 +  if rising_edge(clock_12) then

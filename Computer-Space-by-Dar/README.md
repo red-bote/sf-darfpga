@@ -1,6 +1,6 @@
 # Computer-Space-by-Dar
 
-Basys 3 port of Computer Space (Nutting Associates, 1971), original core by Dar
+Basys 3 port of Computer Space (Nutting Associates, 1971), FPGA core by Dar
 (darfpga@aol.fr), <http://darfpga.blogspot.fr>. Source:
 `vhdl_computer_space_rev_1_1_2017_11_22.zip` (v1.1, 2017-11-22), `dloads/`. Basys 3 port by
 Red~Bote. Dar's release notes: `README.txt` in the extracted archive. Discrete-logic game:
@@ -55,7 +55,7 @@ The core has no DIP or option inputs; sw0-12 unused.
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB (monochrome) |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB (monochrome) |
 
 ## Clocking
 
@@ -90,12 +90,13 @@ the pristine file is never modified.
 - Three-clock scheme failed setup and hold on its crossings; single 48 MHz domain
   (2026-10-02; PORTING_SPEC §2.1).
 - `motion_board.vhd` association fix (`computer_space_motion_q_assoc.patch`).
-- MiST `scandoubler.v`: unpacked array declared with a full range; Vivado rejects the
-  single-value size (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
+  applied to the project copy).
 
 ## Third-party sources
 
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

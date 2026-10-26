@@ -131,7 +131,7 @@ sw13-15 as fixed by the convention; sw0-12 unused.
 | `contrib/code/computer_space_motion_q_assoc.patch` | imported `motion_board.vhd` | association fix (applied by `create_project.sh`) |
 | `contrib/code/computer_space_rocket_timer_synth_fix.patch` | imported `motion_board.vhd` | synthesis fix (integers out of the sensitivity list) plus the rocket-missile fire fix (§9.1) |
 | `contrib/code/computer_space_motion_single_domain.patch` | imported `motion_board.vhd` | the internal `clk` net (`not MB_20` = game_clk) becomes an enable; its processes and the two `v74161_16bit` instances run on `super_clk`; applied after the two patches above |
-| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado rejects the single-value unpacked array size |
+| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/computer_space_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
 Setup extensions (`setup_computer_space.sh`): `--de10-dir rtl`, `--extra-exclude` (the

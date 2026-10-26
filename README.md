@@ -186,6 +186,28 @@ Video is 31 kHz progressive VGA, with sw(13) up selecting 15 kHz TV on every mac
 The video path per machine (core-native progressive, Dar's `line_doubler`, or the
 imported MiST `scandoubler.v`) is listed in `PORTING_SPEC.md` §4.5.
 
+## Lessons
+
+Findings that apply across machines (the wrappers do not reference each other):
+
+- One MMCM output per machine; slower rates as clock enables. A second MMCM output or a
+  fabric-divided clock used as an enable in another domain fails hold timing (MMCM
+  output as the scandoubler `ce_x1` in the 12 MHz domain) or escapes analysis (fabric
+  clock). `PORTING_SPEC.md` §4.1, `CLOCKING_SPEC.md` §5.2.
+- MiST scandoubler: `clk_sys` = core clock, `ce_x1` = pixel enable, `ce_x2` = exactly
+  2 × `ce_x1`; a fabric-derived `clk_sys` is untimed. `PORTING_SPEC.md` §4.5.
+- Synchronize and debounce inputs on the clock the core samples them with.
+  `PORTING_SPEC.md` §4.4.
+- A core that edge-detects an input at the full clock rate (fire, coin) counts contact
+  bounce as presses and needs a debounce; a level read by the CPU once per frame does
+  not. Rule out a worn joystick before adding one. `PORTING_SPEC.md` §4.2, §4.4.
+- The Basys 3 USB-HID host (PIC24) does not deliver the E0 prefix reliably; decoders
+  ignore it. `PORTING_SPEC.md` §4.3.
+- Joystick combos: fire is not passed through during a combo where the game drops a
+  button whose edge coincides with fire. `PORTING_SPEC.md` §4.4.
+- Expression actuals in port maps go through a signal (Vivado HDL 9-3240).
+  `PORTING_SPEC.md` §4.2.
+
 ## Backlog
 
 None currently.

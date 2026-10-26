@@ -1,6 +1,6 @@
 # Solar-Fox-by-Dar
 
-Basys 3 port of Solar Fox (Bally Midway, 1981), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Solar Fox (Bally Midway, 1981), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_solar_fox_rev_0_1_2019_11_22.zip` (rev 0.1,
 2019-11-22), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
 extracted archive.

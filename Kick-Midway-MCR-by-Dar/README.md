@@ -1,6 +1,6 @@
 # Kick-Midway-MCR-by-Dar
 
-Basys 3 port of Kick (Midway MCR, 1981), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Kick (Midway MCR, 1981), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_kick_rev_0_2_2019_11_22.zip` (rev 0.2,
 2019-11-22), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
 extracted archive.
@@ -57,7 +57,7 @@ No DIP inputs at the core boundary: settings come from the service menu (F2).
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio (left channel) |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 

@@ -118,8 +118,8 @@ values that differ from Burnin-Rubber:
 ### 5.4 Display mode (sw13)
 
 - `sw(13) = '0'` (VGA, 31 kHz): scandoubler output, as above.
-- `sw(13) = '1'` (TV, 15 kHz): `video_csync` straight onto `vgaHsync`,
-  `vgaVsync` tied `'1'`, native `video_r`/`video_g`/`video_b` passed through
+- `sw(13) = '1'` (TV, 15 kHz): `video_csync` straight onto `vga_hs`,
+  `vga_vs` tied `'1'`, native `video_r`/`video_g`/`video_b` passed through
   padded to 4 bits; this exactly reproduces the pristine DE10-lite top's
   behavior.
 
@@ -195,7 +195,7 @@ otherwise unused on this board), Makefile `IO_SUMMARY` updated to match.
 | `contrib/code/phoenix_expose_hsync_vsync.patch` | `rtl_dar/phoenix_video.vhd`, `rtl_dar/phoenix.vhd` | real hsync/vsync (§5.2). Verify: `grep -n "hsync <= pulse_a" <SRC_DIR>/rtl_dar/phoenix_video.vhd`; `grep -c video_hs <SRC_DIR>/rtl_dar/phoenix.vhd` = 2 |
 | `contrib/code/phoenix_external_inputs.patch` | `rtl_dar/phoenix.vhd` | `ext_joy : in std_logic_vector(7 downto 0) := (others => '0')`, OR-merged into the seven player inputs before inversion, e.g. `coin <= not (JoyPCFRLDU(7) or ext_joy(7))` (2026-10-02). Verify: `grep -c 'or ext_joy' <SRC_DIR>/rtl_dar/phoenix.vhd` = 7 |
 | `contrib/code/phoenix_sound_reset.patch` | `rtl_dar/phoenix.vhd` | sound modules reset with the core; `sound_a`/`sound_b` cleared (2026-10-07). Verify: `grep -c "btnC did not reset the sound" <SRC_DIR>/rtl_dar/phoenix.vhd` = 4 |
-| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado rejects the single-value unpacked array size |
+| `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/phoenix_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
 ## 10. PROM generation

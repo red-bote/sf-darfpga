@@ -1,6 +1,6 @@
 # Galaga-Midway-by-Dar
 
-Basys 3 port of Galaga (Namco / Midway, 1981), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Galaga (Namco / Midway, 1981), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_galaga_rev_0_3_2018_05_06.zip` (release 0.3,
 2018-05-06), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
 extracted archive.
@@ -55,7 +55,7 @@ Player 2 mirrors player 1 left/right/fire. No joystick combos (coin/start combos
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick (bits 0, 1, 4 used) |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 
@@ -90,8 +90,9 @@ clk_wiz, patch), `make check` (parse-only), `make bitstream`, `make load`.
   open investigation: `contrib/code/51xx_credit_state_machine_investigation.md`).
 - `rtl_dar/galaga.vhd`: `video_hs`/`video_vs` brought out for the scandoubler
   (`contrib/code/galaga_vga_sync.patch`).
-- MiST `scandoubler.v`: unpacked array declared with a full range; Vivado rejects the
-  single-value size (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
+  applied to the project copy).
 - JXADC fire contact bounce double-fires through the core's full-rate fire edge detect;
   debounced in the wrapper (PORTING_SPEC §7.1).
 
@@ -100,4 +101,4 @@ clk_wiz, patch), `make check` (parse-only), `make bitstream`, `make load`.
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

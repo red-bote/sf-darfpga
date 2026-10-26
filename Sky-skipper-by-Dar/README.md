@@ -1,6 +1,6 @@
 # Sky-skipper-by-Dar
 
-Basys 3 port of Sky Skipper (Nintendo, 1981), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Sky Skipper (Nintendo, 1981), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_sky_skipper_rev_01_2020_01_28.zip` (rev 01,
 2020-01-28), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
 extracted archive. Directory name uses a lowercase `s` (`Sky-skipper`).

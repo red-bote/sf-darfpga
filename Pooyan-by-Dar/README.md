@@ -1,6 +1,6 @@
 # Pooyan-by-Dar
 
-Basys 3 port of Pooyan (Konami, 1982), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Pooyan (Konami, 1982), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_pooyan_rev_0_2_2020_04_26.zip` (rev 0.2,
 2020-04-26), <https://sourceforge.net/projects/darfpga/files/Software%20VHDL/pooyan/>,
 `dloads/`. Upstream release notes: `vhdl_pooyan_rev_0_2_2020_04_26/README.txt`.
@@ -60,7 +60,7 @@ Dip 2 is wired directly (`sw(7 downto 0)`, all down = `x"00"`; Dar's DE10 consta
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
-| VGA | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 XDC: `contrib/basys3/vivado/pooyan_basys3.xdc`.
 
@@ -103,7 +103,8 @@ single-domain change, hardware-confirmed 2026-10-05 (`../KNOWN_ISSUES.md`).
   clock enables (`contrib/basys3/code/pooyan_single_domain.patch`, CRLF, `--binary`).
 - `rtl_dar/pooyan.vhd`: 264 lines per frame, V 60.61 Hz, per MAME
   (`contrib/basys3/code/pooyan_vcnt_264_lines.patch`).
-- MiST `scandoubler.v`: unpacked array range Vivado rejects (`contrib/code/scandoubler_fix.patch`,
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
   applied to the project copy).
 
 ## Third-party sources
@@ -111,4 +112,4 @@ single-domain change, hardware-confirmed 2026-10-05 (`../KNOWN_ISSUES.md`).
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/pooyan_basys3.xdc` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

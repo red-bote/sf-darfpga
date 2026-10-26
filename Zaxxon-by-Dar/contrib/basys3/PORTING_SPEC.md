@@ -75,9 +75,9 @@ is pressed or the MMCM is unlocked.
   instead of a mirrored wrapper counter (single source). This `clk_sys` is register-derived
   and untimed (`../../../KNOWN_ISSUES.md`); Pooyan's form (`clk_sys` = core clock,
   `ce_x2` = 2 × `ce_x1`) is the preferred pattern for new ports.
-- sw13: `0` = `vgaHsync <= hsync_o`, `vgaVsync <= vsync_o`, RGB `vga_*_o(5 downto 2)`;
-  `1` = `vgaRed <= r & '0'`, `vgaGreen <= g & '0'`, `vgaBlue <= b & "00"`,
-  `vgaHsync <= csync`, `vgaVsync <= '1'`.
+- sw13: `0` = `vga_hs <= hsync_o`, `vga_vs <= vsync_o`, RGB `vga_*_o(5 downto 2)`;
+  `1` = `vga_r <= r & '0'`, `vga_g <= g & '0'`, `vga_b <= b & "00"`,
+  `vga_hs <= csync`, `vga_vs <= '1'`.
 
 ## 6. Audio
 
@@ -127,7 +127,7 @@ scope). Cocktail is the F7 toggle. sw13 display, sw14 gain, sw15 audio off.
 |---|---|---|
 | `contrib/code/zaxxon_hflip_xor_width.patch` | `rtl_dar/zaxxon.vhd` | `hflip2 <= hflip xor ("0" & not(hcnt(8)) & "0000000")`: 8-bit literal padded to 9 bits; Vivado rejects the mismatch (same class as `bagman_xor_width.patch`) |
 | `contrib/code/zaxxon_expose_video_timing.patch` | `rtl_dar/zaxxon.vhd` | `video_hs`/`video_vs` drivers, `pix_clk_div` (§5); behaviour fix |
-| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array range |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/zaxxon_de10_lite_to_basys3.patch` | `rtl_dar/zaxxon_de10_lite.vhd` | provenance record (generated) |
 
 ## 10. PROM generation

@@ -89,7 +89,7 @@ Fixed: `dip_sw1 = "01111111"`, `dip_sw2 = "11101011"` are constants inside the c
 | Patch | Target | Reason |
 |---|---|---|
 | `contrib/code/burger_time_cpu_1p5mhz.patch` | `rtl_dar/burger_time.vhd` | main CPU 1.5 MHz (MAME `btime`, 2026-10-02) |
-| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array full range (Vivado) |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/burger_time_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
 CPU rate detail: Dar's `cpu_ena <= '1' when hcnt(2 downto 0) = "111" and clock_6 = '1'`

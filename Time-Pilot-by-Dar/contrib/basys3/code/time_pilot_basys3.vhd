@@ -1,33 +1,27 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Time Pilot by Dar (darfpga@aol.fr) (29/10/2017)
--- http://darfpga.blogspot.fr
+-- Basys 3 top level for Time Pilot by Red~Bote, derived from
+-- time_pilot_de10_lite.vhd by Dar (darfpga@aol.fr, http://darfpga.blogspot.fr);
+-- see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port by Red~Bote.
+-- v0.1 (10/26/2026) : initial Basys 3 release
 --
--- Ported from time_pilot_de10_lite.vhd (DE10-lite rev 00 29/10/2017):
---  - Single clock domain (2026-10-05, contrib/basys3/PORTING_SPEC.md section 2):
---    clk_wiz_0 derives clk_core = 24.573991 MHz (2 x 12.287 MHz) from the
---    100 MHz oscillator. The former clock_12 / clock_6 / clock_6n / clock_12n
---    edges are clock enables from a 2-bit phase counter; the former 14.318 MHz
---    sound clock is a phase-accumulator enable (ce14). Core and sound board are
---    patched to use them (contrib/code/time_pilot_single_domain.patch).
---  - Atari-style joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
---  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
---  - dip_switch_2 (sound/difficulty/bonus/cocktail/lives) mapped to sw(7:0)
---  - 31 kHz VGA via the MiST scandoubler (clk_sys = clk_core, ce_x1 = ce6,
---    ce_x2 = ce12); sw(13) = 1 selects 15 kHz TV (native RGB, csync on HS,
---    VS high)
---  - PS/2, JXADC and pushbuttons pass a 2-FF synchronizer into clk_core (PS/2
---    synchronizer re-instated 2026-10-05 after a raw-input evaluation, PORTING_SPEC
---    section 7)
---  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
---    E0 ignored): arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin
---  - btnC = reset, btnU/btnD = coin, btnL/btnR = start
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  Single clock domain: clk_wiz_0 derives clk_core = 24.574 MHz from 100 MHz; the
+--  former 12/6/14 MHz clocks are clock enables (core patch)
+--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
+--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME default keys (arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin)
+--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
+--  DIP switches: dip_switch_2 on sw7-0, Coinage_A on sw11-8
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -146,8 +140,8 @@ architecture struct of time_pilot_basys3 is
 
  signal dbg_cpu_addr : std_logic_vector(15 downto 0);
 
- -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
- -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
+ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
+ -- default, switch up inverts the bit.
  -- dip_switch_1: Coinage_A (bits 3-0) on sw11-8; Coinage_B (bits 7-4) fixed.
  constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := X"FF";
  signal dip1 : std_logic_vector(7 downto 0);
@@ -164,7 +158,7 @@ port map(
  locked   => mmcm_locked
 );
 
--- Core held in reset until the MMCM locks (sf-darfpga/CLOCKING_SPEC.md section 6);
+-- Core held in reset until the MMCM locks;
 -- asserted asynchronously, released synchronously to clk_core.
 process (clk_core, btnC, mmcm_locked)
 begin
@@ -240,7 +234,7 @@ port map(
 );
 
 -- 31 kHz VGA via the MiST scandoubler; RGB gated on blankn (black during blank).
--- Core outputs 5 bits/color (Pooyan: 3+3+2); pad 1 bit.
+-- Core outputs 5 bits/color; pad 1 bit.
 video_ri <= (r & "0") when blankn = '1' else "000000";
 video_gi <= (g & "0") when blankn = '1' else "000000";
 video_bi <= (b & "0") when blankn = '1' else "000000";
@@ -300,7 +294,7 @@ port map (
 
 -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
 -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
--- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+-- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
 -- kbd_joy bit order matches joyPCFRLDU below: 5 = coin, 6 = start 1, 7 = start 2.
 process (clk_core)
 begin
@@ -314,22 +308,21 @@ begin
 				if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
 				if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
 				if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
-				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6 : coin
-				if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1 : start 1
-				if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2 : start 2
+				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
+				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6: coin
+				if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1: start 1
+				if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2: start 2
 			end if;
 		end if;
 	end if;
 end process;
 
 -- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
--- JXADC physical map (matches the sibling port): JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire,
+-- JXADC physical map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire,
 -- i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire.
--- JXADC is active-low (pressed shorts to ground); invert so a press reads active-high, matching the
--- core's active-high input boundary and the keyboard path.
--- Coin/start come from the keyboard and btnU/btnD/btnL/btnR
--- (JXADC fire+direction coin/start combos removed 2026-10-02; dedicated buttons cover them).
+-- JXADC is active-low (pressed shorts to ground); invert so a press reads active-high,
+-- matching the core's active-high input boundary and the keyboard path.
+-- Coin/start come from the keyboard and btnU/btnD/btnL/btnR.
 joyPCFRLDU(0) <= kbd_joy(0) or not ja_s(3);               -- up    (JXADC4)
 joyPCFRLDU(1) <= kbd_joy(1) or not ja_s(2);               -- down  (JXADC3)
 joyPCFRLDU(2) <= kbd_joy(2) or not ja_s(1);               -- left  (JXADC2)

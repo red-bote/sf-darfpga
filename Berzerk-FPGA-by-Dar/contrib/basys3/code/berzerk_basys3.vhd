@@ -1,31 +1,28 @@
 ---------------------------------------------------------------------------------
--- Basys3 Top level for Berzerk (Stern, 1980) by Dar (darfpga@aol.fr) (21/06/2018)
--- http://darfpga.blogspot.fr
+-- Basys 3 top level for Berzerk by Red~Bote, derived from berzerk_de10_lite.vhd by
+-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port by Red~Bote.
+-- v0.1 (10/26/2026) : initial Basys 3 release
 --
--- Ported from berzerk_de10_lite.vhd (DE10-lite rev 21/06/2018):
---  - 100 MHz board oscillator, clk_wiz_0 MMCM derives 10 MHz
---  - Joystick on JXADC (movement + fire only), OR-merged with the PS/2 keyboard
---    (onboard USB-HID, C17/B17)
---  - Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio disabled, sw14 up = gain
---  - Display mode via sw(13): 0 = 31 kHz progressive VGA (internal line
---    doubler), 1 = 15 kHz TV (native rate, composite sync on HS, VS high)
---  - Keyboard decoded in this wrapper, MAME default keys (2026-10-20, F0 = release,
---    E0 ignored): arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin
---  - PS/2, JXADC and buttons pass 2-FF synchronizers on clock_10
---  - btnC = reset (also resets the MMCM; core held in reset until MMCM lock)
---  - btnL = P1 start, btnR = P2 start, btnU/btnD = coin-in (active-high,
---    no board pull-up needed); coin/start are not reachable from the
---    joystick on this port.
---  - DE10-lite's 7-segment debug hex display (dbg_cpu_addr/dbg_cpu_di, cpu
---    address/data trace gated by sw(9)) is not ported; the core's debug `sw`
---    input has no dip-switch function and is tied low.
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  clk_wiz_0 derives clock_10 = 10 MHz from 100 MHz
+--  Joystick on JXADC (movement + fire), OR-merged with the PS/2 keyboard
+--  (onboard USB-HID)
+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
+--  31 kHz VGA via the core line doubler; sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME default keys (arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin)
+--  PS/2, JXADC and buttons 2-FF synchronized on clock_10
+--  btnC = reset (also resets the MMCM), btnU/btnD = coin, btnL/btnR = start
+--  sw12 = cocktail
+--  DE10 7-segment CPU address/data debug display not ported; core sw input tied low
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -100,9 +97,9 @@ architecture struct of berzerk_basys3 is
  signal joy_start2    : std_logic;
  signal joy_coin      : std_logic;
 
- -- DIP switch on spare board switches (2026-10-20, sf-darfpga PORTING_SPEC.md
- -- section 3.2): switch down = Dar's DE10 value, switch up inverts the bit.
- -- cocktail on sw12 (Dar '1').
+ -- DIP switch on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
+ -- default, switch up inverts the bit.
+ -- cocktail on sw12 (DE10 default '1').
  constant COCKTAIL_DEFAULT : std_logic := '1';
  signal cocktail_in : std_logic;
 begin
@@ -162,8 +159,7 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
   dbg_cpu_addr_latch => open
  );
 
- -- Expand the core's 1-bit r/g/b + intensity (hi) to 4 bits/color, matching
- -- the pristine DE10-lite top's encoding (berzerk_de10_lite.vhd:212-222).
+ -- Expand the core's 1-bit r/g/b + intensity (hi) to 4 bits/color.
  vga_r <= "1100" when r = '1' and hi = '1' else "0100" when r = '1' and hi = '0' else "0000";
  vga_g <= "1100" when g = '1' and hi = '1' else "0100" when g = '1' and hi = '0' else "0000";
  vga_b <= "1100" when b = '1' and hi = '1' else "0100" when b = '1' and hi = '0' else "0000";
@@ -198,7 +194,7 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
 
  -- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
  -- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
- -- Right Ctrl aliases Left Ctrl), sf-darfpga PORTING_SPEC.md section 3.1.
+ -- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
  -- kbd_joy keeps the joyHBCPPFRLDU bit order: 5 = start 1, 6 = start 2, 7 = coin.
  process (clock_10)
  begin
@@ -212,10 +208,10 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
          if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
          if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
          if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl : fire
-         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1 : start 1
-         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2 : start 2
-         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6 : coin
+         if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
+         if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
+         if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
+         if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
        end if;
      end if;
    end if;
@@ -241,7 +237,7 @@ cocktail_in <= COCKTAIL_DEFAULT xor sw(12);  -- cocktail on sw12
  joy_coin   <= kbd_joy(7) or btn_s(3) or btn_s(2);                      -- coin   = 5 / 6 or btnU / btnD
 
  -- pwm sound output
- process(clock_10)  -- same clock as the DE10 top drove the PWM accumulator
+ process(clock_10)
  begin
    if rising_edge(clock_10) then
      pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio(15 downto 4)));

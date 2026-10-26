@@ -4,7 +4,7 @@
   reset        : in std_logic;
  -- tv15Khz_mode : in std_logic;
   dip_switch   : in std_logic_vector(7 downto 0);
-+ -- Basys3 port: external player inputs, active-high, JoyPCFRLDU bit order
++ -- external player inputs, active-high, JoyPCFRLDU bit order
 + -- (0 up/protection, 2 left, 3 right, 4 fire, 5 start1, 6 start2, 7 coin)
 + ext_joy      : in std_logic_vector(7 downto 0) := (others => '0');
   ps2_clk      : in std_logic;

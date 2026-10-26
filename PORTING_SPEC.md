@@ -22,8 +22,10 @@ Clock data: `CLOCKING_SPEC.md`, `CLOCK_CRYSTAL_CATALOG.md`. Defect log: `KNOWN_I
     tools/setup_<game>.sh       thin wrapper over tools/lib/darfpga-setup.sh
     tools/prep_roms.sh          romset -> PROM VHDL (never committed)
     code/*.patch                fix patches to Dar's core sources (applied by setup)
-    code/scandoubler.v          MiST scandoubler (MiST-path machines only, never modified)
-    code/scandoubler_fix.patch  applied to the project copy of scandoubler.v
+    code/scandoubler.v          MiST scandoubler, mist-devel/mist-modules@147aa5c
+                                (MiST-path machines only, never modified)
+    code/scandoubler_fix.patch  Vivado fixes (block labels, sd_buffer range), applied to
+                                the project copy of scandoubler.v
     basys3/PORTING_SPEC.md      design record (§9 template)
     basys3/code/<top>.vhd       the Basys 3 wrapper: tracked, edited directly
     basys3/code/<de10top>_de10_lite_to_basys3.patch   provenance record (generated)
@@ -78,12 +80,13 @@ in `PORTS` and delegates `make <step>-<machine>`. Pooyan keeps its core fix patc
 | joystick | Pmod JXADC 1/2/3/4/7 = right/left/down/up/fire; `JXADC(0..4)`; J3/L3/M2/N2/K3 | active-low to GND; XDC `PULLUP true` |
 | keyboard | onboard USB-HID host: `ps2_clk` C17, `ps2_dat` B17 | `PULLUP true` |
 | audio | PmodAMP2 on JA 1/2/4 (J1/L2/G2): `O_PMODAMP2_AIN/GAIN/SHUTD` | `SHUTD <= not sw(15)` (up = off), `GAIN <= not sw(14)` (up = gain) |
-| video | `vgaRed/Green/Blue(3:0)`, `vgaHsync`, `vgaVsync` | sw13 up = 15 kHz TV |
+| video | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | sw13 up = 15 kHz TV |
 | DIPs | spare `sw` | §3.2 |
 | LEDs / 7-segment | none | Dar's DE10 debug outputs are not ported |
 
-Port names follow the wrapper's existing style (`vga_r` or `vgaRed`); the XDC names must
-match. Enable only the XDC lines the wrapper uses.
+Port names: the DE10 top's name where the DE10 top has the port (`vga_r`, `vga_hs`, ...;
+minimal diff), the Digilent master-XDC name otherwise (`clk`, `sw`, `btn*`, `JXADC`);
+the XDC names match the wrapper. Enable only the XDC lines the wrapper uses.
 
 ### 3.1 Keyboard and joystick map (MAME defaults, 2026-10-20)
 
@@ -201,7 +204,12 @@ Per-machine maps: §3.1.
 ### 4.4 Synchronizers, merge, debounce
 
 - 2-FF synchronizers with `attribute ASYNC_REG ... "TRUE"` on `ps2_clk`, `ps2_dat`,
-  `JXADC(4:0)` and the four buttons, on the clock the core samples with.
+  `JXADC(4:0)` and the four buttons, on the clock the core samples with: two flip-flops
+  in series per asynchronous input (`*_meta`, `*_s`), so a metastable first stage has a
+  clock period to settle before the core samples it.
+- Slide switches are not synchronized: sw14/sw15 drive the PmodAMP2 pins directly (no
+  clocked logic); sw13 and the DIP switches are static settings, changed with the game
+  idle.
 - Merge: `core_input <= kbd_key or not jxadc_s(n) or btn_s`, active-high (invert for an
   active-low core input). Coin = keys 5/6 + btnU/btnD; start = keys 1/2 + btnL/btnR.
 - Debounce only where hardware shows a fault or the core edge-detects at full clock rate
@@ -317,3 +325,17 @@ signal (`pwm_prev`, `audio_x4` in Pooyan).
 - Tool/path resolution: `AGENTS.md` "Tool / path resolution" (`ENV_VAR` → default).
 - No here-doc generated sources: static `.tcl` with `-tclargs`, tracked `.vhd`.
 - Roms and generated PROM VHDL are never committed.
+- The Basys 3 wrapper minimizes textual difference from the DE10 top: its comments are
+  kept; added comments only for significant findings or deviations from the DE10 top,
+  terse, at the logic they describe; no dates or change history (git holds that).
+  Exception, the header: the wrapper is its own release, with its own version line
+  `-- v0.1 (mm/dd/yyyy) : initial Basys 3 release` (later releases `v0.2`, ...), credits
+  the DE10 top by file name and author, and points to it for its history; the DE10
+  top's release history is not copied. Its license notice stays. Added comments:
+  - no references to another machine's files (cross-machine findings go in
+    `README.md` "Lessons");
+  - no patch file names (patches are listed in the machine README and PORTING_SPEC);
+  - no comment stating that code is unchanged or verbatim from the DE10 top;
+  - no space before `:` (except the version line); repeated blank lines collapsed;
+  - wrapped at 90 columns (code lines and the DE10 top's own lines exempt).
+  Fix-patch `#` headers and added comments follow the same rule.

@@ -1,6 +1,6 @@
 # Burnin-Rubber-by-Dar
 
-Basys 3 port of Burnin' Rubber (Data East, 1982), original core by Dar (darfpga@aol.fr),
+Basys 3 port of Burnin' Rubber (Data East, 1982), FPGA core by Dar (darfpga@aol.fr),
 <http://darfpga.blogspot.fr>. Source: `vhdl_burnin_rubber_rev_0_0_2017_12_22.zip` (rev 0.0,
 22/12/2017), `dloads/`. Basys 3 port by Red~Bote; Dar's release notes: `README.txt` in the
 extracted archive.
@@ -53,7 +53,7 @@ switches.
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 
@@ -92,12 +92,13 @@ None open. Resolved 2026-09-28: missing bottom rows (see Issues addressed).
   2026-09-28 after hardware A/B testing. The pristine 261-line frame is used.
 - Scandoubler `ce_x1` from a second MMCM output failed hold timing (WHS -0.60 ns); replaced
   by a `clock_12` toggle enable, single MMCM output (2026-10-02).
-- MiST `scandoubler.v`: unpacked array declared with a full range
-  (`contrib/code/scandoubler_fix.patch`, applied to the project copy).
+- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
+  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
+  applied to the project copy).
 
 ## Third-party sources
 
 | Resource | Source | Notes |
 |---|---|---|
 | Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/DECAfpga/Arcade_Galaga/blob/main/mist/scandoubler.v> | `contrib/code/` |
+| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |

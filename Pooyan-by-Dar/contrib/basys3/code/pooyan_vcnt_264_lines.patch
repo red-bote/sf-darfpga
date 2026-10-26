@@ -6,7 +6,7 @@ diff --git a/vhdl_pooyan_rev_0_2_2020_04_26/rtl_dar/pooyan.vhd b/vhdl_pooyan_rev
  					if vcnt = '1'&X"FF" then -- 511
  --						vcnt <= '0'&X"FC";    -- 252
 -						vcnt <= '0'&X"F9";    -- 249
-+						vcnt <= '0'&X"F8";    -- 248: Basys3 port, 264 lines (60.61 Hz), MAME konami/pooyan.cpp set_raw (measured ~60.6Hz); was X"F9", 263 lines
++						vcnt <= '0'&X"F8";    -- 248: 264 lines (60.61 Hz) per MAME konami/pooyan.cpp
  					else
  						vcnt <= vcnt + '1';
  					end if;

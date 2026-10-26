@@ -1,26 +1,28 @@
 ---------------------------------------------------------------------------------
--- Basys3 top level for <game> by Dar (darfpga@aol.fr), http://darfpga.blogspot.fr
+-- Basys 3 top level for <game> by <author>, derived from <DE10_TOP> by
+-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
+---------------------------------------------------------------------------------
 --
--- Basys3 port of <DE10_TOP>. Skeleton from sf-darfpga/wip/machine; reference model
--- Pooyan-by-Dar/contrib/basys3/code/pooyan_basys3.vhd. Recipe: sf-darfpga
--- PORTING_SPEC.md section 4. Replace every TODO, then delete this paragraph.
+-- v0.1 (<mm/dd/yyyy>) : initial Basys 3 release
 --
---  - Single clock domain: clk_wiz_0 (100 MHz in) gives clk_core; CPU, pixel, sound
---    and PWM rates are clock enables (TODO: rates, PORTING_SPEC.md section 5)
---  - Keyboard: onboard USB-HID (io_ps2_keyboard on clk_core), MAME default keys
---    decoded here (F0 = release, E0 ignored)
---  - Joystick on JXADC pins 1/2/3/4/7 = right/left/down/up/fire, active low
---  - btnC = reset, btnU/btnD = coin, btnL/btnR = start
---  - PS/2, JXADC and buttons pass 2-FF synchronizers on clk_core
---  - Audio: PmodAMP2 on JA pins 1/2/4; sw15 up = audio off, sw14 up = gain
---  - Video: 31 kHz VGA via the MiST scandoubler; sw13 up = 15 kHz TV
---    (native-video cores: drop the scandoubler, drive tv15Khz_mode <= sw(13))
---  - DIP switches on spare switches, switch down = Dar's DE10 value
 ---------------------------------------------------------------------------------
 -- Educational use only
--- Do not redistribute synthetized file with roms
+-- Do not redistribute synthesized file with roms
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
+---------------------------------------------------------------------------------
+--
+-- Main features:
+--  TODO (skeleton from wip/machine, reference model Pooyan-by-Dar, recipe
+--  PORTING_SPEC.md section 4; header and comment rules PORTING_SPEC.md section 10)
+--  Single clock domain: clk_wiz_0 derives clk_core from 100 MHz; CPU, pixel, sound
+--  and PWM rates are clock enables
+--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
+--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
+--  Keyboard: MAME default keys
+--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
+--  DIP switches on spare switches, switch down = DE10 default
 ---------------------------------------------------------------------------------
 
 library ieee;

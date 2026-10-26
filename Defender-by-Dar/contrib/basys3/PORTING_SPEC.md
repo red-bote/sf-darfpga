@@ -70,9 +70,9 @@ MiST `scandoubler.v` (`contrib/code/`, + `scandoubler_fix.patch`), instance
 | `hs_in` / `vs_in` | core `video_hs` / `video_vs` | direct, ~15.625 kHz |
 | `r_in/g_in/b_in` | `vga_r_i = r & r`, `vga_g_i = g & g`, `vga_b_i = b & b & b` | 3/3/2 bits padded to 6, `"000000"` when `blankn = '0'` |
 
-sw13: `0` = `vgaHsync <= hsync_o`, `vgaVsync <= vsync_o`, RGB `vga_*_o(5 downto 2)`;
-`1` = `vgaRed <= r & '0'`, `vgaGreen <= g & '0'`, `vgaBlue <= b & "00"`,
-`vgaHsync <= csync`, `vgaVsync <= '1'`.
+sw13: `0` = `vga_hs <= hsync_o`, `vga_vs <= vsync_o`, RGB `vga_*_o(5 downto 2)`;
+`1` = `vga_r <= r & '0'`, `vga_g <= g & '0'`, `vga_b <= b & "00"`,
+`vga_hs <= csync`, `vga_vs <= '1'`.
 
 ## 6. Audio
 
@@ -122,7 +122,7 @@ sw13 display, sw14 gain, sw15 audio off.
 | Patch | Target | Reason |
 |---|---|---|
 | `contrib/code/defender_cpu_1mhz.patch` | `rtl_dar/defender.vhd` | main CPU 1 MHz (§2); CRLF, `setup_defender.sh` applies with `--binary` |
-| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | unpacked array range |
+| `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/defender_de10_lite_to_basys3.patch` | `rtl_dar/defender_de10_lite.vhd` | provenance record (generated) |
 
 ## 10. PROM generation

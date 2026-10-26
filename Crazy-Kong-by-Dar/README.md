@@ -2,7 +2,7 @@
 
 Basys 3 port of Crazy Kong (Crazy Climber hardware, Kyoei/Falcon, 1981; per MAME
 `cclimber.cpp` and Dar's `README.txt` the core plays Crazy Kong Part II / Falcon),
-original core by Dar (darfpga@aol.fr), <http://darfpga.blogspot.fr>. Source:
+FPGA core by Dar (darfpga@aol.fr), <http://darfpga.blogspot.fr>. Source:
 `vhdl_ckong_rev_0_1_2018_06_06.zip` (rev 0.1, 06/06/2018), `dloads/`. Basys 3 port by
 Red~Bote; Dar's release notes: `README.txt` in the extracted archive.
 
@@ -57,7 +57,7 @@ cabinet); not on board switches.
 | USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
 | JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
 | JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
-| VGA | `vgaRed/vgaGreen/vgaBlue(3:0)`, `vgaHsync`, `vgaVsync` | 4-4-4 RGB |
+| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
 
 ## Clocking
 
