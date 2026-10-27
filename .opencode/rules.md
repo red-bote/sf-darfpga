@@ -55,11 +55,13 @@ Dar (darfpga) Basys 3 work in `sf-darfpga/` (revised 2026-10-22). The procedure 
 ## Documentation scope (machine README.md)
 
 - Each `<Machine>-by-Dar/README.md` (template `wip/machine/README.md.template`) is the
-  outward-facing summary: identity and provenance, a dated `## Status` line, controls,
-  switches, IO mapping, clock summary, ROMs, build steps, known issues, and an inventory
-  of every patch and third-party file with its reason and origin.
+  outward-facing summary: identity and provenance, connections, controls, switches, a
+  clocks table (original vs Basys 3), ROMs, build steps, open known issues, and a table
+  of the third-party sources the port changes (source, origin, patch, change); the
+  Basys 3 top level and the XDC are not listed. No status section: verification results
+  go in the commit message.
 - Implementation detail belongs in the machine PORTING_SPEC; the README points to it.
-- The root `README.md` carries the machine index and a one-line status per machine.
+- The root `README.md` carries the machine index and the overall status.
 - Attribution per borrowed file: origin URL, true author(s), license where known.
 
 ## Source modification (wrapper vs patch, third-party imports)
@@ -120,3 +122,4 @@ Dar (darfpga) Basys 3 work in `sf-darfpga/` (revised 2026-10-22). The procedure 
 - Joystick direction+fire combos only with the user's approval per machine.
 - Spare switches drive the core's DIP inputs where no core patch is needed; switch down =
   Dar's DE10 default (`PORTING_SPEC.md` §3.2).
+

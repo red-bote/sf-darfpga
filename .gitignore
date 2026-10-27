@@ -30,3 +30,6 @@
 *.log
 *.str
 *.wdb
+
+# Python bytecode cache (tools/*.py)
+__pycache__/

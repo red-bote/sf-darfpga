@@ -1,104 +1,94 @@
 # Burnin-Rubber-by-Dar
 
-Basys 3 port of Burnin' Rubber (Data East, 1982), FPGA core by Dar (darfpga@aol.fr),
-<http://darfpga.blogspot.fr>. Source: `vhdl_burnin_rubber_rev_0_0_2017_12_22.zip` (rev 0.0,
-22/12/2017), `dloads/`. Basys 3 port by Red~Bote; Dar's release notes: `README.txt` in the
-extracted archive.
+Burnin' Rubber (Data East, 1982) on the Digilent Basys 3. FPGA core by Dar
+(darfpga@aol.fr, <http://darfpga.blogspot.fr>), rev 0.0 (2017-12-22):
+<https://sourceforge.net/projects/darfpga/files/Software%20VHDL/burnin_rubber/>, copy in
+`dloads/`. Design detail: `contrib/basys3/PORTING_SPEC.md`.
 
-## Status
+## Connections
 
-Hardware-verified 2026-10-20 (IO scheme of 2026-10-20, MAME keys): picture (31 kHz VGA),
-sound, keyboard, JXADC joystick, buttons. Open items: none.
-
-## Features (Basys 3)
-
-- Video: 31 kHz VGA via the MiST scandoubler; sw13 up = 15 kHz TV (native RGB, composite
-  sync on HS, VS high).
-- Keyboard: onboard USB-HID port, MAME default keys.
-- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/jump, active
-  low, pull-ups in the XDC.
-- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
+- VGA monitor; with sw13 up, 15 kHz RGB (csync on HS) for a 15 kHz monitor.
+- USB keyboard on the USB-HID host connector.
+- Atari-type joystick on Pmod JXADC (pins 1/2/3/4/7 = right/left/down/up/fire).
+- PmodAMP2 with speaker on Pmod JA. Mono.
 
 ## Controls
 
-| Action | Keyboard | JXADC | Basys 3 |
-|---|---|---|---|
-| steer / accelerate / slow down | arrows | pins 1-4 | |
-| jump | Left Ctrl | pin 7 | |
-| start 1P / 2P | 1 / 2 | | btnL / btnR |
-| coin | 5 / 6 | | btnU / btnD |
-| reset | | | btnC |
+| Function                       | Keyboard  | Joystick | Button     |
+|--------------------------------|-----------|----------|------------|
+| steer / accelerate / slow down | arrows    | stick    |            |
+| jump                           | Left Ctrl | fire     |            |
+| coin                           | 5, 6      |          | btnU, btnD |
+| start 1 / 2                    | 1, 2      |          | btnL, btnR |
+| reset                          |           |          | btnC       |
 
-Player 2 mirrors player 1. No joystick combos (coin/start combos removed 2026-10-02). No
-debounce. Keyboard decoded in the wrapper (F0 = release, E0 ignored).
+Player 2 uses the same controls.
 
 ## Switches
 
-| Switch | Function | Down | Up |
-|---|---|---|---|
-| sw15 | audio | on | off |
-| sw14 | amp gain | low | high |
-| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| Switch | Function       | Down       | Up         |
+|--------|----------------|------------|------------|
+| sw15   | audio          | on         | off        |
+| sw14   | amplifier gain | low        | high       |
+| sw13   | display        | 31 kHz VGA | 15 kHz RGB |
 
-The DIP switches are constants inside the core (`burnin_rubber.vhd:295-296`); not on board
-switches.
+The DIP settings are fixed inside the core (not on switches).
 
-## IO mapping
+## Clocks
 
-| Basys 3 resource | Wrapper port | Function |
-|---|---|---|
-| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
-| btnC / btnU / btnD / btnL / btnR | `btnC` / `btnU` / `btnD` / `btnL` / `btnR` | reset / coin / coin / start 1 / start 2 |
-| sw(15:13) | `sw` | see Switches |
-| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
-| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
-| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
-| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| Clock                  | Original              | Basys 3              | Difference    |
+|------------------------|-----------------------|----------------------|---------------|
+| Main CPU (DECO C10707) | 750 kHz               | 750 kHz              | 0             |
+| Pixel                  | 6 MHz                 | 6 MHz                | 0             |
+| Sound CPU (6502)       | 500 kHz               | 500 kHz              | 0             |
+| Sound (2x AY-3-8910)   | 1.5 MHz               | 1.5 MHz              | 0             |
+| Video                  | 15.625 kHz / 59.87 Hz | 31.25 kHz / 59.87 Hz | lines doubled |
 
-## Clocking
+Basys 3 video values are for the VGA mode (sw13 down).
 
-`clk_wiz_0`: 12.000 MHz (5 / 49.875 / 83.125), single domain; pixel 6 MHz. Video
-H 31.25 kHz / V 59.87 Hz (261 lines). Details: `contrib/basys3/PORTING_SPEC.md` §2,
-`../CLOCK_CRYSTAL_CATALOG.md`.
+Original values: MAME `dataeast/btime.cpp` `bnj` (12.000 MHz crystal).
 
-## Required ROMs
+## ROMs
 
-`brubber.zip` (MAME romset; `ROMZIP`, default `~/roms/brubber.zip`), unzipped by
-`prep_roms.sh` into `<SRC_DIR>/tools/burnin_rubber_unzip/`; generates
-`burnin_rubber_prog.vhd`, `bg_graphx_1/2.vhd`, `fg_sp_graphx_1/2/3.vhd`,
-`burnin_rubber_sound_prog.vhd`. Not included.
-**Do not redistribute roms or anything generated from them.**
+`brubber.zip` (MAME romset) in `~/roms/` or `$ROMZIP`. Not included. Do not redistribute
+roms or anything generated from them.
 
 ## Building
 
-Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
-patch), `make check` (parse-only), `make bitstream`, `make load`. `make setup` verifies and
-extracts `dloads/vhdl_burnin_rubber_rev_0_0_2017_12_22.zip`, applies
-`contrib/code/burnin_rubber_vsync_before_vblank.patch` and runs `contrib/tools/prep_roms.sh`.
+Requirements:
+
+- gcc
+- unzip
+- Vivado 2020.2 (the `VIVADO` variable overrides the install path)
+- openFPGALoader
+
+Make targets, run from this directory:
+
+- `make`: extract the sources, generate the PROM VHDL from the romset, create the
+  Vivado project, generate the clock IP and install the Basys 3 top level.
+- `make check`: parse-only syntax check, no synthesis.
+- `make bitstream`: synthesis, implementation and bitstream.
+- `make load`: program the Basys 3 with the built bitstream.
+- `make clean`: remove the extracted sources and build output.
+- `make help`: list all targets.
 
 ## Known issues
 
-None open. Resolved 2026-09-28: missing bottom rows (see Issues addressed).
+None open.
 
-## Issues addressed for Basys 3
+## Changes to third-party sources
 
-- `rtl_dar/burnin_rubber.vhd`: `video_vs` asserted 8 lines before `vblank`, so a VGA
-  monitor discarded the last 8 active lines in its retrace.
-  `contrib/code/burnin_rubber_vsync_before_vblank.patch` moves the `vsync_cnt` reset to
-  `vcnt = 248` (no overlap; Defender/Time-Pilot/Pooyan pattern). Hardware-confirmed
-  2026-09-28.
-- `burnin_rubber_vcnt_272_lines.patch` (261 → 272 lines per the Bump 'n' Jump schematics,
-  2026-09-23) caused the 2026-09-25 bottom-row clipping (544 lines at 57.44 Hz); retired
-  2026-09-28 after hardware A/B testing. The pristine 261-line frame is used.
-- Scandoubler `ce_x1` from a second MMCM output failed hold timing (WHS -0.60 ns); replaced
-  by a `clock_12` toggle enable, single MMCM output (2026-10-02).
-- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
-  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
-  applied to the project copy).
+- `contrib/code/burnin_rubber_vsync_before_vblank.patch`
+  - Origin: Dar archive
+  - Change: vsync starts at vblank, so a VGA monitor shows the last 8 active lines
+  - Files:
+    - `rtl_dar/burnin_rubber.vhd`
 
-## Third-party sources
+- `contrib/code/scandoubler_fix.patch`
+  - Origin: [mist-modules@147aa5c][mist-modules] (Till Harbaum, GPL-3.0)
+  - Change: named blocks, full `sd_buffer` range (Vivado)
+  - Files:
+    - `scandoubler.v` (copy in `contrib/code/`)
 
-| Resource | Source | Notes |
-|---|---|---|
-| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |
+[mist-modules]: https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v
+

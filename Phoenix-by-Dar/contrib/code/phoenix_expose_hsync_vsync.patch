@@ -41,8 +41,8 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd b/vhdl_phoenix_DE10_lite
   signal sync   : std_logic;
 + signal hsync  : std_logic;
 + signal vsync  : std_logic;
-  signal adrsel : std_logic; 
-  signal rdy    : std_logic; 
+  signal adrsel : std_logic;
+  signal rdy    : std_logic;
   signal vblank       : std_logic;
 @@ -141,6 +143,8 @@
   hcnt     => hcnt,
@@ -51,7 +51,7 @@ diff --git a/vhdl_phoenix_DE10_lite/rtl_dar/phoenix.vhd b/vhdl_phoenix_DE10_lite
 + hsync    => hsync,
 + vsync    => vsync,
   adrsel   => adrsel, -- RAM address selector ('0')cpu / ('1')video_generator
-  rdy      => rdy,    -- Ready ('1')cpu can access RAMs read/write 
+  rdy      => rdy,    -- Ready ('1')cpu can access RAMs read/write
   vblank       => vblank,
 @@ -262,6 +266,8 @@
  -- output video to top level

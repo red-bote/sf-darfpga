@@ -74,3 +74,4 @@ single `constrs_1` FileSet importing `Basys-3-Master.xdc` from
 4. Open-in-Vivado smoke test (see `vivado-batch-build`): warnings about the
    not-yet-generated clk_wiz_0 wrappers are expected between create_prj and
    clk_wiz steps; missing *source* files are not.
+

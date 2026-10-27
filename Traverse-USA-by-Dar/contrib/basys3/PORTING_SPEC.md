@@ -157,8 +157,8 @@ table.
   Computer-Space 48 MHz). Hardware-verified 2026-10-21.
 - Core inputs: active-high levels; P2 mirrors P1 (`right2`/`left2`/`brake2`/`accel2` on the
   P1 signals, as the DE10 top).
-- Merge: `core_accel <= kbd_joy(4) or not jxadc_s(4)` (Left Ctrl / JXADC7);
-  `core_brake <= kbd_joy(8) or not jxadc_s(2)` (Left Alt / JXADC3); left/right =
+- Merge: `core_accel <= kbd_joy(4) or not stick_s(4)` (Left Ctrl / JXADC7);
+  `core_brake <= kbd_joy(8) or not stick_s(2)` (Left Alt / JXADC3); left/right =
   arrows or JXADC2/JXADC1; coin = 5/6 or btnU/btnD (single `coin1`); start 1/2 = 1/2 or
   btnL/btnR. JXADC4 (up) accelerated until 2026-10-20; removed (user), unused.
 - Down+fire asserts brake and accelerate (fire passes through); brake alone covers the
@@ -208,3 +208,4 @@ generates `travusa_cpu.vhd`, `travusa_chr_bit1/2/3.vhd`, `travusa_chr_palette.vh
 - Sound clocks `clock_7p16`/`clock_3p58` and the scandoubler `sd_clock_12` are separate,
   partly register-derived domains (`../../../KNOWN_ISSUES.md`); single-domain conversion
   (Pooyan pattern) not done.
+

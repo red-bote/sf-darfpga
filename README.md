@@ -1,225 +1,102 @@
 # FPGA ports to the Digilent Basys 3
 
-Ports of Dar's FPGA hardware projects (`darfpga@aol.fr`, <http://darfpga.blogspot.fr>)
-to the Digilent Basys 3 (Artix-7, part `xc7a35tcpg236-1`), by Red~Bote. Each
-machine is an independent project under its own `<Machine>-by-Dar/` directory,
-built with Vivado 2020.2.
+Ports of Dar's FPGA arcade cores (darfpga@aol.fr, <http://darfpga.blogspot.fr>) to the
+Digilent Basys 3 (Artix-7 `xc7a35tcpg236-1`), by Red~Bote. Each machine is an independent
+project in its own `<Machine>-by-Dar/` directory, built with Vivado 2020.2. Each machine
+README gives its controls, switches and clocks; its `contrib/basys3/PORTING_SPEC.md` the
+design detail. Porting procedure: `PORTING_SPEC.md`.
 
-Porting a new Dar core: `PORTING_SPEC.md` (procedure, conventions, templates in
-`wip/machine/`, reference machine `Pooyan-by-Dar`). Operational rules: `.opencode/rules.md`
-(authoritative for Dar work) and `AGENTS.md`. Each machine's `README.md` carries its
-status, controls and IO; its `contrib/basys3/PORTING_SPEC.md` the design detail.
+## Machines
 
-## Status
+All 20 are fully scripted and hardware-verified on the Basys 3.
 
-### The following are complete, fully-scripted, hardware-verified ports:
-Bagman-FPGA-Dar
-Berzerk-FPGA-by-Dar
-Burger-Time-by-Dar
-Burnin-Rubber-by-Dar
-Computer-Space-by-Dar
-Crazy-Kong-by-Dar
-Defender-by-Dar
-Galaga-Midway-by-Dar
-Kick-Midway-MCR-by-Dar
-Phoenix-by-Dar
-Pooyan-by-Dar
-Popeye-by-Dar
-Satans-Hollow-by-Dar
-Sky-skipper-by-Dar
-Solar-Fox-by-Dar
-Time-Pilot-by-Dar
-Traverse-USA-by-Dar
-Tron-by-Dar
-Xevious-by-Dar
-Zaxxon-by-Dar
+| Machine                                      | Romset(s)                     |
+|----------------------------------------------|-------------------------------|
+| [Bagman][] (Valadon / Stern 1982)            | `bagman.zip`                  |
+| [Berzerk][] (Stern 1980)                     | `berzerk.zip`                 |
+| [BurgerTime][] (Data East 1982)              | `btime.zip`                   |
+| [Burnin' Rubber][] (Data East 1982)          | `brubber.zip`                 |
+| [Computer Space][] (Nutting Associates 1971) | none (discrete logic)         |
+| [Crazy Kong][] (Kyoei / Falcon 1981)         | `ckong.zip`                   |
+| [Defender][] (Williams 1981)                 | `defender.zip`                |
+| [Galaga][] (Namco / Midway 1981)             | `galaga.zip` + `galagamw.zip` |
+| [Kick][] (Midway MCR 1981)                   | `kick.zip`                    |
+| [Phoenix][] (Amstar 1980)                    | `phoenix.zip`                 |
+| [Pooyan][] (Konami 1982)                     | `pooyan.zip`                  |
+| [Popeye][] (Nintendo 1982)                   | `popeye.zip` + `popeyeu.zip`  |
+| [Satan's Hollow][] (Bally Midway MCR 1981)   | `shollow.zip`                 |
+| [Sky Skipper][] (Nintendo 1981)              | `skyskipr.zip`                |
+| [Solar Fox][] (Bally Midway 1981)            | `solarfox.zip`                |
+| [Time Pilot][] (Konami 1982)                 | `timeplt.zip`                 |
+| [Traverse USA][] (Irem 1983)                 | `travrusa.zip`                |
+| [Tron][] (Midway MCR 1982)                   | `tron.zip` + `midssio.zip`    |
+| [Xevious][] (Namco 1982)                     | `xevious.zip`                 |
+| [Zaxxon][] (Gremlin / Sega 1980)             | `zaxxon.zip`                  |
 
-Computer Space is a discrete-game core (no romset); see its README for the
-dedicated controls (JXADC fire / pushbutton start) and rocket-missile fire fix.
+[Bagman]: Bagman-FPGA-Dar/README.md
+[Berzerk]: Berzerk-FPGA-by-Dar/README.md
+[BurgerTime]: Burger-Time-by-Dar/README.md
+[Burnin' Rubber]: Burnin-Rubber-by-Dar/README.md
+[Computer Space]: Computer-Space-by-Dar/README.md
+[Crazy Kong]: Crazy-Kong-by-Dar/README.md
+[Defender]: Defender-by-Dar/README.md
+[Galaga]: Galaga-Midway-by-Dar/README.md
+[Kick]: Kick-Midway-MCR-by-Dar/README.md
+[Phoenix]: Phoenix-by-Dar/README.md
+[Pooyan]: Pooyan-by-Dar/README.md
+[Popeye]: Popeye-by-Dar/README.md
+[Satan's Hollow]: Satans-Hollow-by-Dar/README.md
+[Sky Skipper]: Sky-skipper-by-Dar/README.md
+[Solar Fox]: Solar-Fox-by-Dar/README.md
+[Time Pilot]: Time-Pilot-by-Dar/README.md
+[Traverse USA]: Traverse-USA-by-Dar/README.md
+[Tron]: Tron-by-Dar/README.md
+[Xevious]: Xevious-by-Dar/README.md
+[Zaxxon]: Zaxxon-by-Dar/README.md
 
-Phoenix-by-Dar is fully scripted, synthesized, and bitstream-built
-(0 critical warnings/errors through implementation). Hardware bring-up has
-confirmed PS/2 keyboard, sound, and VGA display all working; keyboard is on
-the onboard USB-HID host (C17/B17), hardware-confirmed. JXADC joystick and
-btnU/D/L/R are wired through `contrib/code/phoenix_external_inputs.patch`
-(core `ext_joy` port), hardware-confirmed 2026-10-02. See
-`Phoenix-by-Dar/contrib/basys3/PORTING_SPEC.md` and root `KNOWN_ISSUES.md`
-for the full design record.
+## What to connect
 
-Xevious-by-Dar is fully scripted, documented, and hardware-verified on the
-Basys 3 (assets authored end to end from the Galaga/Phoenix reference; same
-imported `mist/scandoubler.v` core-family wiring with
-`xevious_expose_hsync_vsync.patch`, apply-verified on the pristine CRLF
-tree).
+- VGA monitor on the VGA port. With sw13 up the output is 15 kHz RGB (csync on HS), for
+  a 15 kHz RGB monitor or an RGB-to-composite converter.
+- USB keyboard on the USB-HID host connector.
+- Atari-type joystick (switches to GND) on Pmod JXADC: pins 1/2/3/4/7 = right / left /
+  down / up / fire.
+- PmodAMP2 with a speaker on Pmod JA (top row). Mono audio.
 
-Traverse-USA-by-Dar is fully scripted, documented, and hardware-brought-up
-on the Basys 3. Unlike the DE10 original (keyboard only), the Basys3 port
-adds a JXADC joystick OR-merged with the keyboard and dedicated coin/start
-buttons; keyboard is on the onboard USB-HID connector, hardware-confirmed.
-See the machine `README.md`/`PORTING_SPEC.md` for the scandoubler wiring,
-patch, and clock-rate detail.
+## Common controls
 
-Crazy-Kong-by-Dar is hardware-verified on the Basys 3 (bitstream 2026-09-07;
-0 critical warnings/errors through implementation; post-route
-WNS = 36.461 ns — a single 12 MHz core clock leaves huge timing margin).
-Native 31 kHz progressive video (no external scandoubler); keyboard is on
-the onboard USB-HID connector, hardware-confirmed. See the machine
-`README.md`/`PORTING_SPEC.md` for the synthesis-fix patch and design detail.
+- Keyboard: MAME default keys (arrows, Left Ctrl, Left Alt, 1/2 = start, 5/6 = coin);
+  each machine README lists its full map.
+- Buttons: btnC = reset, btnU/btnD = coin, btnL/btnR = start 1/2.
+- Switches: sw15 up = audio off, sw14 up = amplifier gain, sw13 up = 15 kHz RGB; spare
+  switches carry the machine's DIP settings (switch down = original default).
 
-Sky-Skipper-by-Dar is fully scripted, documented, synthesized, and
-bitstream-built (0 critical warnings/errors through implementation;
-post-route WNS = 21.853 ns; 1906 LUTs / 815 FFs / 18.5 BRAM tiles, no black
-boxes). One closure bug surfaced at implementation -- an initially-incomplete
-source list left the modular T80 CPU as a black box (`[DRC INBB-3]`); fixed
-by listing all 25 sources (see `PORTING_SPEC.md`). Hardware-verified
-(31 kHz VGA + USB-HID keyboard + JXADC joystick + PWM audio) with the default
-`sw(13)=0` bitstream; `sw(13)` alone is the display-mode control. See the
-machine `README.md`/`PORTING_SPEC.md` for controls and design detail.
+## Building
 
-Satans-Hollow-by-Dar is fully scripted, documented, synthesized,
-bitstream-built, and hardware-verified on the Basys 3 (native progressive
-31 kHz video — no scandoubler; USB-HID keyboard on the onboard connector;
-mono left-channel PWM audio). See the machine `README.md`/`PORTING_SPEC.md`
-for the romset/PROM and controls detail.
+Each machine builds on its own; see the Building section of its README. Romsets go in
+`~/roms/`, or set `ROMZIP`.
 
-Every machine directory now carries a scripted setup: `contrib/tools/setup_<game>.sh`
-(uses the Dar archive in `dloads/`, tracked in git and fetched from SourceForge
-only if missing or the embedded SHA-256 check fails, extracts it, applies any synthesis-fix patches) chaining into
-`contrib/tools/prep_roms.sh` (compiles `make_vhdl_prom`, converts the
-`make_<game>_proms.bat`, stages the romset(s), generates the PROM VHDL), plus a
-`Makefile` wrapping both. Computer Space is the exception: it is a
-discrete-game core with no romset or `make_*_proms.bat`, so its setup chains
-`contrib/tools/gen_sound_roms.py` (compiles the sound-roms from Intel-HEX)
-instead of `prep_roms.sh`.
+From this directory:
 
-## Machine index
+- `make bitstream`: build every machine that has no bitstream yet.
+- `make bitstream-<machine>`: build one machine, e.g. `make bitstream-pooyan`.
+- `make clean`: remove the extracted sources and build output of every machine. The
+  archives in `dloads/` are kept.
+- `make help`: list all targets.
 
-| Machine | Core clock | Project / top entity | Patch | Romset(s) |
-|---|---|---|---|---|
-| Berzerk (Stern 1980) | 10 MHz | `basys3/berzerk_basys3.xpr`, `berzerk_basys3` | `berzerk_reset_sensitivity.patch` | `berzerk.zip` |
-| Bagman (Stern 1982) | 12.288 MHz | `basys3/bagman_basys3.xpr`, `bagman_basys3` | `bagman_xor_width.patch` | `bagman.zip` |
-| Burnin' Rubber (Data East 1982) | 12 MHz | `basys3/burnin_rubber_basys3.xpr`, `burnin_rubber_basys3` | `burnin_rubber_vsync_before_vblank.patch` | `brubber.zip` |
-| BurgerTime (Data East 1982) | 12 MHz | `basys3/burger_time_basys3.xpr`, `burger_time_basys3` | — | `btime.zip` |
-| Defender (Williams 1981) | 12 + 7.159 MHz (/2 = 3.58) | `basys3/defender_basys3.xpr`, `defender_basys3` | — | `defender.zip` |
-| Galaga (Namco/Midway 1981) | 36.864 MHz | `basys3/galaga_basys3.xpr`, `galaga_basys3` | `galaga_bgpalette_xor_length_fix.patch`, `galaga_credit_mode_fix.patch`, `galaga_vga_sync.patch` | `galaga.zip` + `galagamw.zip` |
-| Kick (Midway MCR 1981) | 40 MHz | `basys3/kick_basys3.xpr`, `kick_basys3` | — | `kick.zip` |
-| Popeye (Nintendo 1982) | 40.32 MHz | `basys3/popeye_basys3.xpr`, `popeye_basys3` | `popeye_linmix_sensitivity.patch` | `popeye.zip` + `popeyeu.zip` |
-| Phoenix (Amstar 1980) | 11 + 50 MHz | `basys3/phoenix_basys3.xpr`, `phoenix_basys3` | `phoenix_expose_hsync_vsync.patch` | `phoenix.zip` |
-| Pooyan (Konami 1982) | 24.574 MHz | `basys3/pooyan_basys3.xpr`, `pooyan_basys3` | `pooyan_de10_lite_to_basys3.patch`, `pooyan_t80_xor_width.patch`, `pooyan_single_domain.patch`, `pooyan_vcnt_264_lines.patch` | `pooyan.zip` |
-| Satan's Hollow (Bally Midway MCR 1981) | 40 MHz | `basys3/satans_hollow_basys3.xpr`, `satans_hollow_basys3` | — | `shollow.zip` |
-| Sky Skipper (Nintendo 1981) | 40.32 MHz | `basys3/sky_skipper_basys3.xpr`, `sky_skipper_basys3` | — | `skyskipr.zip` |
-| Solar Fox (Bally Midway 1981) | 40 MHz | `basys3/solar_fox_basys3.xpr`, `solar_fox_basys3` | — | `solarfox.zip` |
-| Time Pilot (Konami 1982) | 24.574 MHz | `basys3/time_pilot_basys3.xpr`, `time_pilot_basys3` | `time_pilot_single_domain.patch`, `time_pilot_vcnt_264_lines.patch` | `timeplt.zip` |
-| Tron (Midway MCR 1982) | 40 MHz | `basys3/tron_basys3.xpr`, `tron_basys3` | — | `tron.zip` + `midssio.zip` (SSIO board PROM `82s123.12d`, `ROMZIP2`) |
-| Traverse USA / Zippy Race (Irem 1983) | 36.842 + 7.159 MHz (/2 = 3.58) | `basys3/traverse_usa_basys3.xpr`, `traverse_usa_basys3` | `traverse_usa_expose_video_timing.patch`, `traverse_usa_de10_lite_to_basys3.patch` | `travrusa.zip` |
-| Xevious (Namco 1982) | 18.432 MHz | `basys3/xevious_basys3.xpr`, `xevious_basys3` | `xevious_expose_hsync_vsync.patch` | `xevious.zip` |
-| Zaxxon (Gremlin/Sega 1980) | 24.329 MHz | `basys3/zaxxon_basys3.xpr`, `zaxxon_basys3` | `zaxxon_hflip_xor_width.patch`, `zaxxon_expose_video_timing.patch` | `zaxxon.zip` |
-| Computer Space (Nutting Associates 1971) | 48 MHz | `basys3/computer_space_basys3.xpr`, `computer_space_basys3` | `computer_space_de10_lite_to_basys3.patch`, `computer_space_motion_q_assoc.patch`, `computer_space_rocket_timer_synth_fix.patch` | — (discrete-game core, no romset) |
-| Crazy Kong (Kyoei/Falcon 1981) | 12.288 MHz | `basys3/ckong_basys3.xpr`, `ckong_basys3` | `ckong_xor_width.patch`, `ckong_de10_lite_to_basys3.patch` | `ckong.zip` |
-
-Directory naming is not uniform: `Bagman-FPGA-Dar` and `Berzerk-FPGA-by-Dar`
-differ from the `-by-Dar` convention; `Sky-skipper-by-Dar` uses a lowercase `s`.
-
-The `—` patch entries mark machines that need no synthesis-fix patch. Machines
-needing two romsets (`galaga`, `popeye`) require the extra set for CPU/speech
-ROMs absent from the plain set. A `—` in the Romset(s) column means the machine
-has no romset at all (Computer Space is a discrete-game core with no MAME ROMs).
-
-## Common build workflow
-
-New ports are bootstrapped from the generic templates in `wip/machine/`
-(Makefile, build-script templates, and the sample Basys 3 Vivado project);
-see the root `PORTING_SPEC.md` for the full bring-up procedure.
-
-Per machine, from its own directory (see the machine's `README.md` for the exact
-file names, MMCM constants, and verify commands):
-
-1. **Run `make setup`** (or `contrib/tools/setup_<game>.sh` directly). This
-   uses the Dar source archive in the machine's `dloads/` (tracked in git;
-   SHA-256 verified against the hash embedded in the script; re-downloaded from
-   SourceForge when missing or tampered), extracts it as `vhdl_<machine>_rev_.../`, applies any
-   synthesis-fix patches, and chains into `contrib/tools/prep_roms.sh`, which
-   compiles `make_vhdl_prom`, converts `make_<game>_proms.bat` to `.sh`, stages
-   the romset(s) from `$ROMZIP`/`$ROMZIP2` (default `~/roms/<set>.zip`), and
-   generates the PROM VHDL referenced in place by the Vivado project.
-
-The manual equivalents, if needed:
-
-1. **Extract the Dar source** zip into the machine directory (`vhdl_<machine>_rev_.../`).
-2. **Apply any synthesis-fix patch** (`patch -p1 < <machine>_*.patch`), then
-   confirm it took with the `grep` given in the machine README.
-3. **Generate the PROM VHDL** from the staged romset: unzip
-   `~/roms/<set>.zip` into `tools/<machine>_unzip/`, then run
-   `./make_<machine>_proms.sh` from that directory.
-4. **Stage the Vivado project** (`contrib/basys3/vivado/create_project.sh`),
-   **generate the `clk_wiz_0` MMCM IP** deriving the core clock(s) from the
-   100 MHz Basys 3 oscillator, then **run synthesis/implementation from `/tmp`**
-   so `vivado.log`/`vivado.jou` stay outside the repository.
-
-Tool/path resolution follows the standard `ENV_VAR → project default →
-interactive prompt` convention — see `AGENTS.md` §"Tool / path resolution".
-
-Each machine Makefile prints a display-mode reminder via its `make help` target and
-at the end of `make all` / `make bitstream`: if nothing appears on the display after
-loading the bitstream, first try toggling the display mode (sw(13); per-machine detail in the machine
-README) before troubleshooting further.
-`make all-<machine>` / `make bitstream-<machine>` show it too, because they delegate
-to the machine `all` / `bitstream`. Machines with no display-mode toggle print no
-reminder.
-
-## Common Basys 3 platform
-
-All ports share the same IO convention (see each machine README for the wrapper
-port map): USB-HID keyboard on the onboard connector (`ps2_clk` = C17, `ps2_dat`
-= B17), JXADC joystick (active-low, switch to GND)
-OR-merged with it, mono (or left-channel) PWM audio on PmodAMP2 at JA, 4-4-4 RGB
-VGA, and `btnC` = reset (active-high). sw15 up = audio disabled, sw14 up = gain active.
-IO scheme changed 2026-10-20 (joystick JA -> JXADC, PmodAMP2 JC -> JA, sw15/sw14 as above;
-`PORTING_SPEC.md` §3; MAME keyboard map decoded in each wrapper, btnU/btnD = coin, §3.1):
-all 20 machines re-verified on hardware 2026-10-20 (Zaxxon and Galaga JXADC fire with a
-CX40-type joystick; an earlier joystick was faulty). DIP switches on 11 machines
-(§3.2) and the Traverse-USA keyboard on `clock_36`: hardware-verified 2026-10-21.
-All 20 machines use the onboard USB-HID connector; `io_ps2_keyboard` and the wrapper's
-key decoder run on each machine's core clock (2026-10-20; the former separate keyboard
-clock dividers are removed).
-Video is 31 kHz progressive VGA, with sw(13) up selecting 15 kHz TV on every machine.
-The video path per machine (core-native progressive, Dar's `line_doubler`, or the
-imported MiST `scandoubler.v`) is listed in `PORTING_SPEC.md` §4.5.
-
-## Lessons
-
-Findings that apply across machines (the wrappers do not reference each other):
-
-- One MMCM output per machine; slower rates as clock enables. A second MMCM output or a
-  fabric-divided clock used as an enable in another domain fails hold timing (MMCM
-  output as the scandoubler `ce_x1` in the 12 MHz domain) or escapes analysis (fabric
-  clock). `PORTING_SPEC.md` §4.1, `CLOCKING_SPEC.md` §5.2.
-- MiST scandoubler: `clk_sys` = core clock, `ce_x1` = pixel enable, `ce_x2` = exactly
-  2 × `ce_x1`; a fabric-derived `clk_sys` is untimed. `PORTING_SPEC.md` §4.5.
-- Synchronize and debounce inputs on the clock the core samples them with.
-  `PORTING_SPEC.md` §4.4.
-- A core that edge-detects an input at the full clock rate (fire, coin) counts contact
-  bounce as presses and needs a debounce; a level read by the CPU once per frame does
-  not. Rule out a worn joystick before adding one. `PORTING_SPEC.md` §4.2, §4.4.
-- The Basys 3 USB-HID host (PIC24) does not deliver the E0 prefix reliably; decoders
-  ignore it. `PORTING_SPEC.md` §4.3.
-- Joystick combos: fire is not passed through during a combo where the game drops a
-  button whose edge coincides with fire. `PORTING_SPEC.md` §4.4.
-- Expression actuals in port maps go through a signal (Vivado HDL 9-3240).
-  `PORTING_SPEC.md` §4.2.
-
-## Backlog
-
-None currently.
+Procedure details: `PORTING_SPEC.md` sections 1 and 2, and `AGENTS.md`.
 
 ## Shared tools
 
-`tools/vhdl_formatter.py` normalizes VHDL indentation to a fixed width per level
-(`--indent`, default 2) and can optionally align `<=` and `:` columns (`--align`).
-It is dependency-free (stdlib only), in-place or `--check`, and idempotent.
+`tools/vhdl_formatter.py`, the VHDL formatter for the Basys 3 top levels:
+
+- one statement per line, with a fixed indent (`--indent`, default 2);
+- aligned declarations, assignments and trailing comments;
+- `--check` verifies without rewriting;
+- Python standard library only; running it twice gives the same result.
 
 ## Copyright
 
-Roms and the generated PROM VHDL are copyrighted content and are
-never committed or distributed. The `.patch` files are the tracked record of
-changes to pristine Dar sources.
+Roms and the generated PROM VHDL are copyrighted content and are never committed or
+distributed. The `.patch` files are the tracked record of changes to Dar's sources.
+

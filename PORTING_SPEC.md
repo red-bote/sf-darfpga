@@ -16,7 +16,7 @@ Clock data: `CLOCKING_SPEC.md`, `CLOCK_CRYSTAL_CATALOG.md`. Defect log: `KNOWN_I
 ```
 <Machine>-by-Dar/
   Makefile                      variables + include ../tools/mk/machine.mk
-  README.md                     user-facing: status, controls, IO, ROMs, build (§9 template)
+  README.md                     user-facing: controls, IO, clocks, ROMs, build (§9 template)
   dloads/<archive>.zip          Dar's archive, tracked, SHA-256 checked
   contrib/
     tools/setup_<game>.sh       thin wrapper over tools/lib/darfpga-setup.sh
@@ -51,10 +51,14 @@ in `PORTS` and delegates `make <step>-<machine>`. Pooyan keeps its core fix patc
    --de10-top <file> --top-entity <game>_basys3` creates the machine directory from
    `wip/machine/`, adds it to the root `PORTS`, and places the archive in `dloads/` when
    downloaded. Check every generated file for leftover `<...>` tokens.
-3. **Setup.** `make setup`: verify/extract the archive, apply `contrib/code/*.patch`
-   (`patch -p1 --forward`; re-runs work because extraction restores pristine files first),
-   run `prep_roms.sh` (§6). Add a fix patch only when the pristine core fails Vivado
-   (record it in the machine PORTING_SPEC §9).
+3. **Setup.** `make setup`: verify/extract the archive, normalize each file a fix patch
+   touches (`tools/normalize_file.sh`: CRLF/CR to LF, trailing whitespace stripped, final
+   newline; whitespace-only, checked), apply `contrib/code/*.patch` (`patch -p1 --forward`,
+   LF; re-runs work because extraction restores pristine files first), run `prep_roms.sh`
+   (§6). Every other Dar file stays as shipped. Add a fix patch only when the pristine core
+   fails Vivado (record it in the machine PORTING_SPEC §9). Author a fix patch against the
+   normalized file (`diff -u` with `a/<SRC_DIR>/...` and `b/<SRC_DIR>/...` labels, no
+   dates); an optional `#` header above the first `diff`/`---` line states the reason.
 4. **Clock.** Choose the MMCM frequency (§5), set it in `make_clk_wiz_0.sh`; `make clk_wiz`.
 5. **Project.** `contrib/basys3/vivado/<top>.xpr` (tracked) lists the core sources, PROMs,
    `clk_wiz_0`, the scandoubler import and the wrapper; `create_project.sh` copies it and
@@ -64,7 +68,8 @@ in `PORTS` and delegates `make <step>-<machine>`. Pooyan keeps its core fix patc
    `wip/machine/contrib/basys3/code/TOP_ENTITY.vhd.template` and the reference model.
    Format with `tools/vhdl_formatter.py`.
 7. **Patch.** `make patch` places the wrapper in the project and regenerates the provenance
-   patch against Dar's DE10 top. Running it twice must give identical bytes.
+   patch against a normalized `/tmp` copy of Dar's DE10 top. Running it twice must give
+   identical bytes.
 8. **Check.** `make check` (§7). No synthesis or bitstream unless the user asks.
 9. **Build and hardware test** (user): `make bitstream`, `make load`, checklist §8.
 10. **Docs.** Deliverables §9.
@@ -190,9 +195,16 @@ begin
         kbd_rel <= '1';
       elsif kbd_scancode /= x"E0" then
         kbd_rel <= '0';
-        if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up
-        if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl
-        -- ... one line per key; toggles: if kbd_rel = '0' and held = '0' then t <= not t
+        case kbd_scancode is
+          when x"75" => kbd_joy(0) <= not kbd_rel;  -- up arrow
+          when x"14" => kbd_joy(4) <= not kbd_rel;  -- left ctrl
+          when x"06" =>                             -- F2: toggle
+            held <= not kbd_rel;
+            if kbd_rel = '0' and held = '0' then
+              t <= not t;
+            end if;
+          when others => null;
+        end case;
       end if;
     end if;
   end if;
@@ -210,7 +222,7 @@ Per-machine maps: §3.1.
 - Slide switches are not synchronized: sw14/sw15 drive the PmodAMP2 pins directly (no
   clocked logic); sw13 and the DIP switches are static settings, changed with the game
   idle.
-- Merge: `core_input <= kbd_key or not jxadc_s(n) or btn_s`, active-high (invert for an
+- Merge: `core_input <= kbd_key or not stick_s(n) or btn_s`, active-high (invert for an
   active-low core input). Coin = keys 5/6 + btnU/btnD; start = keys 1/2 + btnL/btnR.
 - Debounce only where hardware shows a fault or the core edge-detects at full clock rate
   (§4.2): output follows the synchronized input after 2^N stable cycles (~10-14 ms; Galaga
@@ -298,21 +310,24 @@ signal (`pwm_prev`, `audio_x4` in Pooyan).
 - btnU/btnD coin (one credit per press, none on release), btnL/btnR start, btnC reset
   during play and at power-up.
 - Each DIP switch: down = Dar default behaviour, up = the documented setting.
-- Record the result in the machine README "Status" with the date.
+- Record the result and date in the commit message.
+- No picture after loading: toggle sw13 first (`make help` and the end of
+  `make bitstream` print this reminder on machines with a display-mode switch).
 
 ## 9. Per-machine deliverables
 
-- `README.md` from `wip/machine/README.md.template`: Status, Features, Controls
-  (`Action | Keyboard | JXADC | Basys 3` table), Switches, IO mapping, Clocking, Required
-  ROMs, Building, Known issues, Issues addressed for Basys 3, Third-party sources.
+- `README.md` from `wip/machine/README.md.template`: identity paragraph, Connections,
+  Controls (`Function | Keyboard | Joystick | Button` table), Switches, Clocks (original
+  vs Basys 3 table), ROMs, Building, Known issues (open only), Changes to third-party
+  sources (source, origin, patch, change; not the top level or the XDC). No status section.
 - `contrib/basys3/PORTING_SPEC.md` from
   `wip/machine/contrib/basys3/PORTING_SPEC.md.template`: 1 Upstream and reference model,
   2 Clocking, 3 Reset, 4 Core instantiation, 5 Video path, 6 Audio, 7 Inputs, 8 Switches and
-  DIPs, 9 Patches, 10 PROM generation, 11 Build, 12 Open items. Status lives in the README
-  only. Links to tree-level docs use `../../../<doc>.md`.
+  DIPs, 9 Patches, 10 PROM generation, 11 Build, 12 Open items. No port status.
+  Links to tree-level docs use `../../../<doc>.md`.
 - `Makefile`: `IO_SUMMARY` (keys, JXADC, buttons, sw13/14/15, DIPs), `DISPLAY_HINT`
   (`sw(13)`).
-- Tree-level: `README.md` machine index row and status; root `Makefile` `PORTS`; rows in
+- Tree-level: `README.md` machine index row; root `Makefile` `PORTS`; rows in
   §3.1 and §3.2; `CLOCK_CRYSTAL_CATALOG.md` entry; `CLOCKING_SPEC.md` table row;
   `KNOWN_ISSUES.md` entries for defects found.
 - Commits: the user commits (`.opencode/rules.md` git rules).
@@ -320,6 +335,8 @@ signal (`pwm_prev`, `audio_x4` in Pooyan).
 ## 10. Hard rules
 
 - Dar's sources stay pristine; every change is a `.patch` (core) or the tracked wrapper.
+  Patch targets are normalized (whitespace only) before patching; nothing else is
+  normalized. Patches are LF; `patch --binary` is not used.
 - The `.xpr` lives at `<SRC_DIR>/basys3/<top>.xpr` (not nested).
 - Vivado runs from `/tmp` so `vivado.log`/`vivado.jou` stay out of the repo.
 - Tool/path resolution: `AGENTS.md` "Tool / path resolution" (`ENV_VAR` → default).
@@ -328,14 +345,83 @@ signal (`pwm_prev`, `audio_x4` in Pooyan).
 - The Basys 3 wrapper minimizes textual difference from the DE10 top: its comments are
   kept; added comments only for significant findings or deviations from the DE10 top,
   terse, at the logic they describe; no dates or change history (git holds that).
-  Exception, the header: the wrapper is its own release, with its own version line
-  `-- v0.1 (mm/dd/yyyy) : initial Basys 3 release` (later releases `v0.2`, ...), credits
-  the DE10 top by file name and author, and points to it for its history; the DE10
-  top's release history is not copied. Its license notice stays. Added comments:
+  Exception, the header: the wrapper is its own release; it credits the DE10 top by
+  file name and author and points to it for its history; the DE10 top's release history
+  is not copied. Its license notice stays. Credit block:
+  `-- Basys 3 top level for <Game>` /
+  `-- Source: <m>_de10_lite.vhd by Dar (darfpga@aol.fr,` /
+  `--   http://darfpga.blogspot.fr); see that file for its history.`
+  Release lines (US date): `-- mm/dd/yyyy: initial Basys 3 release by <author>`, later
+  releases one line each in the same form.
+  "Main features" is the user-facing rundown, no implementation details (clocks,
+  video path, debounce, core patches stay in the machine README/PORTING_SPEC):
+  `Connections:` (VGA monitor and the sw13 15 kHz mode, USB keyboard on the USB-HID
+  host connector, Atari-type joystick on Pmod JXADC, PmodAMP2 with speaker on Pmod JA);
+  a `Controls` table (function / keyboard / stick / button, one row per game function,
+  derived from the decoder `case` and the merge lines, `reset` = btnC); `Switches:`
+  (every `sw(n)` the wrapper reads). Added comments:
+  - no references to spec documents or READMEs;
+  - no restatement of the common IO convention (§3: MAME keys, JXADC merge, PmodAMP2
+    switches, buttons, 2-FF synchronizers, sw13 TV mode, DIP polarity policy);
+  - nothing about features known up front not to be ported or supported (debug
+    displays, LEDs, unused buttons or peripherals);
   - no references to another machine's files (cross-machine findings go in
-    `README.md` "Lessons");
+    §11 "Lessons");
   - no patch file names (patches are listed in the machine README and PORTING_SPEC);
+  - joystick inputs named by function, not board pin: comments say `stick up/down/
+    left/right/fire`, synchronizer signals are `stick_meta`/`stick_s`; the JXADC pin
+    map is only in §3 and the XDC;
   - no comment stating that code is unchanged or verbatim from the DE10 top;
-  - no space before `:` (except the version line); repeated blank lines collapsed;
+  - no space before `:`; repeated blank lines collapsed;
   - wrapped at 90 columns (code lines and the DE10 top's own lines exempt).
+  The DE10 top's comments that still hold are kept verbatim (spelling fixed), e.g.
+  `-- use same clock as sound_board` on the PWM process.
+  Layout: the wrapper is formatted with `tools/vhdl_formatter.py` (default 2-space
+  indent, no `--align`, one statement per line) and passes `--check`; this takes
+  precedence over minimal textual diff against the DE10 top (the minimal-diff rule
+  applies to content). The formatter splits `if c then s; end if;` into three lines
+  and `a <= x; b <= y;` into two; a trailing comment stays on the first line.
+  The `:` of consecutive declarations (ports, generics, signals, constants) and the `<=`
+  of consecutive one-line assignments at the same indent are aligned per block.
+  Each process, loop and block of related concurrent assignments starts with a
+  one-line comment stating its function.
+  Trailing comments are aligned per block of consecutive commented code lines, two
+  spaces past the longest code part; a line more than 20 columns longer than the rest
+  of its block is not aligned. A continuation line of a statement outside parentheses
+  (`when ... else` chains, `with ... select` choices) is indented one level. Comments
+  within a block follow one wording pattern;
+  input merge lines use `-- <function>: <key> / stick <direction> / <button>`.
+  Clock rates: MMCM limits are an up-front constraint and are not commented in the
+  wrapper; the original vs Basys 3 comparison is the machine README "Clocks" table.
   Fix-patch `#` headers and added comments follow the same rule.
+- Markdown tables are padded to fixed column widths (`| cell |`, separator dashes to
+  the column width) so they align in a plain text editor.
+- Documents for people (READMEs, templates) avoid compact formatting: one item per list
+  line, no parenthesized asides or semicolon-chained clauses in place of a list. Lines
+  stay within 90 columns, table rows included: a cell too long for its table holds a
+  `(note N)` marker, with the detail in a numbered `Notes:` list under the table; links
+  in tables are reference links defined under the table; a list of entries with
+  several fields (e.g. "Changes to third-party sources") is a nested list, not a
+  table. Reference-link definition lines are exempt from the width limit.
+
+## 11. Lessons
+
+Findings that apply across machines:
+
+- One MMCM output per machine; slower rates as clock enables. A second MMCM output or a
+  fabric-divided clock used as an enable in another domain fails hold timing (MMCM
+  output as the scandoubler `ce_x1` in the 12 MHz domain) or escapes analysis (fabric
+  clock). §4.1, `CLOCKING_SPEC.md` §5.2.
+- MiST scandoubler: `clk_sys` = core clock, `ce_x1` = pixel enable, `ce_x2` = exactly
+  2 × `ce_x1`; a fabric-derived `clk_sys` is untimed. §4.5.
+- Synchronize and debounce inputs on the clock the core samples them with. §4.4.
+- A core that edge-detects an input at the full clock rate (fire, coin) counts contact
+  bounce as presses and needs a debounce; a level read by the CPU once per frame does
+  not. Rule out a worn joystick before adding one. §4.2, §4.4.
+- The Basys 3 USB-HID host (PIC24) does not deliver the E0 prefix reliably; decoders
+  ignore it. §4.3.
+- Joystick combos: fire is not passed through during a combo where the game drops a
+  button whose edge coincides with fire. §4.4.
+- Expression actuals in port maps go through a signal (Vivado HDL 9-3240). §4.2.
+- A source list missing core files leaves a black box that fails only at implementation
+  (`[DRC INBB-3]`, Sky-skipper); the skill `xpr-dependency-closure` checks the list.

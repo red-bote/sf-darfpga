@@ -1,9 +1,10 @@
 ---------------------------------------------------------------------------------
--- Basys 3 top level for <game> by <author>, derived from <DE10_TOP> by
--- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
+-- Basys 3 top level for <Game>
+-- Source: <DE10_TOP> by Dar (darfpga@aol.fr,
+--   http://darfpga.blogspot.fr); see that file for its history.
 ---------------------------------------------------------------------------------
 --
--- v0.1 (<mm/dd/yyyy>) : initial Basys 3 release
+-- <mm/dd/yyyy>: initial Basys 3 release by <author>
 --
 ---------------------------------------------------------------------------------
 -- Educational use only
@@ -13,16 +14,20 @@
 ---------------------------------------------------------------------------------
 --
 -- Main features:
---  TODO (skeleton from wip/machine, reference model Pooyan-by-Dar, recipe
---  PORTING_SPEC.md section 4; header and comment rules PORTING_SPEC.md section 10)
---  Single clock domain: clk_wiz_0 derives clk_core from 100 MHz; CPU, pixel, sound
---  and PWM rates are clock enables
---  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
---  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
---  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
---  Keyboard: MAME default keys
---  btnC = reset, btnU/btnD = coin, btnL/btnR = start
---  DIP switches on spare switches, switch down = DE10 default
+--  TODO fill from the decoder case and merge lines (PORTING_SPEC.md section 10)
+--  Connections:
+--   VGA monitor (15 kHz RGB monitor with sw13 up)
+--   USB keyboard on the USB-HID host connector
+--   Atari-type joystick on Pmod JXADC
+--   PmodAMP2 with speaker on Pmod JA
+--  Controls       keyboard       stick          button
+--   up / down     arrows         up / down
+--   left / right  arrows         left / right
+--   fire          left ctrl      fire
+--   coin          5, 6                          btnU, btnD
+--   start1/2      1, 2                          btnL, btnR
+--   reset                                       btnC
+--  Switches: sw15 audio off, sw14 gain, sw13 15 kHz RGB
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -31,108 +36,108 @@ use ieee.numeric_std.all;
 
 entity <TOP_ENTITY> is
 port(
- clk              : in  std_logic;
- sw               : in  std_logic_vector(15 downto 0);
- btnC             : in  std_logic;  -- reset
- btnU             : in  std_logic;  -- coin
- btnD             : in  std_logic;  -- coin
- btnL             : in  std_logic;  -- 1P start
- btnR             : in  std_logic;  -- 2P start
+  clk  : in  std_logic;
+  sw   : in  std_logic_vector(15 downto 0);
+  btnC : in  std_logic;  -- reset
+  btnU : in  std_logic;  -- coin
+  btnD : in  std_logic;  -- coin
+  btnL : in  std_logic;  -- 1P start
+  btnR : in  std_logic;  -- 2P start
 
- JXADC            : in  std_logic_vector(4 downto 0);  -- joystick
- ps2_clk          : in  std_logic;
- ps2_dat          : in  std_logic;
+  JXADC   : in  std_logic_vector(4 downto 0);  -- joystick
+  ps2_clk : in  std_logic;
+  ps2_dat : in  std_logic;
 
- O_PMODAMP2_AIN   : out std_logic;
- O_PMODAMP2_GAIN  : out std_logic;
- O_PMODAMP2_SHUTD : out std_logic;
+  O_PMODAMP2_AIN   : out std_logic;
+  O_PMODAMP2_GAIN  : out std_logic;
+  O_PMODAMP2_SHUTD : out std_logic;
 
- vga_r            : out std_logic_vector(3 downto 0);
- vga_g            : out std_logic_vector(3 downto 0);
- vga_b            : out std_logic_vector(3 downto 0);
- vga_hs           : out std_logic;
- vga_vs           : out std_logic
+  vga_r  : out std_logic_vector(3 downto 0);
+  vga_g  : out std_logic_vector(3 downto 0);
+  vga_b  : out std_logic_vector(3 downto 0);
+  vga_hs : out std_logic;
+  vga_vs : out std_logic
 );
 end <TOP_ENTITY>;
 
 architecture struct of <TOP_ENTITY> is
 
- component scandoubler
-   port (
-     clk_sys   : in  std_logic;
-     scanlines : in  std_logic_vector(1 downto 0);
-     ce_x1     : in  std_logic;
-     ce_x2     : in  std_logic;
-     hs_in     : in  std_logic;
-     vs_in     : in  std_logic;
-     r_in      : in  std_logic_vector(5 downto 0);
-     g_in      : in  std_logic_vector(5 downto 0);
-     b_in      : in  std_logic_vector(5 downto 0);
-     hs_out    : out std_logic;
-     vs_out    : out std_logic;
-     r_out     : out std_logic_vector(5 downto 0);
-     g_out     : out std_logic_vector(5 downto 0);
-     b_out     : out std_logic_vector(5 downto 0)
-   );
- end component;
+  component scandoubler
+  port (
+    clk_sys   : in  std_logic;
+    scanlines : in  std_logic_vector(1 downto 0);
+    ce_x1     : in  std_logic;
+    ce_x2     : in  std_logic;
+    hs_in     : in  std_logic;
+    vs_in     : in  std_logic;
+    r_in      : in  std_logic_vector(5 downto 0);
+    g_in      : in  std_logic_vector(5 downto 0);
+    b_in      : in  std_logic_vector(5 downto 0);
+    hs_out    : out std_logic;
+    vs_out    : out std_logic;
+    r_out     : out std_logic_vector(5 downto 0);
+    g_out     : out std_logic_vector(5 downto 0);
+    b_out     : out std_logic_vector(5 downto 0)
+  );
+end component;
 
- signal clk_core    : std_logic;
- signal mmcm_locked : std_logic;
- signal reset_s     : std_logic_vector(1 downto 0) := "11";
- signal reset       : std_logic;
- attribute ASYNC_REG : string;
- attribute ASYNC_REG of reset_s : signal is "TRUE";
+signal clk_core    : std_logic;
+signal mmcm_locked : std_logic;
+signal reset_s     : std_logic_vector(1 downto 0) := "11";
+signal reset       : std_logic;
+attribute ASYNC_REG : string;
+attribute ASYNC_REG of reset_s : signal is "TRUE";
 
- -- Clock enables (TODO: derive from clk_core for the core's CPU/pixel/sound rates)
- signal ce_pix      : std_logic := '0';  -- pixel rate, scandoubler ce_x1
- signal ce_pix2     : std_logic := '0';  -- exactly 2 x ce_pix, scandoubler ce_x2
+-- Clock enables (TODO: derive from clk_core for the core's CPU/pixel/sound rates)
+signal ce_pix  : std_logic := '0';  -- pixel rate, scandoubler ce_x1
+signal ce_pix2 : std_logic := '0';  -- exactly 2 x ce_pix, scandoubler ce_x2
 
- -- PS/2, JXADC(4:0) and btnD/btnR/btnL/btnU, 2-FF synchronized (index 1 = output)
- signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
- type in_sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
- signal in_s : in_sync_t := (others => (others => '1'));
- attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
- signal jxadc_s : std_logic_vector(4 downto 0);
- signal btnU_s, btnD_s, btnL_s, btnR_s : std_logic;
+-- PS/2, JXADC(4:0) and btnD/btnR/btnL/btnU, 2-FF synchronized (index 1 = output)
+signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
+type in_sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
+signal in_s : in_sync_t := (others => (others => '1'));
+attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
+signal jxadc_s                        : std_logic_vector(4 downto 0);
+signal btnU_s, btnD_s, btnL_s, btnR_s : std_logic;
 
- -- Keyboard: 0 up, 1 down, 2 left, 3 right, 4 button 1, 5 button 2,
- -- 6 coin (5/6), 7 start 1, 8 start 2 (TODO: extend per PORTING_SPEC.md section 3.1)
- signal kbd_intr     : std_logic;
- signal kbd_scancode : std_logic_vector(7 downto 0);
- signal kbd_rel      : std_logic := '0';
- signal kbd_key      : std_logic_vector(8 downto 0) := (others => '0');
+-- Keyboard: 0 up, 1 down, 2 left, 3 right, 4 button 1, 5 button 2,
+-- 6 coin (5/6), 7 start 1, 8 start 2 (TODO: extend per PORTING_SPEC.md section 3.1)
+signal kbd_intr     : std_logic;
+signal kbd_scancode : std_logic_vector(7 downto 0);
+signal kbd_rel      : std_logic := '0';
+signal kbd_key      : std_logic_vector(8 downto 0) := (others => '0');
 
- -- Merged core inputs, active high (TODO: invert where the core input is active low)
- signal in_up, in_down, in_left, in_right, in_fire : std_logic;
- signal in_coin, in_start1, in_start2              : std_logic;
+-- Merged core inputs, active high (TODO: invert where the core input is active low)
+signal in_up, in_down, in_left, in_right, in_fire : std_logic;
+signal in_coin, in_start1, in_start2              : std_logic;
 
- -- DIP switches (PORTING_SPEC.md section 3.2): switch down = Dar's DE10 value.
- -- TODO: one constant + signal per DIP input; wire whole settings only.
- constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := x"FF";
- signal dip1 : std_logic_vector(7 downto 0);
+-- DIP switches (PORTING_SPEC.md section 3.2): switch down = Dar's DE10 value.
+-- TODO: one constant + signal per DIP input; wire whole settings only.
+constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := x"FF";
+signal dip1           : std_logic_vector(7 downto 0);
 
- -- Core video and audio (TODO: widths from the core entity)
- signal r, g, b       : std_logic_vector(2 downto 0) := (others => '0');
- signal hsync, vsync  : std_logic := '1';
- signal csync, blankn : std_logic := '1';
- signal audio         : std_logic_vector(10 downto 0) := (others => '0');
+-- Core video and audio (TODO: widths from the core entity)
+signal r, g, b       : std_logic_vector(2 downto 0) := (others => '0');
+signal hsync, vsync  : std_logic := '1';
+signal csync, blankn : std_logic := '1';
+signal audio         : std_logic_vector(10 downto 0) := (others => '0');
 
- signal video_ri, video_gi, video_bi : std_logic_vector(5 downto 0);
- signal vga_ro, vga_go, vga_bo       : std_logic_vector(5 downto 0);
- signal vga_hs_o, vga_vs_o           : std_logic;
+signal video_ri, video_gi, video_bi : std_logic_vector(5 downto 0);
+signal vga_ro, vga_go, vga_bo       : std_logic_vector(5 downto 0);
+signal vga_hs_o, vga_vs_o           : std_logic;
 
- signal pwm_accumulator : unsigned(12 downto 0) := (others => '0');
- signal audio_ext       : std_logic_vector(12 downto 0);  -- "00" & audio (no & inside a conversion)
+signal pwm_accumulator : unsigned(12 downto 0) := (others => '0');
+signal audio_ext       : std_logic_vector(12 downto 0);  -- "00" & audio (no & inside a conversion)
 
 begin
 
 -- 100 MHz -> clk_core (single output, contrib/basys3/vivado/make_clk_wiz_0.sh)
 clocks : entity work.clk_wiz_0
 port map(
- clk_in1  => clk,
- clk_out1 => clk_core,
- reset    => btnC,
- locked   => mmcm_locked
+  clk_in1  => clk,
+  clk_out1 => clk_core,
+  reset    => btnC,
+  locked   => mmcm_locked
 );
 
 -- Core held in reset until the MMCM locks; asynchronous assert, synchronous release.
@@ -185,15 +190,33 @@ begin
         kbd_rel <= '1';
       elsif kbd_scancode /= x"E0" then
         kbd_rel <= '0';
-        if kbd_scancode = x"75" then kbd_key(0) <= not kbd_rel; end if; -- up arrow
-        if kbd_scancode = x"72" then kbd_key(1) <= not kbd_rel; end if; -- down arrow
-        if kbd_scancode = x"6B" then kbd_key(2) <= not kbd_rel; end if; -- left arrow
-        if kbd_scancode = x"74" then kbd_key(3) <= not kbd_rel; end if; -- right arrow
-        if kbd_scancode = x"14" then kbd_key(4) <= not kbd_rel; end if; -- left ctrl : button 1
-        if kbd_scancode = x"11" then kbd_key(5) <= not kbd_rel; end if; -- left alt : button 2
-        if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_key(6) <= not kbd_rel; end if; -- 5 / 6 : coin
-        if kbd_scancode = x"16" then kbd_key(7) <= not kbd_rel; end if; -- 1 : start 1
-        if kbd_scancode = x"1E" then kbd_key(8) <= not kbd_rel; end if; -- 2 : start 2
+        if kbd_scancode = x"75" then  -- up arrow
+          kbd_key(0) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"72" then  -- down arrow
+          kbd_key(1) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"6B" then  -- left arrow
+          kbd_key(2) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"74" then  -- right arrow
+          kbd_key(3) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"14" then  -- left ctrl : button 1
+          kbd_key(4) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"11" then  -- left alt : button 2
+          kbd_key(5) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"2E" or kbd_scancode = x"36" then  -- 5 / 6 : coin
+          kbd_key(6) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"16" then  -- 1 : start 1
+          kbd_key(7) <= not kbd_rel;
+        end if;
+        if kbd_scancode = x"1E" then  -- 2 : start 2
+          kbd_key(8) <= not kbd_rel;
+        end if;
       end if;
     end if;
   end if;
@@ -227,20 +250,20 @@ video_bi <= (b & b)     when blankn = '1' else "000000";
 
 scandoubler_inst : scandoubler
 port map(
- clk_sys   => clk_core,
- scanlines => "00",
- ce_x1     => ce_pix,
- ce_x2     => ce_pix2,
- hs_in     => hsync,
- vs_in     => vsync,
- r_in      => video_ri,
- g_in      => video_gi,
- b_in      => video_bi,
- hs_out    => vga_hs_o,
- vs_out    => vga_vs_o,
- r_out     => vga_ro,
- g_out     => vga_go,
- b_out     => vga_bo
+  clk_sys   => clk_core,
+  scanlines => "00",
+  ce_x1     => ce_pix,
+  ce_x2     => ce_pix2,
+  hs_in     => hsync,
+  vs_in     => vsync,
+  r_in      => video_ri,
+  g_in      => video_gi,
+  b_in      => video_bi,
+  hs_out    => vga_hs_o,
+  vs_out    => vga_vs_o,
+  r_out     => vga_ro,
+  g_out     => vga_go,
+  b_out     => vga_bo
 );
 
 -- sw13: 0 = 31 kHz VGA (scandoubler), 1 = 15 kHz TV (native RGB, csync on HS, VS high)

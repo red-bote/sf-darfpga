@@ -1,7 +1,7 @@
 # Bagman-FPGA-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -53,7 +53,7 @@ Dar's 13-bit PWM accumulator on `clock_12`; mono. `SHUTD <= not sw(15)`,
   start, 5/6 = coin. Replaces `kbd_joystick` (F-keys; file stays in the project,
   unreferenced).
 - Core inputs: active-high; P1 and P2 sets, P2 mirrors P1.
-- Merge: `joy_* <= kbd_joy(n) or not jxadc_s(n)`; JXADC1/2/3/4/7 =
+- Merge: `joy_* <= kbd_joy(n) or not stick_s(n)`; JXADC1/2/3/4/7 =
   right/left/down/up/jump; coin = keys 5/6, btnU, btnD; start 1 = key 1, btnL; start 2 =
   key 2, btnR.
 - Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_12` (2026-10-20).
@@ -74,13 +74,14 @@ cabinet 7, bonus 6, language 5, difficulty 4-3, coin 2, lives 1-0); needs a core
 
 | Patch | Target | Reason |
 |---|---|---|
-| `contrib/code/bagman_xor_width.patch` | `rtl_dar/bagman.vhd` | four `tile_graph_rom_addr` XOR literals left-padded to 13 bits (Vivado width mismatch) |
+| `contrib/code/bagman_xor_width.patch` | `rtl_dar/bagman.vhd` | four `tile_graph_rom_addr` XOR literals left-padded to 13 bits (Vivado width mismatch); verify `grep -n 'xor "0000000000000"' rtl_dar/bagman.vhd` |
 | `contrib/basys3/code/bagman_de10_lite_to_basys3.patch` | `rtl_dar/bagman_de10_lite.vhd` | provenance record (generated) |
 
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_bagman_proms.bat` → shell; romset `bagman.zip` into
-`tools/bagman_unzip/`.
+`tools/bagman_unzip/`. Output: `bagman_program`, `bagman_tile_bit0/1`, `bagman_palette`,
+`bagman_speech1/2` (`.vhd`).
 
 ## 11. Build
 
@@ -90,3 +91,4 @@ reports a pre-existing core-internal HDL 9-3240 (`bagman.vhd`, `bagman_speech.vh
 ## 12. Open items
 
 None.
+

@@ -1,31 +1,35 @@
 diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 --- a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +++ b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
-@@ -1,387 +1,355 @@
-----------------------------------------------------------------------------------
+@@ -1,387 +1,352 @@
+ ---------------------------------------------------------------------------------
 --- DE10_lite Top level for Xevious by Dar (darfpga@aol.fr) (01/05/2017)
 --- http://darfpga.blogspot.fr
-----------------------------------------------------------------------------------
++-- Basys 3 top level for Xevious
++-- Source: xevious_de10_lite.vhd by Dar (darfpga@aol.fr,
++--   http://darfpga.blogspot.fr); see that file for its history.
+ ---------------------------------------------------------------------------------
 --- Educational use only
 --- Do not redistribute synthetized file with roms
 --- Do not redistribute roms whatever the form
 --- Use at your own risk
 ----------------------------------------------------------------------------------
----   DE10 Top version 0.2 : add digital audio out sgtl5000 support with 
+---   DE10 Top version 0.2 : add digital audio out sgtl5000 support with
 ---     teensy audio shield on top of arduino usb host shield
 ---
 ---   DE10 Top version 0.1 : add usb host max3421e support with arduino shield
----
+ --
 ---     BEWARE : arduino shield has to be modified (see instruction on my blog)
----
-----------------------------------------------------------------------------------
++-- 10/26/2026: initial Basys 3 release by Red~Bote
+ --
+ ---------------------------------------------------------------------------------
 --- To detect usb device, press first reset (key 0 on DE10) then start (key 1)
 ---
---- Choose USB keyboard or joystick before compilation for one entity keyboard 
+--- Choose USB keyboard or joystick before compilation for one entity keyboard
 --- or joystick usb decoder
 ---
 ---	  joyBCPPFRLDU  => open          (to dont use this decoder)
----   or 
+---   or
 ---   joyBCPPFRLDU  => joyBCPPFRLDU  (to use this decoder)
 ---
 --- Select only one decoder among PS/2 or USB keyboard or USB joystick.
@@ -35,35 +39,39 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 ---  After USB detection, 3 bytes of USB report are displayed on 7 seg.
 ---  Use DE10 switch to select first starting byte of report to be displayed
 ---
----  Example : 
+---  Example :
 ---    when sw(3..0) = 0000 byte 0,1,2 are on 7seg (XXYYZZ) XX=#0, YY=#1, ZZ=#2
 ---    when sw(3..0) = 0010 byte 2,3,4 are on 7seg
 ---
 ---  Press your joystick buttons, observe 7 display and adapt usb_joystick_decoder
 ---  entity to match your need.
 ---
----  When adapted you can check it on red led 
+---  When adapted you can check it on red led
 ---
----   led 0 : Move up 
+---   led 0 : Move up
 ---   led 1 : Move down
 ---   led 2 : Move left
 ---   led 3 : Move right
----   led 4 : Fire 
+---   led 4 : Fire
 ---   led 5 : Start 1 player
 ---   led 6 : Start 2 players
 ---   led 7 : Add coin
----   led 8 : Launch bomb 
+---   led 8 : Launch bomb
 ---
-----------------------------------------------------------------------------------
++-- Educational use only
++-- Do not redistribute synthesized file with roms
++-- Do not redistribute roms whatever the form
++-- Use at your own risk
+ ---------------------------------------------------------------------------------
 --- I think that usb keyboard decoder should work with any 'standard' keyboard.
 --- So should be no need to adapt it except if choosen key doesn't please to you.
----
+ --
 ----------------------------------------------------------------------------------
 ---  To detect usb device, press reset (key 0 on DE10 board) then start (key 1)
 ---
 --- Main features :
----  PS2 keyboard input @gpio pins 0/1 (beware voltage translation/protection) 
----  Audio pwm output   @gpio pins 2/3 (beware voltage translation/protection) 
+---  PS2 keyboard input @gpio pins 0/1 (beware voltage translation/protection)
+---  Audio pwm output   @gpio pins 2/3 (beware voltage translation/protection)
 ---  USB host arduino shield for keyboard or joystick
 ---
 --- Uses 1 pll for 18MHz and 11MHz generation from 50MHz
@@ -76,27 +84,43 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 ---   F3 : Add coin
 ---   F2 : Start 2 players
 ---   F1 : Start 1 player
----   SPACE       : Fire  
----   RIGHT arrow : Move right 
+---   SPACE       : Fire
+---   RIGHT arrow : Move right
 ---   LEFT  arrow : Move left
----   UP    arrow : Move up 
+---   UP    arrow : Move up
 ---   DOWN  arrow : Move down
----   CTRL        : Launch bomb        
+---   CTRL        : Launch bomb
 ---
 --- Dip switch and other details : see xevious.vhd
 -
-----------------------------------------------------------------------------------
--
--library ieee;
--use ieee.std_logic_1164.all;
++-- Main features:
++--  Connections:
++--   VGA monitor (15 kHz RGB monitor with sw13 up)
++--   USB keyboard on the USB-HID host connector
++--   Atari-type joystick on Pmod JXADC
++--   PmodAMP2 with speaker on Pmod JA
++--  Controls       keyboard       stick          button
++--   up / down     arrows         up / down
++--   left / right  arrows         left / right
++--   fire          left ctrl      fire
++--   bomb          left alt       down; up + fire
++--   coin          5, 6                          btnU, btnD
++--   start1/2      1, 2                          btnL, btnR
++--   reset                                       btnC
++--  Switches: sw15 audio off, sw14 gain, sw13 15 kHz RGB, sw12 test mode
+ ---------------------------------------------------------------------------------
+ 
+ library ieee;
+ use ieee.std_logic_1164.all;
 -use ieee.std_logic_unsigned.all;
--use ieee.numeric_std.all;
--
--library work;
+ use ieee.numeric_std.all;
+ 
+ library work;
 -use work.usb_report_pkg.all;
--
+ 
 -entity xevious_de10_lite is
--port(
++entity xevious_basys3 is
+ port(
 - max10_clk1_50  : in std_logic;
 --- max10_clk2_50  : in std_logic;
 --- adc_clk_10     : in std_logic;
@@ -128,35 +152,58 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 - vga_b     : out std_logic_vector(3 downto 0);
 - vga_hs    : out std_logic;
 - vga_vs    : out std_logic;
-- 
+-
 --- gsensor_cs_n : out   std_logic;
---- gsensor_int  : in    std_logic_vector(2 downto 0); 
+--- gsensor_int  : in    std_logic_vector(2 downto 0);
 --- gsensor_sdi  : inout std_logic;
 --- gsensor_sdo  : inout std_logic;
 --- gsensor_sclk : out   std_logic;
 -
-- arduino_io      : inout std_logic_vector(15 downto 0); 
+- arduino_io      : inout std_logic_vector(15 downto 0);
 --- arduino_reset_n : inout std_logic;
-- 
+-
 - gpio          : inout std_logic_vector(35 downto 0)
--);
++  clk  : in  std_logic;
++  sw   : in  std_logic_vector(15 downto 0);
++  btnC : in  std_logic;
++  btnU : in  std_logic;
++  btnD : in  std_logic;
++  btnL : in  std_logic;
++  btnR : in  std_logic;
++
++  JXADC : in  std_logic_vector(4 downto 0);  -- joystick
++
++  ps2_dat : in  std_logic;
++  ps2_clk : in  std_logic;
++
++  O_PMODAMP2_AIN   : out std_logic;
++  O_PMODAMP2_GAIN  : out std_logic;
++  O_PMODAMP2_SHUTD : out std_logic;
++
++  vga_r  : out std_logic_vector(3 downto 0);
++  vga_g  : out std_logic_vector(3 downto 0);
++  vga_b  : out std_logic_vector(3 downto 0);
++  vga_hs : out std_logic;
++  vga_vs : out std_logic
+ );
 -end xevious_de10_lite;
 -
 -architecture struct of xevious_de10_lite is
--
++end xevious_basys3;
+ 
 - signal clock_18  : std_logic;
 - signal clock_18n : std_logic;
 - signal clock_11  : std_logic;
 - signal reset     : std_logic;
-- 
+-
 - signal max3421e_clk : std_logic;
-- 
+-
 - signal r         : std_logic_vector(3 downto 0);
 - signal g         : std_logic_vector(3 downto 0);
 - signal b         : std_logic_vector(3 downto 0);
 - signal csync     : std_logic;
 - signal blankn    : std_logic;
-- 
+-
 - signal audio           : std_logic_vector(10 downto 0);
 - signal pwm_accumulator : std_logic_vector(12 downto 0);
 -
@@ -165,7 +212,7 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 - alias ps2_dat         : std_logic is gpio(34); --gpio(1);
 - alias pwm_audio_out_l : std_logic is gpio(1);  --gpio(2);
 - alias pwm_audio_out_r : std_logic is gpio(3);  --gpio(3);
-- 
+-
 - signal kbd_intr      : std_logic;
 - signal kbd_scancode  : std_logic_vector(7 downto 0);
 - signal joyBCPPFRLDU  : std_logic_vector(8 downto 0);
@@ -173,41 +220,124 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 - signal start : std_logic := '0';
 - signal usb_report : usb_report_t;
 - signal new_usb_report : std_logic := '0';
-- 
+-
 - signal rom_addr : std_logic_vector(16 downto 0);
 - signal rom_do   : std_logic_vector( 7 downto 0);
 -
 - signal cnt_1us     : integer range 0 to 49 := 49;
 - signal clk_1us     : std_logic;
 - signal sample_data  : std_logic_vector(31 downto 0);
--
--begin
--
++architecture struct of xevious_basys3 is
+ 
++  signal clock_18    : std_logic;
++  signal reset       : std_logic;
++  signal mmcm_locked : std_logic;
++
++  signal r      : std_logic_vector(3 downto 0);
++  signal g      : std_logic_vector(3 downto 0);
++  signal b      : std_logic_vector(3 downto 0);
++  signal csync  : std_logic;
++  signal blankn : std_logic;
++  signal hsync  : std_logic;
++  signal vsync  : std_logic;
++
++  signal audio           : std_logic_vector(10 downto 0);
++  signal pwm_accumulator : std_logic_vector(12 downto 0);
++
++  signal vga_r_i : std_logic_vector(5 downto 0);
++  signal vga_g_i : std_logic_vector(5 downto 0);
++  signal vga_b_i : std_logic_vector(5 downto 0);
++  signal vga_r_o : std_logic_vector(5 downto 0);
++  signal vga_g_o : std_logic_vector(5 downto 0);
++  signal vga_b_o : std_logic_vector(5 downto 0);
++  signal hsync_o : std_logic;
++  signal vsync_o : std_logic;
++
++  signal ce_x1, ce_x2 : std_logic;
++  signal slot         : std_logic_vector(2 downto 0);
++
++  signal rom_addr  : std_logic_vector(16 downto 0);
++  signal rom_do    : std_logic_vector( 7 downto 0);
++  signal clock_18n : std_logic;
++
++  signal kbd_intr     : std_logic;
++  signal kbd_scancode : std_logic_vector(7 downto 0);
++  signal kbd_rel      : std_logic := '0';
++  signal kbd_joy      : std_logic_vector(8 downto 0) := (others => '0');
++  signal joyBCPPFRLDU : std_logic_vector(8 downto 0);
++
++  signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
++  signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
++  signal stick_meta, stick_s     : std_logic_vector(4 downto 0) := (others => '1');
++  signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0');  -- D, U, L, R
++  signal btn_db                  : std_logic_vector(3 downto 0) := (others => '0');
++  type btn_cnt_t is array (0 to 3) of unsigned(17 downto 0);
++  signal btn_cnt : btn_cnt_t := (others => (others => '0'));
++  attribute ASYNC_REG : string;
++  attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
++  attribute ASYNC_REG of stick_meta, stick_s, btn_meta, btn_s : signal is "TRUE";
++
++  component scandoubler
++  port (
++    clk_sys   : in  std_logic;
++    scanlines : in  std_logic_vector (1 downto 0);
++    ce_x1     : in  std_logic;
++    ce_x2     : in  std_logic;
++    hs_in     : in  std_logic;
++    vs_in     : in  std_logic;
++    r_in      : in  std_logic_vector (5 downto 0);
++    g_in      : in  std_logic_vector (5 downto 0);
++    b_in      : in  std_logic_vector (5 downto 0);
++    hs_out    : out std_logic;
++    vs_out    : out std_logic;
++    r_out     : out std_logic_vector (5 downto 0);
++    g_out     : out std_logic_vector (5 downto 0);
++    b_out     : out std_logic_vector (5 downto 0)
++  );
++end component;
++
++-- DIP switch: b_test on sw12 (default '1' = off).
++constant B_TEST_DEFAULT : std_logic := '1';
++signal b_test_in        : std_logic;
+ begin
+ 
 -reset <= not reset_n;
 -clock_18n <= not clock_18;
 -
 -start <= not key(1);
 --- tv15Khz_mode <= sw();
--
++-- DIP switch
++b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
+ 
 --- arduino_io not used pins
 -arduino_io(7) <= '1'; -- to usb host shield max3421e RESET
 -arduino_io(8) <= 'Z'; -- from usb host shield max3421e GPX
 -arduino_io(9) <= 'Z'; -- from usb host shield max3421e INT
 -arduino_io(13) <= 'Z'; -- not used
 -arduino_io(14) <= 'Z'; -- not used
--
++-- core reset: btnC or MMCM not locked
++reset <= btnC or not mmcm_locked;
+ 
 --- Clock 18MHz for xevious core, 11MHz for keyboard
 -clk_11_18 : entity work.max10_pll_18M_11M
--port map(
++-- Clock 18.432 MHz (signal name clock_18 kept) for the xevious core, the
++-- scandoubler's clock chain and the PS/2 keyboard decoder (single domain).
++clocks : entity work.clk_wiz_0
+ port map(
 - inclk0 => max10_clk1_50,
 - c0 => clock_18,
 - c1 => clock_11,
 - locked => open --pll_locked
--);
++  clk_in1  => clk,
++  clk_out1 => clock_18,
++  reset    => btnC,
++  locked   => mmcm_locked
+ );
+ 
 -
--
--xevious : entity work.xevious
--port map(
++-- Xevious core
+ xevious : entity work.xevious
+ port map(
 - clock_18     => clock_18,
 - reset        => reset,
 --- tv15Khz_mode => tv15Khz_mode,
@@ -219,12 +349,12 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 --- video_hs     => hsync,
 --- video_vs     => vsync,
 - audio        => audio,
-- 
+-
 - rom_bus_addr_o => rom_addr,
 - rom_bus_do     => rom_do,
-- 
+-
 - b_test       => '1',
-- b_svce       => '1', 
+- b_svce       => '1',
 - coin         => joyBCPPFRLDU(7),
 - start2       => joyBCPPFRLDU(6),
 - start1       => joyBCPPFRLDU(5),
@@ -264,328 +394,73 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 -port map (
 -  clk         => clock_11,
 -  kbdint      => kbd_intr,
--  kbdscancode => std_logic_vector(kbd_scancode), 
+-  kbdscancode => std_logic_vector(kbd_scancode),
 -  joyBCPPFRLDU  => open --joyBCPPFRLDU
 -);
 -
 --- usb host for max3421e arduino shield (modified)
--
++  clock_18     => clock_18,
++  reset        => reset,
+ 
 -max3421e_clk <= clock_11;
 -usb_host : entity work.usb_host_max3421e
 -port map(
 - clk     => max3421e_clk,
 - reset   => reset,
 - start   => start,
-- 
+-
 - usb_report => usb_report,
 - new_usb_report => new_usb_report,
-- 
-- spi_cs_n  => arduino_io(10), 
+-
+- spi_cs_n  => arduino_io(10),
 - spi_clk   => arduino_io(13),
 - spi_mosi  => arduino_io(11),
 - spi_miso  => arduino_io(12)
--);
--
++  video_r      => r,
++  video_g      => g,
++  video_b      => b,
++  video_csync  => csync,
++  video_blankn => blankn,
++  video_hs     => hsync,
++  video_vs     => vsync,
++  audio        => audio,
++
++  rom_bus_addr_o => rom_addr,
++  rom_bus_do     => rom_do,
++
++  b_test       => b_test_in,  -- sw12 (up = test/service mode)
++  b_svce       => '1',
++
++  coin         => joyBCPPFRLDU(7),
++  start2       => joyBCPPFRLDU(6),
++  start1       => joyBCPPFRLDU(5),
++  up           => joyBCPPFRLDU(0),
++  down         => joyBCPPFRLDU(1),
++  left         => joyBCPPFRLDU(2),
++  right        => joyBCPPFRLDU(3),
++  fire         => joyBCPPFRLDU(4),
++  bomb         => joyBCPPFRLDU(8)
+ );
+ 
 --- usb keyboard report decoder
--
--keyboard_decoder : entity work.usb_keyboard_decoder
--port map(
-- clk     => max3421e_clk,
-- 
-- usb_report => usb_report,
-- new_usb_report => new_usb_report,
-- 
-- joyBCPPFRLDU  => joyBCPPFRLDU
--);
--
---- usb joystick decoder (konix drakkar wireless)
--
--joystick_decoder : entity work.usb_joystick_decoder
--port map(
-- clk     => max3421e_clk,
-- 
-- usb_report => usb_report,
-- new_usb_report => new_usb_report,
-- 
-- joyBCPPFRLDU  => open --joyBCPPFRLDU
--);
--
---- debug display
--
--ledr(8 downto 0) <= joyBCPPFRLDU;
--
--h0 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+2)(3 downto 0),hex0);
--h1 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+2)(7 downto 4),hex1);
--h2 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+1)(3 downto 0),hex2);
--h3 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+1)(7 downto 4),hex3);
--h4 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+0)(3 downto 0),hex4);
--h5 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+0)(7 downto 4),hex5);
--
---- program and graphics ROM
--rom : entity work.xevious_cpu_gfx_8bits
--port map(
-- clk  => clock_18n,
-- addr => rom_addr,
-- data => rom_do
--);
--
---- audio for sgtl5000 
--
--sample_data <= "00" & audio & "000" & "00" & audio & "000";				
--
---- Clock 1us for ym_8910
--p_clk_1us_p : process(max10_clk1_50)
--begin
--	if rising_edge(max10_clk1_50) then
--		if cnt_1us = 0 then
--			cnt_1us  <= 49;
--			clk_1us  <= '1'; 
--		else
--			cnt_1us  <= cnt_1us - 1;
--			clk_1us <= '0'; 
--		end if;
--	end if;	
--end process;	 
--
---- sgtl5000 (teensy audio shield on top of usb host shield)
--
--e_sgtl5000 : entity work.sgtl5000_dac
--port map(
-- clock_18   => clock_18,
-- reset      => reset,
-- i2c_clock  => clk_1us,  
--
-- sample_data  => sample_data,
-- 
-- i2c_sda   => arduino_io(0), -- i2c_sda, 
-- i2c_scl   => arduino_io(1), -- i2c_scl, 
--
-- tx_data   => arduino_io(2), -- sgtl5000 tx
-- mclk      => arduino_io(4), -- sgtl5000 mclk 
-- 
-- lrclk     => arduino_io(3), -- sgtl5000 lrclk
-- bclk      => arduino_io(6), -- sgtl5000 bclk   
-- 
-- -- debug
-- hex0_di   => open, -- hex0_di,
-- hex1_di   => open, -- hex1_di,
-- hex2_di   => open, -- hex2_di,
-- hex3_di   => open, -- hex3_di,
-- 
-- sw => sw(7 downto 0)
--);
--
---- pwm sound output
--
--process(clock_18)
--begin
--  if rising_edge(clock_18) then
--    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio));
--  end if;
--end process;
--
--pwm_audio_out_l <= pwm_accumulator(12);
--pwm_audio_out_r <= pwm_accumulator(12); 
--
--
--end struct;
-+---------------------------------------------------------------------------------
-+-- Basys 3 top level for Xevious by Red~Bote, derived from xevious_de10_lite.vhd by
-+-- Dar (darfpga@aol.fr, http://darfpga.blogspot.fr); see that file for its history.
-+---------------------------------------------------------------------------------
-+--
-+-- v0.1 (10/26/2026) : initial Basys 3 release
-+--
-+---------------------------------------------------------------------------------
-+-- Educational use only
-+-- Do not redistribute synthesized file with roms
-+-- Do not redistribute roms whatever the form
-+-- Use at your own risk
-+---------------------------------------------------------------------------------
-+--
-+-- Main features:
-+--  clk_wiz_0 derives the 18.432 MHz core clock (clock_18) from 100 MHz; single
-+--  domain, also used by the PS/2 keyboard
-+--  Joystick on JXADC (down or up+fire = bomb), OR-merged with the PS/2 keyboard
-+--  (onboard USB-HID)
-+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
-+--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
-+--  Keyboard: MAME default keys (arrows, Left Ctrl = fire, Left Alt = bomb, 1/2 =
-+--  start, 5/6 = coin)
-+--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
-+--  PS/2, JXADC and buttons pass 2-FF synchronizers on clock_18; buttons debounced
-+--  DIP switch: sw12 = b_test (test/service mode)
-+---------------------------------------------------------------------------------
-+
-+library ieee;
-+use ieee.std_logic_1164.all;
-+use ieee.numeric_std.all;
-+
-+library work;
-+
-+entity xevious_basys3 is
-+port(
-+ clk            : in  std_logic;
-+ sw             : in  std_logic_vector(15 downto 0);
-+ btnC           : in  std_logic;
-+ btnU           : in  std_logic;
-+ btnD           : in  std_logic;
-+ btnL           : in  std_logic;
-+ btnR           : in  std_logic;
-+
-+ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
-+
-+ ps2_dat        : in  std_logic;
-+ ps2_clk        : in  std_logic;
-+
-+ O_PMODAMP2_AIN : out std_logic;
-+ O_PMODAMP2_GAIN: out std_logic;
-+ O_PMODAMP2_SHUTD: out std_logic;
-+
-+ vga_r : out std_logic_vector(3 downto 0);
-+ vga_g : out std_logic_vector(3 downto 0);
-+ vga_b : out std_logic_vector(3 downto 0);
-+ vga_hs: out std_logic;
-+ vga_vs: out std_logic
-+);
-+end xevious_basys3;
-+
-+architecture struct of xevious_basys3 is
-+
-+ signal clock_18 : std_logic;
-+ signal reset    : std_logic;
-+ signal mmcm_locked : std_logic;
-+
-+ signal r         : std_logic_vector(3 downto 0);
-+ signal g         : std_logic_vector(3 downto 0);
-+ signal b         : std_logic_vector(3 downto 0);
-+ signal csync     : std_logic;
-+ signal blankn    : std_logic;
-+ signal hsync     : std_logic;
-+ signal vsync     : std_logic;
-+
-+ signal audio           : std_logic_vector(10 downto 0);
-+ signal pwm_accumulator : std_logic_vector(12 downto 0);
-+
-+ signal vga_r_i  : std_logic_vector(5 downto 0);
-+ signal vga_g_i  : std_logic_vector(5 downto 0);
-+ signal vga_b_i  : std_logic_vector(5 downto 0);
-+ signal vga_r_o  : std_logic_vector(5 downto 0);
-+ signal vga_g_o  : std_logic_vector(5 downto 0);
-+ signal vga_b_o  : std_logic_vector(5 downto 0);
-+ signal hsync_o  : std_logic;
-+ signal vsync_o  : std_logic;
-+
-+ signal ce_x1, ce_x2 : std_logic;
-+ signal slot         : std_logic_vector(2 downto 0);
-+
-+ signal rom_addr : std_logic_vector(16 downto 0);
-+ signal rom_do   : std_logic_vector( 7 downto 0);
-+ signal clock_18n : std_logic;
-+
-+ signal kbd_intr     : std_logic;
-+ signal kbd_scancode : std_logic_vector(7 downto 0);
-+ signal kbd_rel      : std_logic := '0';
-+ signal kbd_joy      : std_logic_vector(8 downto 0) := (others => '0');
-+ signal joyBCPPFRLDU : std_logic_vector(8 downto 0);
-+
-+ -- 2-FF synchronizers for the asynchronous inputs
-+ signal ps2_clk_meta, ps2_clk_s : std_logic := '1';
-+ signal ps2_dat_meta, ps2_dat_s : std_logic := '1';
-+ signal ja_meta, ja_s           : std_logic_vector(4 downto 0) := (others => '1');
-+ signal btn_meta, btn_s         : std_logic_vector(3 downto 0) := (others => '0');  -- D, U, L, R
-+ -- Button debounce: btn_s must be stable for 2**18 clock_18
-+ -- cycles (18.432 MHz: 14.2 ms) before btn_db follows. This core
-+ -- edge-detects coin on press, so release bounce counted extra coins.
-+ signal btn_db                  : std_logic_vector(3 downto 0) := (others => '0');
-+ type btn_cnt_t is array (0 to 3) of unsigned(17 downto 0);
-+ signal btn_cnt                 : btn_cnt_t := (others => (others => '0'));
-+ attribute ASYNC_REG : string;
-+ attribute ASYNC_REG of ps2_clk_meta, ps2_clk_s, ps2_dat_meta, ps2_dat_s : signal is "TRUE";
-+ attribute ASYNC_REG of ja_meta, ja_s, btn_meta, btn_s : signal is "TRUE";
-+
-+ component scandoubler
-+     port (
-+         clk_sys   : in  std_logic;
-+         scanlines : in  std_logic_vector (1 downto 0);
-+         ce_x1     : in  std_logic;
-+         ce_x2     : in  std_logic;
-+         hs_in     : in  std_logic;
-+         vs_in     : in  std_logic;
-+         r_in      : in  std_logic_vector (5 downto 0);
-+         g_in      : in  std_logic_vector (5 downto 0);
-+         b_in      : in  std_logic_vector (5 downto 0);
-+         hs_out    : out std_logic;
-+         vs_out    : out std_logic;
-+         r_out     : out std_logic_vector (5 downto 0);
-+         g_out     : out std_logic_vector (5 downto 0);
-+         b_out     : out std_logic_vector (5 downto 0)
-+     );
-+ end component;
-+
-+ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
-+ -- default, switch up inverts the bit. b_test on sw12 (default '1' = off).
-+ constant B_TEST_DEFAULT : std_logic := '1';
-+ signal b_test_in : std_logic;
-+begin
-+
-+b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
-+
-+reset <= btnC or not mmcm_locked;  -- core held in reset until the MMCM locks
-+
-+-- Clock 18.432 MHz (signal name clock_18 kept) for the xevious core, the
-+-- scandoubler's clock chain and the PS/2 keyboard decoder (single domain,
-+-- CLOCKING_SPEC.md 5.2).
-+clocks : entity work.clk_wiz_0
-+port map(
-+ clk_in1  => clk,
-+ clk_out1 => clock_18,
-+ reset    => btnC,
-+ locked   => mmcm_locked
-+);
-+
-+-- Xevious core + character/graphics ROM.
-+-- ROM clocked on the inverted core clock (asserting edge mid-slot).
-+xevious : entity work.xevious
-+port map(
-+ clock_18     => clock_18,
-+ reset        => reset,
-+
-+ video_r      => r,
-+ video_g      => g,
-+ video_b      => b,
-+ video_csync  => csync,
-+ video_blankn => blankn,
-+ video_hs     => hsync,
-+ video_vs     => vsync,
-+ audio        => audio,
-+
-+ rom_bus_addr_o => rom_addr,
-+ rom_bus_do     => rom_do,
-+
-+ b_test       => b_test_in,  -- sw12 (up = test/service mode)
-+ b_svce       => '1',
-+
-+ coin         => joyBCPPFRLDU(7),
-+ start2       => joyBCPPFRLDU(6),
-+ start1       => joyBCPPFRLDU(5),
-+ up           => joyBCPPFRLDU(0),
-+ down         => joyBCPPFRLDU(1),
-+ left         => joyBCPPFRLDU(2),
-+ right        => joyBCPPFRLDU(3),
-+ fire         => joyBCPPFRLDU(4),
-+ bomb         => joyBCPPFRLDU(8)
-+);
-+
++-- character/graphics ROM on the inverted core clock (asserting edge mid-slot)
 +clock_18n <= not clock_18;  -- signal, not an expression actual (HDL 9-3240)
-+
+ 
+-keyboard_decoder : entity work.usb_keyboard_decoder
 +rom : entity work.xevious_cpu_gfx_8bits
-+port map(
-+ clk  => clock_18n,
-+ addr => rom_addr,
-+ data => rom_do
-+);
-+
+ port map(
+- clk     => max3421e_clk,
+-
+- usb_report => usb_report,
+- new_usb_report => new_usb_report,
+-
+- joyBCPPFRLDU  => joyBCPPFRLDU
++  clk  => clock_18n,
++  addr => rom_addr,
++  data => rom_do
+ );
+ 
+--- usb joystick decoder (konix drakkar wireless)
 +-- 31 kHz VGA via the imported MiST scandoubler.
 +-- Pad the core's 4/4/4-bit RGB to 6 bits by MSB replication; force black during blank.
 +vga_r_i <= r & r(3 downto 2) when blankn = '1' else "000000";
@@ -601,67 +476,85 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +-- input), i.e. line doubling for the scan doubler.
 +process (clock_18)
 +begin
-+    if rising_edge(clock_18) then
-+        ce_x1 <= '0';
-+        ce_x2 <= '0';
-+        if slot = "010" then
-+            slot <= (others => '0');
-+        else
-+            slot <= std_logic_vector(unsigned(slot) + 1);
-+        end if;
-+        if slot = "000" then
-+            ce_x1 <= '1';
-+            ce_x2 <= '1';
-+        elsif slot = "001" then
-+            ce_x2 <= '1';
-+        end if;
++  if rising_edge(clock_18) then
++    ce_x1 <= '0';
++    ce_x2 <= '0';
++    if slot = "010" then
++      slot <= (others => '0');
++    else
++      slot <= std_logic_vector(unsigned(slot) + 1);
 +    end if;
++    if slot = "000" then
++      ce_x1 <= '1';
++      ce_x2 <= '1';
++    elsif slot = "001" then
++      ce_x2 <= '1';
++    end if;
++  end if;
 +end process;
-+
+ 
+-joystick_decoder : entity work.usb_joystick_decoder
++-- scandoubler: 15 kHz video to 31 kHz VGA
 +scandoubler_inst : scandoubler
-+port map(
-+ clk_sys   => clock_18,
-+ scanlines => "00",
-+ ce_x1     => ce_x1,
-+ ce_x2     => ce_x2,
-+ hs_in     => hsync,
-+ vs_in     => vsync,
-+ r_in      => vga_r_i,
-+ g_in      => vga_g_i,
-+ b_in      => vga_b_i,
-+ hs_out    => hsync_o,
-+ vs_out    => vsync_o,
-+ r_out     => vga_r_o,
-+ g_out     => vga_g_o,
-+ b_out     => vga_b_o
-+);
-+
-+-- Display mode switch via sw(13):
-+--   0 = 31 kHz VGA (scan-doubled 6-bit RGB adapted to 4bits/color)
-+--   1 = 15 kHz TV  (native core RGB, composite sync on HS, VS held high --
-+--       requires a 15 kHz RGB monitor or RGB->composite converter)
+ port map(
+- clk     => max3421e_clk,
+-
+- usb_report => usb_report,
+- new_usb_report => new_usb_report,
+-
+- joyBCPPFRLDU  => open --joyBCPPFRLDU
++  clk_sys   => clock_18,
++  scanlines => "00",
++  ce_x1     => ce_x1,
++  ce_x2     => ce_x2,
++  hs_in     => hsync,
++  vs_in     => vsync,
++  r_in      => vga_r_i,
++  g_in      => vga_g_i,
++  b_in      => vga_b_i,
++  hs_out    => hsync_o,
++  vs_out    => vsync_o,
++  r_out     => vga_r_o,
++  g_out     => vga_g_o,
++  b_out     => vga_b_o
+ );
+ 
+--- debug display
+-
+-ledr(8 downto 0) <= joyBCPPFRLDU;
++-- video output: scandoubler or 15 kHz RGB (sw13)
 +vga_r <= r             when sw(13) = '1' and blankn = '1' else
-+         vga_r_o(5 downto 2) when sw(13) = '0' else
-+         "0000";
++  vga_r_o(5 downto 2) when sw(13) = '0' else
++  "0000";
 +vga_g <= g             when sw(13) = '1' and blankn = '1' else
-+         vga_g_o(5 downto 2) when sw(13) = '0' else
-+         "0000";
++  vga_g_o(5 downto 2) when sw(13) = '0' else
++  "0000";
 +vga_b <= b             when sw(13) = '1' and blankn = '1' else
-+         vga_b_o(5 downto 2) when sw(13) = '0' else
-+         "0000";
++  vga_b_o(5 downto 2) when sw(13) = '0' else
++  "0000";
 +vga_hs <= csync   when sw(13) = '1' else hsync_o;
 +vga_vs <= '1'     when sw(13) = '1' else vsync_o;
-+
-+-- The PS/2 pins, JXADC and the buttons are asynchronous to clock_18.
-+-- io_ps2_keyboard has no synchronizer of its own: an edge near a clock
-+-- edge can drop a bit, giving missed or stuck keys.
+ 
+-h0 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+2)(3 downto 0),hex0);
+-h1 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+2)(7 downto 4),hex1);
+-h2 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+1)(3 downto 0),hex2);
+-h3 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+1)(7 downto 4),hex3);
+-h4 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+0)(3 downto 0),hex4);
+-h5 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+0)(7 downto 4),hex5);
++-- input synchronizers and button debounce
 +process(clock_18)
 +begin
 +  if rising_edge(clock_18) then
-+    ps2_clk_meta <= ps2_clk;  ps2_clk_s <= ps2_clk_meta;
-+    ps2_dat_meta <= ps2_dat;  ps2_dat_s <= ps2_dat_meta;
-+    ja_meta      <= JXADC;       ja_s      <= ja_meta;
-+    btn_meta     <= btnD & btnU & btnL & btnR;  btn_s <= btn_meta;
++    ps2_clk_meta <= ps2_clk;
++    ps2_clk_s    <= ps2_clk_meta;
++    ps2_dat_meta <= ps2_dat;
++    ps2_dat_s    <= ps2_dat_meta;
++    stick_meta   <= JXADC;
++    stick_s      <= stick_meta;
++    btn_meta     <= btnD & btnU & btnL & btnR;
++    btn_s        <= btn_meta;
++    -- debounce: btn_db follows btn_s after 2**18 stable clock_18 cycles (14.2 ms);
++    -- the core edge-detects coin, so release bounce would add coins
 +    for i in 0 to 3 loop
 +      if btn_s(i) = btn_db(i) then
 +        btn_cnt(i) <= (others => '0');
@@ -674,73 +567,121 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious_de10_lite.vhd
 +    end loop;
 +  end if;
 +end process;
-+
+ 
+--- program and graphics ROM
+-rom : entity work.xevious_cpu_gfx_8bits
+-port map(
+- clk  => clock_18n,
+- addr => rom_addr,
+- data => rom_do
 +-- get scancode from keyboard
 +keyboard : entity work.io_ps2_keyboard
 +port map (
-+  clk       => clock_18, -- core clock (18.432 MHz), single domain
++  clk       => clock_18,
 +  kbd_clk   => ps2_clk_s,
 +  kbd_dat   => ps2_dat_s,
 +  interrupt => kbd_intr,
 +  scancode  => kbd_scancode
-+);
-+
-+-- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
-+-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
-+-- Right Ctrl/Alt alias Left Ctrl/Alt), PORTING_SPEC.md 3.1.
-+-- kbd_joy bit order matches joyBCPPFRLDU below.
+ );
+ 
+--- audio for sgtl5000
+-
+-sample_data <= "00" & audio & "000" & "00" & audio & "000";
+-
+--- Clock 1us for ym_8910
+-p_clk_1us_p : process(max10_clk1_50)
++-- key decoder: scancode to kbd_joy (bit order matches joyBCPPFRLDU below)
 +process (clock_18)
-+begin
+ begin
+-	if rising_edge(max10_clk1_50) then
+-		if cnt_1us = 0 then
+-			cnt_1us  <= 49;
+-			clk_1us  <= '1';
+-		else
+-			cnt_1us  <= cnt_1us - 1;
+-			clk_1us <= '0';
+-		end if;
+-	end if;
 +  if rising_edge(clock_18) then
 +    if kbd_intr = '1' then
 +      if kbd_scancode = x"F0" then
 +        kbd_rel <= '1';
 +      elsif kbd_scancode /= x"E0" then
 +        kbd_rel <= '0';
-+        if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up arrow
-+        if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
-+        if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
-+        if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+        if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
-+        if kbd_scancode = x"16" then kbd_joy(5) <= not kbd_rel; end if; -- 1: start 1
-+        if kbd_scancode = x"1E" then kbd_joy(6) <= not kbd_rel; end if; -- 2: start 2
-+        if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(7) <= not kbd_rel; end if; -- 5 / 6: coin
-+        if kbd_scancode = x"11" then kbd_joy(8) <= not kbd_rel; end if; -- left alt: bomb
++        case kbd_scancode is
++          when x"75" => kbd_joy(0) <= not kbd_rel;          -- up arrow
++          when x"72" => kbd_joy(1) <= not kbd_rel;          -- down arrow
++          when x"6B" => kbd_joy(2) <= not kbd_rel;          -- left arrow
++          when x"74" => kbd_joy(3) <= not kbd_rel;          -- right arrow
++          when x"14" => kbd_joy(4) <= not kbd_rel;          -- left ctrl: fire
++          when x"16" => kbd_joy(5) <= not kbd_rel;          -- 1: start1
++          when x"1E" => kbd_joy(6) <= not kbd_rel;          -- 2: start2
++          when x"2E" | x"36" => kbd_joy(7) <= not kbd_rel;  -- 5 / 6: coin
++          when x"11" => kbd_joy(8) <= not kbd_rel;          -- left alt: bomb
++          when others => null;
++        end case;
 +      end if;
 +    end if;
 +  end if;
-+end process;
-+
-+-- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
-+-- JXADC physical map (JXADC[0]=JXADC1, JXADC[1]=JXADC2, JXADC[2]=JXADC3, JXADC[3]=JXADC4,
-+-- JXADC[4]=JXADC7):
-+--   JXADC[0]=right, JXADC[1]=left, JXADC[2]=down and bomb, JXADC[3]=up, JXADC[4]=fire;
-+--   up + fire also gives bomb (up and fire pass through).
-+--   The synchronized JXADC (ja_s) and debounced buttons (btn_db) are used below.
-+-- JXADC is active-low (pressed shorts to ground); invert so a press reads
-+-- active-high, matching the core's active-high input boundary and the
-+-- keyboard path.
-+joyBCPPFRLDU(0) <= kbd_joy(0) or not ja_s(3);                 -- up      (JXADC4)
-+joyBCPPFRLDU(1) <= kbd_joy(1) or not ja_s(2);                 -- down    (JXADC3, also bomb)
-+joyBCPPFRLDU(2) <= kbd_joy(2) or not ja_s(1);                 -- left    (JXADC2)
-+joyBCPPFRLDU(3) <= kbd_joy(3) or not ja_s(0);                 -- right   (JXADC1)
-+joyBCPPFRLDU(4) <= kbd_joy(4) or not ja_s(4);                 -- fire    (JXADC7)
-+joyBCPPFRLDU(5) <= kbd_joy(5) or btn_db(1);                   -- start1  (btnL / 1)
-+joyBCPPFRLDU(6) <= kbd_joy(6) or btn_db(0);                   -- start2  (btnR / 2)
-+joyBCPPFRLDU(7) <= kbd_joy(7) or btn_db(2) or btn_db(3);      -- coin    (btnU / btnD / 5 / 6)
-+joyBCPPFRLDU(8) <= kbd_joy(8) or not ja_s(2)
-+                   or (not ja_s(3) and not ja_s(4));          -- bomb    (Left Alt / JXADC3 / JXADC up+fire)
-+
-+-- pwm sound output
-+process(clock_18)
-+begin
-+  if rising_edge(clock_18) then
-+    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio));
-+  end if;
-+end process;
-+
+ end process;
+ 
+--- sgtl5000 (teensy audio shield on top of usb host shield)
+-
+-e_sgtl5000 : entity work.sgtl5000_dac
+-port map(
+- clock_18   => clock_18,
+- reset      => reset,
+- i2c_clock  => clk_1us,
+-
+- sample_data  => sample_data,
+-
+- i2c_sda   => arduino_io(0), -- i2c_sda,
+- i2c_scl   => arduino_io(1), -- i2c_scl,
+-
+- tx_data   => arduino_io(2), -- sgtl5000 tx
+- mclk      => arduino_io(4), -- sgtl5000 mclk
+-
+- lrclk     => arduino_io(3), -- sgtl5000 lrclk
+- bclk      => arduino_io(6), -- sgtl5000 bclk
+-
+- -- debug
+- hex0_di   => open, -- hex0_di,
+- hex1_di   => open, -- hex1_di,
+- hex2_di   => open, -- hex2_di,
+- hex3_di   => open, -- hex3_di,
+-
+- sw => sw(7 downto 0)
+-);
++-- player inputs: keyboard OR stick OR buttons
++-- stick down = down and bomb; up + fire also gives bomb (up and fire pass through).
++-- The synchronized stick inputs (stick_s) and debounced buttons (btn_db) are used below.
++joyBCPPFRLDU(0) <= kbd_joy(0) or not stick_s(3);          -- up: up arrow / stick up
++joyBCPPFRLDU(1) <= kbd_joy(1) or not stick_s(2);          -- down: down arrow / stick down
++joyBCPPFRLDU(2) <= kbd_joy(2) or not stick_s(1);          -- left: left arrow / stick left
++joyBCPPFRLDU(3) <= kbd_joy(3) or not stick_s(0);          -- right: right arrow / stick right
++joyBCPPFRLDU(4) <= kbd_joy(4) or not stick_s(4);          -- fire: left ctrl / stick fire
++joyBCPPFRLDU(5) <= kbd_joy(5) or btn_db(1);               -- start1: 1 / btnL
++joyBCPPFRLDU(6) <= kbd_joy(6) or btn_db(0);               -- start2: 2 / btnR
++joyBCPPFRLDU(7) <= kbd_joy(7) or btn_db(2) or btn_db(3);  -- coin: 5, 6 / btnU, btnD
++joyBCPPFRLDU(8) <= kbd_joy(8) or not stick_s(2)
++  or (not stick_s(3) and not stick_s(4));  -- bomb: left alt / stick down, stick up + fire
+ 
+ -- pwm sound output
+-
+ process(clock_18)
+ begin
+   if rising_edge(clock_18) then
+-    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio));
++    pwm_accumulator <= std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned('0' & audio));
+   end if;
+ end process;
+ 
+-pwm_audio_out_l <= pwm_accumulator(12);
+-pwm_audio_out_r <= pwm_accumulator(12);
+-
++-- PmodAMP2: PWM audio, shutdown and gain
 +O_PMODAMP2_AIN   <= pwm_accumulator(12);
-+O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
-+O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
-+
-+end struct;
++O_PMODAMP2_SHUTD <= not sw(15);
++O_PMODAMP2_GAIN  <= not sw(14);
+ 
+ end struct;

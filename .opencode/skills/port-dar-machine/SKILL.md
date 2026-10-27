@@ -50,7 +50,9 @@ SHA-256 checked cache in `dloads/`, extract, apply `contrib/*/code/*.patch` and
 Patch-loop exclusions (built into the library): `*_de10_lite_to_basys3.patch`
 (provenance record, different target file) and `*scandoubler_fix.patch` (applied to the
 project copy by `create_project.sh`). A machine with extra provenance-only patches passes
-`--extra-exclude` (Computer-Space); CRLF-sensitive patches need `--binary`.
+`--extra-exclude` (Computer-Space). Setup normalizes each patch target (whitespace
+only, `tools/normalize_file.sh`) before applying; author fix patches as LF diffs against
+the normalized file.
 
 Pitfall: `patch --forward` is not idempotent on its own (it exits 1 and writes a `.rej`
 on an already-applied patch). `darfpga_setup` is safe because `unzip -o` restores the
@@ -163,6 +165,7 @@ patch), `setup`, `create_prj`, `clk_wiz`, `patch`, `check`, `synth`, `bitstream`
 ## 8. Docs
 
 `PORTING_SPEC.md` §9: machine README and PORTING_SPEC from the `wip/machine/` templates,
-Makefile `IO_SUMMARY`/`DISPLAY_HINT`, root README index row and status, root `PORTS`,
+Makefile `IO_SUMMARY`/`DISPLAY_HINT`, root README index row, root `PORTS`,
 §3.1/§3.2 rows, `CLOCK_CRYSTAL_CATALOG.md`, `CLOCKING_SPEC.md`, `KNOWN_ISSUES.md`.
 Terminology: hardware = FPGA platform; machine = hardware + romset; say roms/romset.
+

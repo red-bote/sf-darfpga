@@ -92,3 +92,4 @@ core-internal HDL 9-3240 (expression actuals in Dar's code): Bagman, Crazy-Kong,
 Satans-Hollow, Tron, Xevious. `check_syntax` is parse-only: Synth 8-2398 (literal actual
 on a Verilog port) and Synth 8-944 (`&` inside a type conversion) appear only at
 synthesis.
+

@@ -1,7 +1,7 @@
 # Kick-Midway-MCR-by-Dar: porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -38,7 +38,8 @@ coin 1 / coin 2 / start 1 / start 2 through signals (no expression actuals).
 ## 5. Video path
 
 No external scandoubler: the core generates 31 kHz progressive or 15 kHz TV.
-`tv15Khz_mode <= sw(13)` (2026-09-29; pristine: `not fn_toggle(7)`, the F8 key).
+`tv15Khz_mode <= sw(13)` (2026-09-29; pristine: `not fn_toggle(7)`, the F8 key, which also
+powered up in 15 kHz mode: `fn_toggle` has no reset in `kbd_joystick.vhd`).
 
 ## 6. Audio
 
@@ -82,6 +83,9 @@ No fix patches to Dar's core.
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_kick_proms.bat` → shell; romset `kick.zip` (`ROMZIP`).
+Concatenates the chip ROMs into `kick_cpu.bin`, `kick_sound_cpu.bin`, `kick_sp_bits.bin`
+and generates `kick_cpu.vhd`, `kick_sound_cpu.vhd`, `kick_bg_bits_1/2.vhd`,
+`kick_sp_bits.vhd`, `midssio_82s123.vhd`, referenced in place by the project.
 
 ## 11. Build
 
@@ -91,3 +95,4 @@ at `vhdl_kick_rev_0_2_2019_11_22/basys3/kick_basys3.xpr`.
 ## 12. Open items
 
 None.
+

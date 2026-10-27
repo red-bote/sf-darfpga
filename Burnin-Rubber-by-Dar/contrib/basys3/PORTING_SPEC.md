@@ -1,7 +1,7 @@
 # Burnin-Rubber-by-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -16,7 +16,8 @@ Design record for the Basys 3 port. Procedure and conventions:
 
 ## 2. Clocking
 
-- Original: 12.000 MHz crystal (Bump 'n' Jump hardware); pixel 6 MHz.
+- Original: 12.000 MHz crystal (Bump 'n' Jump hardware); pixel 6 MHz, main CPU 750 kHz,
+  sound CPU 500 kHz, 2x AY-3-8910 1.5 MHz; the core matches all of them (no CPU patch).
 - `clk_wiz_0`: request 12 MHz, achieved 12.000 MHz (5 / 49.875 / 83.125); signal
   `clock_12`. Speed error 0.
 - Enables: `clock_6` = `clock_12` toggle (scandoubler `ce_x1`, 2026-10-02; previously MMCM
@@ -68,7 +69,7 @@ DE10 PWM accumulator: `'0' & pwm_accumulator(11 downto 0)` + `audio & "00"` (11-
   start, 5/6 = coin. Replaces `kbd_joystick`.
 - Core inputs: active-high at the core boundary (`btn_p1 <= not(...)` inside the core);
   P2 mirrors P1.
-- Merge: `not jxadc_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/jump; coin = keys
+- Merge: `not stick_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/jump; coin = keys
   5/6, btnU, btnD; start 1 = key 1, btnL; start 2 = key 2, btnR.
 - Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_12` (2026-10-20).
 - Debounce: none.
@@ -88,7 +89,7 @@ Fixed: `dip_sw1 <= "10011111"`, `dip_sw2 <= "00010111"` are constants inside the
 
 | Patch | Target | Reason |
 |---|---|---|
-| `contrib/code/burnin_rubber_vsync_before_vblank.patch` | `rtl_dar/burnin_rubber.vhd` | `vsync_cnt` reset at `vcnt = 248`: vsync no longer overlaps the last 8 active lines (2026-09-28) |
+| `contrib/code/burnin_rubber_vsync_before_vblank.patch` | `rtl_dar/burnin_rubber.vhd` | `vsync_cnt` reset at `vcnt = 248` (was 240): `video_vs` no longer starts 8 lines before `vblank`, which made a VGA monitor drop the last 8 active lines (2026-09-28, hardware-confirmed) |
 | `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/burnin_rubber_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
@@ -98,7 +99,8 @@ bottom-row clipping. Burger-Time, same horizontal path, runs the 261-line frame.
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_burnin_rubber_proms.bat` → shell; romset `brubber.zip`
-into `tools/burnin_rubber_unzip/`.
+into `tools/burnin_rubber_unzip/`. Output: `burnin_rubber_prog`, `bg_graphx_1/2`,
+`fg_sp_graphx_1/2/3`, `burnin_rubber_sound_prog` (`.vhd`).
 
 ## 11. Build
 
@@ -108,3 +110,4 @@ sources and 1 constraints file.
 ## 12. Open items
 
 None.
+

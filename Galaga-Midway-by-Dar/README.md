@@ -1,104 +1,104 @@
 # Galaga-Midway-by-Dar
 
-Basys 3 port of Galaga (Namco / Midway, 1981), FPGA core by Dar (darfpga@aol.fr),
-<http://darfpga.blogspot.fr>. Source: `vhdl_galaga_rev_0_3_2018_05_06.zip` (release 0.3,
-2018-05-06), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
-extracted archive.
+Galaga (Namco / Midway, 1981) on the Digilent Basys 3. FPGA core by Dar (darfpga@aol.fr,
+<http://darfpga.blogspot.fr>), rev 0.3 (2018-05-06):
+<https://sourceforge.net/projects/darfpga/files/Software%20VHDL/galaga/>, copy in
+`dloads/`. Design detail: `contrib/basys3/PORTING_SPEC.md`.
 
-## Status
+## Connections
 
-Hardware-verified 2026-10-20: picture (31 kHz VGA), sound, keyboard (MAME keys), JXADC
-joystick, buttons. sw12 test mode wired 2026-10-20, hardware check 2026-10-21. JXADC fire
-debounce restored and hardware-verified 2026-10-21.
-
-## Features (Basys 3)
-
-- Video: 31 kHz VGA via the imported MiST scandoubler; sw13 up = 15 kHz TV (native RGB,
-  composite sync on HS).
-- Keyboard: onboard USB-HID port, MAME default keys, decoded in the wrapper (2026-10-20,
-  replaces `kbd_joystick`; F0 = release, E0 ignored; `../PORTING_SPEC.md` §3.1).
-- Joystick: Atari-style on Pmod JXADC, pins 1/2/7 = right/left/fire (the core has no
-  up/down), active low, pull-ups in the XDC.
-- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
-- Board buttons and JXADC fire debounced (14 ms); reason: `contrib/basys3/PORTING_SPEC.md`
-  §7.1.
+- VGA monitor; with sw13 up, 15 kHz RGB (csync on HS) for a 15 kHz monitor.
+- USB keyboard on the USB-HID host connector.
+- Atari-type joystick on Pmod JXADC (pins 1/2/7 = right/left/fire; up/down unused).
+- PmodAMP2 with speaker on Pmod JA. Mono.
 
 ## Controls
 
-| Action | Keyboard | JXADC | Basys 3 |
-|---|---|---|---|
-| left / right | Left / Right arrows (6B / 74) | pin 2 / pin 1 | |
-| fire | Left Ctrl (14) | pin 7 | |
-| start 1P / 2P | 1 / 2 (16 / 1E) | | btnL / btnR |
-| coin | 5 / 6 (2E / 36) | | btnU / btnD |
-| reset | | | btnC |
+| Function     | Keyboard  | Joystick     | Button     |
+|--------------|-----------|--------------|------------|
+| left / right | arrows    | left / right |            |
+| fire         | Left Ctrl | fire         |            |
+| coin         | 5, 6      |              | btnU, btnD |
+| start 1 / 2  | 1, 2      |              | btnL, btnR |
+| reset        |           |              | btnC       |
 
-Player 2 mirrors player 1 left/right/fire. No joystick combos (coin/start combos removed
-2026-10-02). JXADC pins 3/4 (down/up) are not used.
+Player 2 uses the same controls.
 
 ## Switches
 
-| Switch | Function | Down | Up |
-|---|---|---|---|
-| sw15 | audio | on | off |
-| sw14 | amp gain | low | high |
-| sw13 | display | 31 kHz VGA | 15 kHz TV |
-| sw12 | `b_test` | Dar `'1'` (off) | test / service mode |
+| Switch | Function       | Down       | Up                  |
+|--------|----------------|------------|---------------------|
+| sw15   | audio          | on         | off                 |
+| sw14   | amplifier gain | low        | high                |
+| sw13   | display        | 31 kHz VGA | 15 kHz RGB          |
+| sw12   | test mode      | off        | test / service mode |
 
-## IO mapping
+## Clocks
 
-| Basys 3 resource | Wrapper port | Function |
-|---|---|---|
-| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
-| btnC / btnU / btnD / btnL / btnR | `btnC` ... `btnR` | reset / coin / coin / start 1 / start 2 |
-| sw(15:0) | `sw` | see Switches |
-| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
-| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick (bits 0, 1, 4 used) |
-| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| Clock         | Original            | Basys 3             | Difference    |
+|---------------|---------------------|---------------------|---------------|
+| CPUs (3x Z80) | 3.072 MHz           | 3.072 MHz           | -0.0008%      |
+| Pixel         | 6.144 MHz           | 6.144 MHz           | -0.0008%      |
+| Video         | 16.0 kHz / 60.61 Hz | 32.0 kHz / 60.61 Hz | lines doubled |
 
-## Clocking
+Basys 3 video values are for the VGA mode (sw13 down).
 
-`clk_wiz_0`: 36.863711 MHz (6 / 56.125 / 25.375, forced by `make_clk_wiz_0.sh`; Vivado's own
-solve gives VGA H 32.0017 kHz), single MMCM output; `clock_18` = 18.432 MHz (core, original
-crystal), CPUs 3.072 MHz, pixel 6.144 MHz. Video 31.9998 kHz / 60.61 Hz (was 36.000 MHz,
--2.34%, until 2026-10-01). Details: `contrib/basys3/PORTING_SPEC.md` §2,
-`../CLOCK_CRYSTAL_CATALOG.md`.
+Original values: MAME `namco/galaga.cpp` (18.432 MHz crystal).
 
-## Required ROMs
+## ROMs
 
-`galaga.zip` + `galagamw.zip` (MAME romsets; `ROMZIP1` / `ROMZIP2`, default
-`~/roms/galaga.zip` / `~/roms/galagamw.zip`). `galagamw` provides the `3200a`-`3700g` CPU
-ROMs missing from `galaga`. Not included.
-**Do not redistribute roms or anything generated from them.**
+`galaga.zip` and `galagamw.zip` (MAME romsets) in `~/roms/` or `$ROMZIP1` / `$ROMZIP2`.
+Not included. Do not redistribute roms or anything generated from them.
 
 ## Building
 
-Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
-clk_wiz, patch), `make check` (parse-only), `make bitstream`, `make load`.
+Requirements:
+
+- gcc
+- unzip
+- Vivado 2020.2 (the `VIVADO` variable overrides the install path)
+- openFPGALoader
+
+Make targets, run from this directory:
+
+- `make`: extract the sources, generate the PROM VHDL from the romset, create the
+  Vivado project, generate the clock IP and install the Basys 3 top level.
+- `make check`: parse-only syntax check, no synthesis.
+- `make bitstream`: synthesis, implementation and bitstream.
+- `make load`: program the Basys 3 with the built bitstream.
+- `make clean`: remove the extracted sources and build output.
+- `make help`: list all targets.
 
 ## Known issues
 
-- The keyboard can randomly stick to the right (and maybe left); original core issue.
+- After a reset, the status tiles are sometimes distorted or missing pixels; under
+  investigation.
 
-## Issues addressed for Basys 3
+## Changes to third-party sources
 
-- `rtl_dar/galaga.vhd` `bgpalette_addr`: `xor` operand widths 3 vs 2 bits; fixed by
-  parenthesizing (`contrib/code/galaga_bgpalette_xor_length_fix.patch`).
-- `rtl_dar/galaga.vhd:848`: Start 1 / Start 2 ignored after a coin; the Namco 51XX
-  credit-mode flag is re-enabled on every coin edge (`contrib/code/galaga_credit_mode_fix.patch`;
-  open investigation: `contrib/code/51xx_credit_state_machine_investigation.md`).
-- `rtl_dar/galaga.vhd`: `video_hs`/`video_vs` brought out for the scandoubler
-  (`contrib/code/galaga_vga_sync.patch`).
-- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
-  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
-  applied to the project copy).
-- JXADC fire contact bounce double-fires through the core's full-rate fire edge detect;
-  debounced in the wrapper (PORTING_SPEC §7.1).
+- `contrib/code/galaga_bgpalette_xor_length_fix.patch`
+  - Origin: Dar archive
+  - Change: background palette address: `xor` operand widths made equal (Vivado)
+  - Files:
+    - `rtl_dar/galaga.vhd`
 
-## Third-party sources
+- `contrib/code/galaga_credit_mode_fix.patch`
+  - Origin: Dar archive
+  - Change: start accepted after a coin (51xx credit mode re-enabled on each coin)
+  - Files:
+    - `rtl_dar/galaga.vhd`
 
-| Resource | Source | Notes |
-|---|---|---|
-| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |
+- `contrib/code/galaga_vga_sync.patch`
+  - Origin: Dar archive
+  - Change: core outputs `video_hs` / `video_vs` for the scandoubler
+  - Files:
+    - `rtl_dar/galaga.vhd`
+
+- `contrib/code/scandoubler_fix.patch`
+  - Origin: [mist-modules@147aa5c][mist-modules] (Till Harbaum, GPL-3.0)
+  - Change: named blocks, full `sd_buffer` range (Vivado)
+  - Files:
+    - `scandoubler.v` (copy in `contrib/code/`)
+
+[mist-modules]: https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v
+

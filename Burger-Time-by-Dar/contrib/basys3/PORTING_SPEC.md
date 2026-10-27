@@ -1,7 +1,7 @@
 # Burger-Time-by-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -20,6 +20,7 @@ Design record for the Basys 3 port. Procedure and conventions:
   main CPU 1.5 MHz (`btime`, jumper H2/H4), 750 kHz on `bnj`/`disco`.
 - `clk_wiz_0`: request 12 MHz, achieved 12.000 MHz (5 / 49.875 / 83.125); signal
   `clock_12`. Speed error 0.
+- Sound board (core): CPU 500 kHz (`clock_12`/24), AY-3-8910 1.5 MHz (`clock_12`/8).
 - Enables: `clock_6` = `clock_12` toggle (scandoubler `ce_x1`, 2026-10-02; previously MMCM
   `clk_out2` 6 MHz, which failed hold timing, WHS -0.60 ns, `../../../CLOCKING_SPEC.md`
   5.2). CPU enable inside the core (§9).
@@ -68,7 +69,7 @@ DE10 PWM accumulator: `'0' & pwm_accumulator(11 downto 0)` + `audio & "00"` (11-
   `../../../PORTING_SPEC.md` §3.1, §4.3), 2026-10-20: arrows, Left Ctrl = pepper, 1/2 =
   start, 5/6 = coin. Replaces `kbd_joystick`.
 - Core inputs: active-high; single `coin1`, `fire1`; P2 mirrors P1.
-- Merge: `not jxadc_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/pepper; coin =
+- Merge: `not stick_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/pepper; coin =
   keys 5/6, btnU, btnD; start 1 = key 1, btnL; start 2 = key 2, btnR. No `coin2` port.
 - Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_12` (2026-10-20).
 - Debounce: none.
@@ -102,7 +103,8 @@ foreground/sprite RAM mux (`fg_ram_addr_sel`); video samples `fg_ram_low_do` at
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_burger_time_proms.bat` → shell; romset `btime.zip`
-into `tools/burger_time_unzip/`.
+into `tools/burger_time_unzip/`. Output: `burger_time_prog`, `bg_map`, `bg_graphx_1/2/3`,
+`fg_sp_graphx_1/2/3`, `burger_time_sound_prog` (`.vhd`).
 
 ## 11. Build
 
@@ -111,3 +113,4 @@ into `tools/burger_time_unzip/`.
 ## 12. Open items
 
 None.
+

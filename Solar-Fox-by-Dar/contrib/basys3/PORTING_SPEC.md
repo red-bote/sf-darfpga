@@ -1,7 +1,7 @@
 # Solar-Fox-by-Dar: porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -85,7 +85,10 @@ No fix patches to Dar's core.
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_solar_fox_proms.bat` → shell; romset `solarfox.zip`
-(`ROMZIP`). `82s123.12d` is the same PROM as Kick's.
+(`ROMZIP`). `82s123.12d` is the same PROM as Kick's. `sfcpu.*`, `sfsnd.*`, `sfvid.*` are
+concatenated into `solar_fox_cpu.bin`, `solar_fox_sound_cpu.bin`, `solar_fox_sp_bits.bin`.
+Output (referenced in place): `solar_fox_cpu`, `solar_fox_sound_cpu`,
+`solar_fox_bg_bits_1/2`, `solar_fox_sp_bits`, `midssio_82s123` (`.vhd`).
 
 ## 11. Build
 
@@ -95,3 +98,4 @@ at `vhdl_solar_fox_rev_0_1_2019_11_22/basys3/solar_fox_basys3.xpr`.
 ## 12. Open items
 
 None.
+

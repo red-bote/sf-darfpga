@@ -12,9 +12,6 @@
 #     for a machine with its own additional generated/provenance patches
 #     (e.g. Computer-Space's motion-board patches, applied later to an
 #     imported copy by create_project.sh, not to the pristine tree).
-#   --binary  apply patches with `patch --binary` (preserves CRLF line
-#     endings) instead of plain `patch` -- for a machine whose fix patches
-#     are CRLF-sensitive (e.g. Computer-Space).
 #   --flat-archive  extract the zip into $root/$src_dir/ directly, instead
 #     of into $root/ (the default, for archives whose own top-level folder
 #     already matches $src_dir) -- for a machine whose archive has no
@@ -54,7 +51,7 @@ _darfpga_setup_excluded() {
 }
 
 darfpga_setup() {
-    local root="" src_dir="" url="" sha256="" binary="" flat_archive=""
+    local root="" src_dir="" url="" sha256="" flat_archive=""
     local extra_excludes=()
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -63,7 +60,6 @@ darfpga_setup() {
             --url) url="$2"; shift 2 ;;
             --sha256) sha256="$2"; shift 2 ;;
             --extra-exclude) extra_excludes+=("$2"); shift 2 ;;
-            --binary) binary=1; shift ;;
             --flat-archive) flat_archive=1; shift ;;
             *) echo "darfpga_setup: unknown argument: $1" >&2; return 2 ;;
         esac
@@ -110,19 +106,21 @@ darfpga_setup() {
         unzip -o "$zip" -d "$root"
     fi
 
-    _darfpga_step "3/4 Applying fix patches (contrib/*/code/*.patch and contrib/code/*.patch)"
-    local p
+    _darfpga_step "3/4 Normalizing patch targets and applying fix patches (contrib/*/code/*.patch, contrib/code/*.patch)"
+    local p t
+    local normalize="$root/../tools/normalize_file.sh"
     for p in "$root"/contrib/*/code/*.patch "$root"/contrib/code/*.patch; do
         [ -e "$p" ] || continue
         if _darfpga_setup_excluded "$p" "${extra_excludes[@]}"; then
             continue
         fi
+        # Targets: the "--- a/<path>" lines; each is normalized (whitespace only,
+        # PORTING_SPEC.md section 2, step 3) before the LF patch applies.
+        while read -r t; do
+            if [ -f "$root/$t" ]; then "$normalize" "$root/$t"; fi
+        done < <(sed -n 's|^--- a/\([^[:space:]]*\).*|\1|p' "$p" | sort -u)
         echo "==> applying $p"
-        if [ -n "$binary" ]; then
-            (cd "$root" && patch -p1 --forward --binary < "$p")
-        else
-            (cd "$root" && patch -p1 --forward < "$p")
-        fi
+        (cd "$root" && patch -p1 --forward < "$p")
     done
 
     _darfpga_step "4/4 Running rom-prep"

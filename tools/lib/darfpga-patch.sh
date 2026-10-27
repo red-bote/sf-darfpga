@@ -11,9 +11,9 @@
 # sf-darfpga/tools/vhdl_formatter.py. It is no longer authored as a bash
 # here-doc.
 #
-# The diff-against-pristine-upstream step below produces a provenance
-# record only: it documents how the tracked top level differs from Dar's
-# pristine (untracked, gitignored) upstream file. It is NOT consumed by the
+# The diff step below produces a provenance record only: it documents how the
+# tracked top level differs from a normalized copy of Dar's pristine (untracked,
+# gitignored) upstream file. It is NOT consumed by the
 # build -- the Vivado project picks up the tracked .vhd via the
 # unconditional copy regardless of the diff's outcome.
 #
@@ -57,12 +57,18 @@ darfpga_place_top_level() {
     fi
 
     mkdir -p "$(dirname "$patch_file")"
+    # Diff against a normalized (whitespace only) /tmp copy; the pristine file is untouched.
+    local norm
+    norm="$(mktemp --suffix=.vhd)"
+    cp "$src" "$norm"
+    "$root/../tools/normalize_file.sh" "$norm"
     {
         printf 'diff --git a/%s/%s/%s b/%s/%s/%s\n' "$src_dir" "$de10_dir" "$de10_top" "$src_dir" "$de10_dir" "$de10_top"
         diff -u --label "a/$src_dir/$de10_dir/$de10_top" \
                   --label "b/$src_dir/$de10_dir/$de10_top" \
-                  "$src" "$target" || [ $? -eq 1 ]   # diff returns 1 when files differ (expected)
+                  "$norm" "$target" || [ $? -eq 1 ]   # diff returns 1 when files differ (expected)
     } > "$patch_file"
+    rm -f "$norm"
 
     mkdir -p "$target_src"
     cp -f "$target" "$target_src/$top_entity.vhd"

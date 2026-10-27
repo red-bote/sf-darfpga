@@ -1,7 +1,7 @@
 # Phoenix-by-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -145,7 +145,7 @@ Dar's 13-bit PWM accumulator verbatim (`'0' & acc(11:0)` + `audio & '0'`, `audio
   - `ext_joy(1) <= '0'` (no down input); `ext_joy(2/3)` = arrows or JXADC2/JXADC1;
   - `ext_joy(4)` = Left Ctrl or JXADC7; `ext_joy(5/6)` = 1/2 or btnL/btnR;
   - `ext_joy(7)` = 5/6 or btnU/btnD.
-- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC (`ja_sync`) and buttons, on `clock_11`.
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC (`stick_sync`) and buttons, on `clock_11`.
 - Debounce: btnU/D/L/R, 2^17 `clock_11` cycles (11.9 ms).
 - Combos: shield combos above (approved, §3.1).
 - History: two earlier attempts (2026-09-22, 2026-09-25) registered no input and were
@@ -218,3 +218,4 @@ USB-HID host 2026-09-23 (XDC only; hardware-confirmed).
 - `ce_x1 => video_clk` is a register-derived clock used as logic in the `clk_sys` domain
   (untimed, `../../../KNOWN_ISSUES.md`); no hardware symptom.
 - Second MMCM output (`clock_50`, audio): kept; not converted to a single domain.
+

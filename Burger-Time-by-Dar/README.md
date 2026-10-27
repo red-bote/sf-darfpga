@@ -1,100 +1,94 @@
 # Burger-Time-by-Dar
 
-Basys 3 port of BurgerTime (Data East, 1982), FPGA core by Dar (darfpga@aol.fr),
-<http://darfpga.blogspot.fr>. Source: `vhdl_burger_time_rev_0_0_2017_12_27.zip` (rev 0.0,
-27/12/2017), `dloads/`. Basys 3 port by Red~Bote; Dar's release notes: `README.txt` in the
-extracted archive.
+BurgerTime (Data East, 1982) on the Digilent Basys 3. FPGA core by Dar (darfpga@aol.fr,
+<http://darfpga.blogspot.fr>), rev 0.0 (2017-12-27):
+<https://sourceforge.net/projects/darfpga/files/Software%20VHDL/burger_time/>, copy in
+`dloads/`. Design detail: `contrib/basys3/PORTING_SPEC.md`.
 
-## Status
+## Connections
 
-Hardware-verified 2026-10-20 (IO scheme of 2026-10-20, MAME keys): picture (31 kHz VGA),
-sound, keyboard, JXADC joystick, buttons. Main CPU at 1.5 MHz hardware-confirmed
-2026-10-02. Open items: none.
-
-## Features (Basys 3)
-
-- Video: 31 kHz VGA via the MiST scandoubler; sw13 up = 15 kHz TV (native RGB, composite
-  sync on HS, VS high).
-- Keyboard: onboard USB-HID port, MAME default keys.
-- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/pepper, active
-  low, pull-ups in the XDC.
-- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
-- Main CPU at the MAME `btime` rate, 1.5 MHz (Dar's core: 750 kHz).
+- VGA monitor; with sw13 up, 15 kHz RGB (csync on HS) for a 15 kHz monitor.
+- USB keyboard on the USB-HID host connector.
+- Atari-type joystick on Pmod JXADC (pins 1/2/3/4/7 = right/left/down/up/fire).
+- PmodAMP2 with speaker on Pmod JA. Mono.
 
 ## Controls
 
-| Action | Keyboard | JXADC | Basys 3 |
-|---|---|---|---|
-| move (4-way) | arrows | pins 1-4 | |
-| pepper | Left Ctrl | pin 7 | |
-| start 1P / 2P | 1 / 2 | | btnL / btnR |
-| coin | 5 / 6 | | btnU / btnD |
-| reset | | | btnC |
+| Function                 | Keyboard  | Joystick | Button     |
+|--------------------------|-----------|----------|------------|
+| up / down / left / right | arrows    | stick    |            |
+| pepper                   | Left Ctrl | fire     |            |
+| coin                     | 5, 6      |          | btnU, btnD |
+| start 1 / 2              | 1, 2      |          | btnL, btnR |
+| reset                    |           |          | btnC       |
 
-Player 2 mirrors player 1. No joystick combos. No debounce. Keyboard decoded in the
-wrapper (F0 = release, E0 ignored).
+Player 2 uses the same controls.
 
 ## Switches
 
-| Switch | Function | Down | Up |
-|---|---|---|---|
-| sw15 | audio | on | off |
-| sw14 | amp gain | low | high |
-| sw13 | display | 31 kHz VGA | 15 kHz TV |
+| Switch | Function       | Down       | Up         |
+|--------|----------------|------------|------------|
+| sw15   | audio          | on         | off        |
+| sw14   | amplifier gain | low        | high       |
+| sw13   | display        | 31 kHz VGA | 15 kHz RGB |
 
-The DIP switches are constants inside the core (`burger_time.vhd:293-294`); not on board
-switches.
+The DIP settings are fixed inside the core (not on switches).
 
-## IO mapping
+## Clocks
 
-| Basys 3 resource | Wrapper port | Function |
-|---|---|---|
-| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
-| btnC / btnU / btnD / btnL / btnR | `btnC` / `btnU` / `btnD` / `btnL` / `btnR` | reset / coin / coin / start 1 / start 2 |
-| sw(15:13) | `sw` | see Switches |
-| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
-| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
-| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `O_PMODAMP2_GAIN` / `O_PMODAMP2_SHUTD` | audio |
-| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+| Clock                 | Original              | Basys 3              | Difference    |
+|-----------------------|-----------------------|----------------------|---------------|
+| Main CPU (DECO CPU-7) | 1.5 MHz               | 1.5 MHz              | 0             |
+| Pixel                 | 6 MHz                 | 6 MHz                | 0             |
+| Sound CPU (6502)      | 500 kHz               | 500 kHz              | 0             |
+| Sound (2x AY-3-8910)  | 1.5 MHz               | 1.5 MHz              | 0             |
+| Video                 | 15.625 kHz / 59.87 Hz | 31.25 kHz / 59.87 Hz | lines doubled |
 
-## Clocking
+Basys 3 video values are for the VGA mode (sw13 down).
 
-`clk_wiz_0`: 12.000 MHz (5 / 49.875 / 83.125), single domain; original 12.000 MHz crystal
-(pixel 6 MHz, main CPU 1.5 MHz). Video H 31.25 kHz / V 59.87 Hz (261 lines). Details:
-`contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
+Original values: MAME `dataeast/btime.cpp` (12.000 MHz crystal).
 
-## Required ROMs
+## ROMs
 
-`btime.zip` (MAME romset; `ROMZIP`, default `~/roms/btime.zip`), unzipped by
-`prep_roms.sh` into `<SRC_DIR>/tools/burger_time_unzip/`; generates
-`burger_time_prog.vhd`, `bg_map.vhd`, `bg_graphx_1/2/3.vhd`, `fg_sp_graphx_1/2/3.vhd`,
-`burger_time_sound_prog.vhd`. Not included.
-**Do not redistribute roms or anything generated from them.**
+`btime.zip` (MAME romset) in `~/roms/` or `$ROMZIP`. Not included. Do not redistribute
+roms or anything generated from them.
 
 ## Building
 
-Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
-patch), `make check` (parse-only), `make bitstream`, `make load`. `make setup` verifies and
-extracts `dloads/vhdl_burger_time_rev_0_0_2017_12_27.zip`, applies
-`contrib/code/burger_time_cpu_1p5mhz.patch` and runs `contrib/tools/prep_roms.sh`.
+Requirements:
+
+- gcc
+- unzip
+- Vivado 2020.2 (the `VIVADO` variable overrides the install path)
+- openFPGALoader
+
+Make targets, run from this directory:
+
+- `make`: extract the sources, generate the PROM VHDL from the romset, create the
+  Vivado project, generate the clock IP and install the Basys 3 top level.
+- `make check`: parse-only syntax check, no synthesis.
+- `make bitstream`: synthesis, implementation and bitstream.
+- `make load`: program the Basys 3 with the built bitstream.
+- `make clean`: remove the extracted sources and build output.
+- `make help`: list all targets.
 
 ## Known issues
 
 None open.
 
-## Issues addressed for Basys 3
+## Changes to third-party sources
 
-- `rtl_dar/burger_time.vhd`: main CPU enable gives 750 kHz (`bnj` rate); MAME `btime` runs
-  1.5 MHz. `contrib/code/burger_time_cpu_1p5mhz.patch` (2026-10-02, user decision).
-- Scandoubler `ce_x1` from a second MMCM output failed hold timing (WHS -0.60 ns); replaced
-  by a `clock_12` toggle enable, single MMCM output (2026-10-02).
-- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
-  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
-  applied to the project copy).
+- `contrib/code/burger_time_cpu_1p5mhz.patch`
+  - Origin: Dar archive
+  - Change: main CPU at 1.5 MHz, as MAME `btime` (core: 750 kHz)
+  - Files:
+    - `rtl_dar/burger_time.vhd`
 
-## Third-party sources
+- `contrib/code/scandoubler_fix.patch`
+  - Origin: [mist-modules@147aa5c][mist-modules] (Till Harbaum, GPL-3.0)
+  - Change: named blocks, full `sd_buffer` range (Vivado)
+  - Files:
+    - `scandoubler.v` (copy in `contrib/code/`)
 
-| Resource | Source | Notes |
-|---|---|---|
-| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |
+[mist-modules]: https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v
+

@@ -70,3 +70,4 @@ CPU's current mode.
 The fix is a sound, targeted hardware-model correction; the mechanism is understood and the side
 effects are negligible. The remaining validation is on-hardware (start/coin behavior), already
 tracked in `PORTING_SPEC.md` §11.
+

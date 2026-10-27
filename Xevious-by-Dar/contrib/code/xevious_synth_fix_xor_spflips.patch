@@ -2,8 +2,8 @@ diff --git a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd b/vhdl_xe
 --- a/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd
 +++ b/vhdl_xevious_de2_de10_lite_2017_05_01/rtl_dar/xevious.vhd
 @@ -673,10 +673,10 @@
- -- set graphics rom address (external) from sprite code, flip mask, sprite size (2xV, 2xH), sprite horizontal tile and vertical line 
- -- rom data will be latch within sprite machine loop at sprite_state = "010" and sprite_state = "011"  
+ -- set graphics rom address (external) from sprite code, flip mask, sprite size (2xV, 2xH), sprite horizontal tile and vertical line
+ -- rom data will be latch within sprite machine loop at sprite_state = "010" and sprite_state = "011"
  with sprite_attr(1 downto 0) select
 -sp_grphx_addr <=  (sp_code_ext(8 downto 0)                                    & sprite_vcnt(3) & sprite_hcnt(3 downto 2) & sprite_vcnt(2 downto 0) ) xor spflips when "00",
 -									(sp_code_ext(8 downto 1) & 						      sprite_hcnt(4)  & sprite_vcnt(3) & sprite_hcnt(3 downto 2) & sprite_vcnt(2 downto 0) ) xor spflips when "01",

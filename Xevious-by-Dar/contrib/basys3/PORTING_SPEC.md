@@ -80,6 +80,7 @@ pwm_accumulator(11 downto 0)) + unsigned('0' & audio)` (`audio` 11 bits), output
   ignored; `../../../PORTING_SPEC.md` §3.1, §4.3): arrows, Left Ctrl = fire, Left Alt =
   bomb, 1/2 = start, 5/6 = coin (2026-10-20; replaced Dar's `kbd_joystick`, which is no
   longer instantiated).
+- Player 2 mirrors player 1.
 - Core inputs: active-high discrete ports; fire and bomb are passed to the CPU as levels
   (`xevious.vhd:1240`, `:1250`), so contact bounce is filtered by the game's once-per-frame
   read: no JXADC fire debounce (no double shots on hardware, 2026-10-21; contrast Galaga,
@@ -95,7 +96,7 @@ pwm_accumulator(11 downto 0)) + unsigned('0' & audio)` (`audio` 11 bits), output
 - Debounce (2026-10-02): btnU/btnD/btnL/btnR stable for 2^18 `clock_18` cycles (14.2 ms);
   the core edge-detects coin, so release bounce counted extra coins.
 - Combos: JXADC up + fire = bomb (approved 2026-10-20); up and fire pass through.
-  Wrapper signals `ja_s`/`ja_*` carry JXADC (names kept from the JA era).
+  Wrapper signals `stick_meta`/`stick_s` carry JXADC.
 
 ## 8. Switches and DIPs
 
@@ -120,16 +121,19 @@ and `dip_b` (freeze, difficulty, coin B) are constants inside `rtl_dar/xevious.v
 
 `contrib/tools/prep_roms.sh`: compiles `make_vhdl_prom`, rebuilds
 `make_xevious_proms.sh` from `make_xevious_proms.bat`, unzips `xevious.zip` (`ROMZIP`)
-into `tools/xevious_unzip/roms/`, renames the 9 color/sound PROMs to Dar's names
+into `tools/xevious_unzip/roms/` (distinct from the archive's `tools/xevious_unzip_win64/`), renames the 9 color/sound PROMs to Dar's names
 (`xvi-8*.6a` → `xvi_8bpr.6a`, ...), generates the PROM VHDL (incl.
 `xevious_cpu_gfx_8bits.vhd`). The project references the generated files in place.
 
 ## 11. Build
 
-`make` (setup, create_prj, clk_wiz, patch), `make check`, `make bitstream`. `make check`
+`make` (setup, create_prj, clk_wiz, patch), `make check`, `make bitstream`. Project
+`vhdl_xevious_de2_de10_lite_2017_05_01/basys3/xevious_basys3.xpr` (top `xevious_basys3`).
+`make check`
 shows one pre-existing CRITICAL WARNING HDL 9-3240 (`r2_port_in`,
 `rtl_dar/xevious.vhd:1469`, core-internal).
 
 ## 12. Open items
 
 None.
+

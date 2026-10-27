@@ -1,7 +1,7 @@
 # Galaga-Midway-by-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -232,7 +232,8 @@ Applied by `setup_galaga.sh` (`patch -p1 --forward`), except `scandoubler_fix.pa
 shell, unzips `ROMZIP1` / `ROMZIP2` (default `~/roms/galaga.zip`, `~/roms/galagamw.zip`;
 two variables, not the single `ROMZIP`) and generates `galaga_cpu1/2/3.vhd`,
 `cs54xx_prog.vhd`, `sp_graphx.vhd`, `bg_graphx.vhd`, `sp_palette.vhd`, `bg_palette.vhd`,
-`rgb.vhd`, `sound_samples.vhd`, `sound_seq.vhd`. Never committed.
+`rgb.vhd`, `sound_samples.vhd`, `sound_seq.vhd`. Never committed. `galagamw` provides the
+`3200a`-`3700g` CPU ROMs missing from `galaga`.
 
 ## 11. Build
 
@@ -248,3 +249,8 @@ patch), `make check`, `make synth` / `make bitstream`. Project `basys3/galaga_ba
 - 51XX credit state machine investigation on hold (§9).
 - `clk_sys` = fabric `clock_12` is a register-derived clock (§5.1); the Pooyan pattern was
   not tried.
+- Keyboard sticking to the right (former README known issue): not observed on recent
+  builds (user, 2026-10-27); entry removed from the README.
+- Status tiles sometimes distorted or missing pixels after reset (user, 2026-10-27):
+  open, `../../../KNOWN_ISSUES.md`.
+

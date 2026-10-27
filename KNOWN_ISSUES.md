@@ -106,6 +106,16 @@ Entry format:
 - **Tried**: n/a (by inspection).
 - **Status**: open; candidate fix: `set_false_path` from the synchronized asynchronous inputs (`btn*`, `sw*`, `JXADC*`, `ps2_*`), optional output constraints for VGA/PWM.
 
+### Galaga-Midway-by-Dar: status tiles sometimes distorted after reset
+- **Reported**: 2026-10-27 (user, hardware, 2026-10-27 build)
+- **Symptom**: after a reset, the status tiles are sometimes distorted or missing pixels.
+  Intermittent.
+- **Tried**: n/a (not yet investigated). Leads, unconfirmed: btnC reset is not synchronized
+  (`reset <= btnC or not mmcm_locked`; `TODO.md` btnC reset synchronizer item);
+  register-derived `clock_18`/`clock_12` in the core (Galaga PORTING_SPEC §5.1);
+  Pooyan/Time-Pilot precedent of an intermittent after-reset fault (Fixed section).
+- **Status**: open
+
 ## Fixed
 
 ### Popeye-by-Dar, Zaxxon-by-Dar, Traverse-USA-by-Dar: wrapper `clock_kbd` is a register-derived clock
@@ -122,7 +132,7 @@ Entry format:
   has working synchronous reset logic), and the CPU-written sound registers
   `sound_a`/`sound_b` (`phoenix.vhd:200-212`) are not cleared on reset.
 - **Proposed fix**: core patch `phoenix_sound_reset.patch`: `reset => reset` on the four
-  modules and `sound_a`/`sound_b` <= 0 while reset (CRLF-preserving, as the other
+  modules and `sound_a`/`sound_b` <= 0 while reset (LF patch against the normalized file, as the other
   Phoenix patches).
 - **Status**: fixed 2026-10-07: `contrib/code/phoenix_sound_reset.patch` (as proposed);
   hardware-confirmed 2026-10-07 (user). History: open, deferred (user, 2026-10-02).
@@ -900,3 +910,4 @@ Entry format:
   drives `fire11`/`fire21` (OR JA fire); F no longer fires. Wrapper placed, provenance
   patch regenerated, `check_syntax` clean.
 - **Status**: fixed, hardware-confirmed 2026-10-01 (user).
+

@@ -897,3 +897,4 @@ same pixel data out at ~2x rate — see Pooyan's entry above for the general der
 native H-rate is exactly half. A single `Frame rate(s)` value applies to both VGA and TV modes
 for that family (doubling only changes H-rate, not V); two values (`VGA / TV`) are given only
 where the core generates genuinely separate native timing per mode (no scandoubler at all).
+

@@ -1,6 +1,6 @@
-diff -ruN /home/xubuntu/tmp/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd ./vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
---- /home/xubuntu/tmp/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd	2018-05-06 09:06:22.000000000 -0400
-+++ ./vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd	2026-08-19 10:04:46.288864402 -0400
+diff --git a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd b/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
+--- a/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
++++ b/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd
 @@ -113,8 +113,8 @@
   video_clk      : out std_logic;
   video_csync    : out std_logic;
@@ -12,7 +12,7 @@ diff -ruN /home/xubuntu/tmp/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd ./
   audio          : out std_logic_vector(9 downto 0);
  
   b_test         : in std_logic;
-@@ -970,8 +970,8 @@
+@@ -971,8 +971,8 @@
  enable  => ena_vidgen,
  hcnt    => hcnt,
  vcnt    => vcnt,
@@ -23,10 +23,3 @@ diff -ruN /home/xubuntu/tmp/vhdl_galaga_rev_0_3_2018_05_06/rtl_dar/galaga.vhd ./
  csync   => video_csync,
  blankn  => video_blankn
  );
-@@ -1217,4 +1217,4 @@
-  data => rgb_palette_do
- );
- 
--end struct;
-\ No newline at end of file
-+end struct;

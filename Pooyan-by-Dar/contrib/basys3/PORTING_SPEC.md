@@ -96,7 +96,7 @@ conversion). Mono `O_PMODAMP2_AIN` = accumulator bit 12 (the DE10 had `pwm_audio
   (`kbd_joystick.vhd` stays in the project, unreferenced).
 - Core inputs: active-high at the `pooyan` boundary (`input_0/1/2 <= ... & not <input>`
   inside the core); level-read by the CPU.
-- Merge: `joyPCFRLDU(0..4)` = key or `not ja_s(n)` (up JXADC4, down JXADC3, left JXADC2,
+- Merge: `joyPCFRLDU(0..4)` = key or `not stick_s(n)` (up JXADC4, down JXADC3, left JXADC2,
   right JXADC1, fire JXADC7); coin = keys 5/6 or btnU or btnD; start 1 = key 1 or btnL;
   start 2 = key 2 or btnR.
 - Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC(4:0) and btnU/btnL/btnR/btnD, on
@@ -120,7 +120,7 @@ DIP switches hardware-verified (dip 2, 2026-10; Coinage A 2026-10-21).
 | Patch | Target | Reason |
 |---|---|---|
 | `contrib/basys3/code/pooyan_t80_xor_width.patch` | `rtl_t80_350/T80.vhd` | operand widths of `&` differ (T80.vhd:562); Vivado rejects |
-| `contrib/basys3/code/pooyan_single_domain.patch` | `rtl_dar/pooyan.vhd`, `pooyan_sound_board.vhd`, `gen_ram.vhd` | single clock domain (§2); CRLF, applied with `--binary` |
+| `contrib/basys3/code/pooyan_single_domain.patch` | `rtl_dar/pooyan.vhd`, `pooyan_sound_board.vhd`, `gen_ram.vhd` | single clock domain (§2) |
 | `contrib/basys3/code/pooyan_vcnt_264_lines.patch` | `rtl_dar/pooyan.vhd` | `vcnt` reload `0x0F9` → `0x0F8`: 264 lines, V 60.61 Hz (Dar 263, 60.84 Hz), MAME `set_raw(18.432_MHz_XTAL / 3, 384, 0, 256, 264, 16, 240)`; 2026-10-06, `../../../CLOCKING_SPEC.md` 5.7 |
 | `contrib/code/scandoubler_fix.patch` | project copy of `scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range |
 | `contrib/basys3/code/pooyan_de10_lite_to_basys3.patch` | `rtl_dar/pooyan_de10_lite.vhd` | provenance record (generated) |
@@ -150,7 +150,8 @@ converts `make_pooyan_proms.bat` to shell, unzips `pooyan.zip` (`ROMZIP`) into
 `clk_wiz_0_clk_wiz.v` to `sources_1/imports/clk_wiz_0/`. Project sources referenced in
 place: `rtl_dar/` (`pooyan.vhd`, `pooyan_sound_board.vhd`, `gen_ram.vhd`,
 `io_ps2_keyboard.vhd`, `kbd_joystick.vhd`), `rtl_t80_350/`, `rtl_mikej/YM2149_linmix_sep.vhd`,
-the generated PROMs.
+the generated PROMs. Bitstream:
+`vhdl_pooyan_rev_0_2_2020_04_26/basys3/pooyan_basys3.runs/impl_1/pooyan_basys3.bit`.
 
 ## 12. Open items
 

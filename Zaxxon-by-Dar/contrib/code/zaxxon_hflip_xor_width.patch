@@ -1,12 +1,12 @@
 diff --git a/vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd b/vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
 --- a/vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
 +++ b/vhdl_zaxxon_rev_0_0_2019_11_29/rtl_dar/zaxxon.vhd
-@@ -709,7 +709,7 @@
+@@ -720,7 +720,7 @@
  map_offset_h <= (bg_position & '1') + (x"0" & vflip(7 downto 0)) + 1;
  
  -- count from "00"->"FF" and then continue with "00"->"7F" instead of "80"->"FF"
--hflip2 <= hflip xor (not(hcnt(8)) & "0000000") when flip = '1' else hflip; 
-+hflip2 <= hflip xor ("0" & not(hcnt(8)) & "0000000") when flip = '1' else hflip; 
+-hflip2 <= hflip xor (not(hcnt(8)) & "0000000") when flip = '1' else hflip;
++hflip2 <= hflip xor ("0" & not(hcnt(8)) & "0000000") when flip = '1' else hflip;
  
  map_offset_l1 <= not('0' & vflip(7 downto 1)) + (hflip2(7 downto 3) & "111") + 1;
  map_offset_l2 <= map_offset_l1 + ('0' & not(flip) & flip & flip & flip & "000");

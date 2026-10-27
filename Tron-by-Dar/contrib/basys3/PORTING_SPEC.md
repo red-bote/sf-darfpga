@@ -123,3 +123,4 @@ files for the six PROM paths (removed afterwards). `create_project.sh` stages on
 - Optional JXADC approximation of the spinner.
 - Core-internal HDL 9-3240 at `rtl_dar/tron.vhd:945` (pre-existing; left as is, user
   decision pending).
+

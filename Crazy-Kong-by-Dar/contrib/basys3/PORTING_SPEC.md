@@ -1,7 +1,7 @@
 # Crazy-Kong-by-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -60,7 +60,7 @@ mux. sw13: `0` = `video_hs`/`video_vs`; `1` = `video_csync` on HS, VS `'1'`.
   1, 6 key 2, 7 keys 5/6. Replaces `kbd_joystick` (renamed from `joyHBCPPFRLDU`; Dar's
   bits 8/9, Ctrl / W, were never merged).
 - Core inputs: active-high; single `coin1`; P2 mirrors P1 (cocktail duplicates only).
-- Merge: `not jxadc_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/jump; coin =
+- Merge: `not stick_s(n)` OR keys; JXADC1/2/3/4/7 = right/left/down/up/jump; coin =
   keys 5/6, btnU, btnD; start 1 = key 1, btnL; start 2 = key 2, btnR.
 - Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_12` (2026-10-20).
 - Debounce: none.
@@ -80,19 +80,25 @@ needs a core patch.
 
 | Patch | Target | Reason |
 |---|---|---|
-| `contrib/code/ckong_xor_width.patch` | `rtl_dar/ckong.vhd:405-408` | four XOR literals zero-padded to 13 bits (`&` binds tighter than `xor`, so the 13-bit vector is the operand; Vivado rejects the length mismatch); no behaviour change; CRLF tree |
+| `contrib/code/ckong_xor_width.patch` | `rtl_dar/ckong.vhd:405-408` | four XOR literals zero-padded to 13 bits (`&` binds tighter than `xor`, so the 13-bit vector is the operand; Vivado rejects the length mismatch); no behaviour change |
 | `contrib/basys3/code/ckong_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated; name from `TOP_ENTITY` `ckong_basys3`) |
 
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_ckong_proms.bat` → shell; romset `ckong.zip` into
-`tools/ckong_unzip/`; 8 PROM VHDL files with the entity names the core references.
+`tools/ckong_unzip/`; 8 PROM VHDL files with the entity names the core references:
+`ckong_program`, `ckong_tile_bit0/1`, `ckong_big_sprite_tile_bit0/1`, `ckong_palette`,
+`ckong_big_sprite_palette`, `ckong_samples`. Dar's `README.txt` names the `ckongpt2`
+contents; all 17 files the `.bat` reads are in the `ckong` parent set.
 
 ## 11. Build
 
 `make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. `make check`
-reports a pre-existing core-internal HDL 9-3240 (`ckong_sound.vhd`).
+reports a pre-existing core-internal HDL 9-3240 (`ckong_sound.vhd`). First bitstream
+2026-09-07: no critical warnings or errors through implementation, post-route WNS
+36.461 ns.
 
 ## 12. Open items
 
 None.
+

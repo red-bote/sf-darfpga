@@ -1,7 +1,7 @@
 # Popeye-by-Dar: porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -81,7 +81,10 @@ vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd`.
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_popeye_proms.bat` → shell; romsets `popeye.zip`
-(`ROMZIP1`) + `popeyeu.zip` (`ROMZIP2`, the `7a`/`7b`/`7c`/`7e` ROMs).
+(`ROMZIP1`) + `popeyeu.zip` (`ROMZIP2`, the `7a`/`7b`/`7c`/`7e` ROMs). Output (referenced in
+place): `popeye_cpu`, `popeye_cpu_protected`, `popeye_ch_bits`, `popeye_sp_bits_1..4`,
+`popeye_ch_palette_rgb`, `popeye_sp_palette_gb`, `popeye_sp_palette_rg`,
+`popeye_bg_palette_rgb` (`.vhd`).
 
 ## 11. Build
 
@@ -91,3 +94,4 @@ at `vhdl_popeye_rev_0_3_2020_01_27/basys3/popeye_basys3.xpr`.
 ## 12. Open items
 
 None.
+

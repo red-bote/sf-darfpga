@@ -76,17 +76,17 @@ cp -f "$GEN_DIR"/*.vhd "$ROM_IMPORT/"
 
 step "6/6 Copying motion_board.vhd and applying its fix patches to the copy"
 cp -f "$SRC_DIR/rtl/motion_board.vhd" "$RTL_IMPORT/motion_board.vhd"
-# --binary: motion_board.vhd is CRLF (as extracted); a plain `patch` run
-# strips trailing CRs from the patch and cannot match it. The pristine
+# The copy is normalized (whitespace only) before the LF patches apply; the pristine
 # rtl/motion_board.vhd is never modified -- only this imported copy.
+"$ROOT/../tools/normalize_file.sh" "$RTL_IMPORT/motion_board.vhd"
 for p in "$ROOT/contrib/code/computer_space_motion_q_assoc.patch" \
          "$ROOT/contrib/code/computer_space_rocket_timer_synth_fix.patch" \
          "$ROOT/contrib/code/computer_space_motion_single_domain.patch"; do
-    if (cd "$PROJ_DIR" && patch --binary -p1 -R --dry-run --forward < "$p" > /dev/null 2>&1); then
+    if (cd "$PROJ_DIR" && patch -p1 -R --dry-run --forward < "$p" > /dev/null 2>&1); then
         echo "==> already applied, skipping $(basename "$p")"
     else
         echo "==> applying $(basename "$p")"
-        (cd "$PROJ_DIR" && patch --binary -p1 --forward < "$p")
+        (cd "$PROJ_DIR" && patch -p1 --forward < "$p")
     fi
 done
 

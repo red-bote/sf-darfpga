@@ -28,7 +28,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_top.vhd b
 +(reset, game_ce, game_ce_n, clock_50, explosion_clk, seconds_clk, timer_base_clk,
  rocket_missile_life_time_duration, saucer_missile_life_time_duration,
  saucer_missile_hold_duration, signal_delay_duration,
- thrust_and_rotate_clk, explosion_rotate_clk, 
+ thrust_and_rotate_clk, explosion_rotate_clk,
 diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_logic.vhd b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_logic.vhd
 --- a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_logic.vhd
 +++ b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_logic.vhd
@@ -39,21 +39,21 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/computer_space_logic.vhd
 -	game_clk, super_clk, explosion_clk,
 +	game_ce, game_ce_n, super_clk, explosion_clk,
  	seconds_clk, timer_base_clk 				: in std_logic;
- 	
+ 
  	rocket_missile_life_time_duration,
 @@ -81,7 +81,7 @@
- component sync_star_board 
+ component sync_star_board
  	port (
  	reset,
 -	game_clk											: in std_logic;
 +	game_ce, game_ce_n								: in std_logic;
  	super_clk,
- 	explosion_clk, seconds_clk					: in std_logic; 
+ 	explosion_clk, seconds_clk					: in std_logic;
  
 @@ -192,7 +192,7 @@
  -- SYNC STAR BOARD  								            							--
  -----------------------------------------------------------------------------
- Sync_Star_Brd : sync_star_board 
+ Sync_Star_Brd : sync_star_board
 -port map (reset, game_clk, super_clk, explosion_clk, seconds_clk,
 +port map (reset, game_ce, game_ce_n, super_clk, explosion_clk, seconds_clk,
  SB_3, SB_4, SB_6, SB_7, SB_C, SB_E, SB_N,
@@ -63,7 +63,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sync_star_board.vhd b/vh
 --- a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sync_star_board.vhd
 +++ b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sync_star_board.vhd
 @@ -51,7 +51,9 @@
- entity sync_star_board is 
+ entity sync_star_board is
  	port (
  	reset,
 -	game_clk 			-- Fundamental game
@@ -72,7 +72,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sync_star_board.vhd b/vh
 +							-- game_clk was the Fundamental game
  							-- clock for the whole game's
  							-- logical timing
- 							-- Only used when 
+ 							-- Only used when
 @@ -132,7 +134,7 @@
  
  component scan_counter is
@@ -83,7 +83,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sync_star_board.vhd b/vh
  	vsync												: out std_logic;
  	star_video_out 								: out std_logic;
 @@ -325,7 +327,7 @@
- -- that this piece of the puzzle was solved.											--	 
+ -- that this piece of the puzzle was solved.											--
  -----------------------------------------------------------------------------
  sync_and_stars: component scan_counter
 -	port map(game_clk, hsync, vsync, star_video,
@@ -96,16 +96,16 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/scan_counter.vhd b/vhdl_
 +++ b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/scan_counter.vhd
 @@ -25,7 +25,7 @@
  
- entity scan_counter is 
+ entity scan_counter is
  	port(
--	game_clk											: in std_logic; 	
+-	game_clk											: in std_logic;
 +	super_clk, game_ce, game_ce_n				: in std_logic; -- 48 MHz single domain
  	hsync												: out std_logic;
  	vsync												: out std_logic;
  	star_video_out,
 @@ -41,7 +41,7 @@
  
- -- 8 bit counter used for star generation  
+ -- 8 bit counter used for star generation
  component v74161 is
 -port ( CLK, CLRN, LDN, ENP, ENT				: in std_logic;
 +port ( CLK, CE, CLRN, LDN, ENP, ENT				: in std_logic;
@@ -121,27 +121,27 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/scan_counter.vhd b/vhdl_
 +b2_12 <= game_ce;   -- enable (replaces game_clk)
 +b5_10 <= game_ce_n; -- enable (replaces not game_clk)
  
- -----------------------------------------------------------------------------	
+ -----------------------------------------------------------------------------
  -- GENERATE SYNC SIGNAL AND SCAN COUNTER VALUES 									--
 @@ -122,9 +122,9 @@
- -----------------------------------------------------------------------------	
+ -----------------------------------------------------------------------------
  -- SCAN COUNTER								 												--
- -----------------------------------------------------------------------------	
+ -----------------------------------------------------------------------------
 -process (game_clk)
 +process (super_clk)
  begin
 -if rising_edge (game_clk) then
 +if rising_edge (super_clk) and game_ce = '1' then
- 	
+ 
  	case state is
  
 @@ -245,7 +245,8 @@
  -----------------------------------------------------------------------------
  star_counter: v74161
  port map(
--			clk 	=> b5_10, 
+-			clk 	=> b5_10,
 +			clk 	=> super_clk,
-+			ce  	=> b5_10, 
++			ce  	=> b5_10,
  			clrn  => b1_1,
  			ldn 	=> b1_9,
  			enp  	=> '1',
@@ -204,7 +204,7 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/composite_sync.vhd b/vhd
 +	if rising_edge(clk) and ce = '1' then
  		vsync_r <= vsync;
  		hsync_r <= hsync;
- 	
+ 
 diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd
 --- a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd
 +++ b/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd
@@ -212,8 +212,8 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  process (clock_50)
  begin
  if clock_50'event and clock_50='1' then
--	if thrust_and_rotate_clk_count = 2777778 then  
-+	if thrust_and_rotate_clk_count = 2666667 then  -- 48 MHz (50 MHz: 2777778)  
+-	if thrust_and_rotate_clk_count = 2777778 then
++	if thrust_and_rotate_clk_count = 2666667 then  -- 48 MHz (50 MHz: 2777778)
  		thrust_and_rotate_clk_count <= 0;
  		thrust_and_rotate_clk_buffer <=  not (thrust_and_rotate_clk_buffer);
  	else
@@ -221,8 +221,8 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  process (clock_50)
  begin
  if clock_50'event and clock_50='1' then
--	if explosion_clk_count = 4166667 then  
-+	if explosion_clk_count = 4000000 then  -- 48 MHz (50 MHz: 4166667)  
+-	if explosion_clk_count = 4166667 then
++	if explosion_clk_count = 4000000 then  -- 48 MHz (50 MHz: 4166667)
  		explosion_clk_count <= 0;
  		explosion_clk_buffer <=  not (explosion_clk_buffer);
  	else
@@ -239,15 +239,15 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/clocks.vhd b/vhdl_comput
  process (clock_50)
  begin
  if clock_50'event and clock_50='1' then
--	if seconds_clk_count = 25000000 then 
-+	if seconds_clk_count = 24000000 then -- 48 MHz (50 MHz: 25000000) 
+-	if seconds_clk_count = 25000000 then
++	if seconds_clk_count = 24000000 then -- 48 MHz (50 MHz: 25000000)
  		seconds_clk_count <= 0;
  		seconds_clk_buffer <=  not (seconds_clk_buffer);
  	else
 @@ -169,25 +169,25 @@
- -----------------------------------------------------------------------------	
+ -----------------------------------------------------------------------------
  timer_base_clk <= clock_50;
- 	
+ 
 -rocket_missile_life_time_duration <= 115000000; -- 2,3s
 +rocket_missile_life_time_duration <= 110400000; -- 2,3s (48 MHz; 50 MHz: 115000000)
  -- calculate rocket_missile_life_time_duration as:
@@ -281,8 +281,8 @@ diff --git a/vhdl_computer_space_rev_1_1_2017_11_22/rtl/sound.vhd b/vhdl_compute
  
  			when FREQ_COUNT =>
  				sample_rate_count <= sample_rate_count +1;
--				if sample_rate_count > 4535 then   -- 12kHz 
-+				if sample_rate_count > 4354 then   -- 12kHz (48 MHz; 50 MHz: 4535) 
+-				if sample_rate_count > 4535 then   -- 12kHz
++				if sample_rate_count > 4354 then   -- 12kHz (48 MHz; 50 MHz: 4535)
  					state <= READ_BYTE;
  					sample_rate_count <= 1;
  				else

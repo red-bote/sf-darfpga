@@ -60,7 +60,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
 @@ -213,35 +216,50 @@
   signal sound_cmd  : std_logic_vector(7 downto 0);
   signal sound_trig : std_logic;
-  
+ 
 + signal ch_graphx_addr_h, ch_graphx_addr_m     : std_logic_vector(12 downto 0);
 + signal ch_palette_addr_h, ch_palette_addr_m   : std_logic_vector(7 downto 0);
 + signal sp_graphx_addr_h, sp_graphx_addr_m     : std_logic_vector(13 downto 0);
@@ -97,7 +97,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
 +sp_palette_addr_m  <= sp_palette_addr  when ce6 = '1' else sp_palette_addr_h;
 +rgb_palette_addr_m <= rgb_palette_addr when ce6 = '1' else rgb_palette_addr_h;
 +
- -- debug 
+ -- debug
 -process (reset, clock_12)
 +process (clk_core)
  begin
@@ -112,11 +112,11 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
 -begin
 -	if reset='1' then
 -		clock_6  <= '0';
--	else 
+-	else
 -		if rising_edge(clock_12) then
 -			clock_6  <= not clock_6;
 -		end if;
--	end if;   		
+-	end if;
 -end process;
 +-- 6MHz clock: replaced by the ce6/ce6n/clk6_lvl enables from the wrapper
  
@@ -132,9 +132,9 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
  	if reset='1' then
  		pxcnt <= "000";
 @@ -266,7 +284,7 @@
- 		vcnt  <= '0'&X"FC";	
+ 		vcnt  <= '0'&X"FC";
  		spcnt <= "00000";
- 	else 
+ 	else
 -		if rising_edge(clock_6) then
 +		if rising_edge(clk_core) and ce6 = '1' then
  			pxcnt <= pxcnt + '1';
@@ -155,17 +155,17 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
 @@ -386,9 +404,9 @@
  
  -- latch current sprite data with respect to pixel and hcnt in relation
- -- with sprite data ram addressing  
+ -- with sprite data ram addressing
 -process (clock_6)
 +process (clk_core)
  begin
 -	if rising_edge(clock_6) then
 +	if rising_edge(clk_core) and ce6 = '1' then
- 	
+ 
  		if (hcnt(0) = '0') and (pxcnt = "001") then
  			sp_posh <= spram1_do ; -- a.k.a. X
 @@ -427,9 +445,9 @@
- 							
+ 
  -- latch and shift sprite graphics data with respect to flipx control
  -- 8bits => 4x2bits = 4pixels / 4colors (3colors + transparent)
 -process (clock_6)
@@ -173,7 +173,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
  begin
 -	if rising_edge(clock_6) then
 +	if rising_edge(clk_core) and ce6 = '1' then
- 	
+ 
  		if pxcnt(1 downto 0) = "00" then
  			if sp_on_line = '1' then
 @@ -455,9 +473,9 @@
@@ -231,7 +231,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
 @@ -514,13 +532,13 @@
  
  -- latch current char data with respect to vcnt and hcnt in relation
- -- with wram ram addressing  
+ -- with wram ram addressing
 -process (clock_6)
 +process (clk_core)
  begin
@@ -254,7 +254,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
  begin
 -	if rising_edge(clock_6) then
 +	if rising_edge(clk_core) and ce6 = '1' then
- 		if pxcnt(1 downto 0) = "00" then 
+ 		if pxcnt(1 downto 0) = "00" then
  			if (ch_data1(6) xor flip) = '0'  then
  				ch_pixels <= ch_graphx_do;
 @@ -565,9 +583,9 @@
@@ -268,10 +268,10 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
 +	if rising_edge(clk_core) and ce6 = '1' then
  		sp_blank <= ch_color_set(4);
  	end if;
- end process;	
+ end process;
 @@ -578,9 +596,9 @@
- 	'0' & sp_read_out; 
- 	
+ 	'0' & sp_read_out;
+ 
  -- register and assign rbg palette output
 -process (clock_6)
 +process (clk_core)
@@ -414,7 +414,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot.vhd b/vhdl_ti
   data => sp_palette_do
  );
  
- -- rgb palette ROM 1 
+ -- rgb palette ROM 1
  rgb_palette_gb : entity work.time_pilot_palette_blue_green
  port map(
 - clk  => clock_6,
@@ -461,10 +461,10 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
  
   signal reset_n: std_logic;
 - signal clock_14n : std_logic;
-  
+ 
   signal clock_div1 : std_logic_vector(11 downto 0) := (others => '0');
   signal biquinary_div : std_logic_vector(3 downto 0) := (others => '0');
-  
+ 
 - signal cpu_clock  : std_logic;
 - signal ayx_clock  : std_logic;
 + signal cpu_ce     : std_logic;  -- former cpu_clock = clock_div1(2) rising
@@ -473,13 +473,13 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
   signal cpu_addr   : std_logic_vector(15 downto 0);
   signal cpu_di     : std_logic_vector( 7 downto 0);
 @@ -114,13 +114,12 @@
-  
+ 
  begin
  
 -clock_14n <= not clock_14;
  reset_n   <= not reset;
  
- -- debug 
+ -- debug
 -process (reset, clock_14)
 +process (clk_core)
  begin
@@ -491,18 +491,18 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
 @@ -191,9 +190,9 @@
  Vcn_c <= 255*1024 when Vcn_b > 255*1024 else Vcn_b;
  
- -- demux/store result and mix channels				
--process (clock_14)  
-+process (clk_core)  
+ -- demux/store result and mix channels
+-process (clock_14)
++process (clk_core)
  begin
 -	if rising_edge(clock_14) then -- 14.318MHz/512 => fs = 27.96KHz
 +	if rising_edge(clk_core) and ce14 = '1' then -- 14.318MHz/512 => fs = 27.96KHz
- 	
+ 
  		-- demux & down sample
  		if clock_div1(8 downto 0) = '0'&X"00" then Vc_1a <= Vcn_c; end if;
 @@ -218,13 +217,13 @@
- 			
- -- divide clocks 
+ 
+ -- divide clocks
  -- random generator ?
 -process (clock_14)
 +process (clk_core, reset)
@@ -510,11 +510,11 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
  	if reset='1' then
  		clock_div1 <= (others =>'0');
  		biquinary_div <= (others =>'0');
- 	else 
+ 	else
 -		if rising_edge(clock_14) then
 +		if rising_edge(clk_core) and ce14 = '1' then
  			clock_div1  <= clock_div1 + '1';
- 			
+ 
  			if clock_div1 = X"800" then
 @@ -241,8 +240,8 @@
  end process;
@@ -528,7 +528,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
  -- mux rom/ram/devices data ouput to cpu data input w.r.t cpu address
  cpu_di <= cpu_rom_do   when cpu_addr(15 downto 12) = "0000" else -- 0000-0FFF
 @@ -277,17 +276,17 @@
- clr_irq_n <= reset_n and (cpu_m1_n or cpu_iorq_n); 
+ clr_irq_n <= reset_n and (cpu_m1_n or cpu_iorq_n);
  
  -- regsiter filters commands (11 bits data are cpu address)
 -process (cpu_clock)
@@ -537,7 +537,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
 -	if rising_edge(cpu_clock) then
 +	if rising_edge(clk_core) and cpu_ce = '1' then
  		if filter_cmd_we = '1' then filter_cmd <= cpu_addr(11 downto 0); end if;
- 	end if;	
+ 	end if;
  end process;
  
  -- latch sound trigger rising edge to set cpu_irq, and manage clear
@@ -546,9 +546,9 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_sound_board.v
  begin
 -	if rising_edge(clock_14) then
 +	if rising_edge(clk_core) and ce14 = '1' then
- 		
- 		sound_trig_r <= sound_trig;	
- 		
+ 
+ 		sound_trig_r <= sound_trig;
+ 
 @@ -303,9 +302,9 @@
  end process;
  

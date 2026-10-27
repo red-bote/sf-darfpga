@@ -1,7 +1,7 @@
 # Computer-Space-by-Dar — porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -127,7 +127,7 @@ sw13-15 as fixed by the convention; sw0-12 unused.
 
 | Patch | Target | Reason |
 |---|---|---|
-| `contrib/code/computer_space_single_domain.patch` | `computer_space_top.vhd`, `computer_space_logic.vhd`, `sync_star_board.vhd` (`game_clk` port → `game_ce`/`game_ce_n`); `scan_counter.vhd` (`super_clk` + `game_ce`; star counter `game_ce_n`); `v74161.vhd`, `v74161_16bit.vhd` (`CE`, default `'1'`); `composite_sync.vhd` (`ce`, default `'1'`); `clocks.vhd`, `sound.vhd`, `computer_space_sound.vhd` (constants, §2) | single clock domain; generic setup loop, `--binary` (CRLF) |
+| `contrib/code/computer_space_single_domain.patch` | `computer_space_top.vhd`, `computer_space_logic.vhd`, `sync_star_board.vhd` (`game_clk` port → `game_ce`/`game_ce_n`); `scan_counter.vhd` (`super_clk` + `game_ce`; star counter `game_ce_n`); `v74161.vhd`, `v74161_16bit.vhd` (`CE`, default `'1'`); `composite_sync.vhd` (`ce`, default `'1'`); `clocks.vhd`, `sound.vhd`, `computer_space_sound.vhd` (constants, §2) | single clock domain; generic setup loop |
 | `contrib/code/computer_space_motion_q_assoc.patch` | imported `motion_board.vhd` | association fix (applied by `create_project.sh`) |
 | `contrib/code/computer_space_rocket_timer_synth_fix.patch` | imported `motion_board.vhd` | synthesis fix (integers out of the sensitivity list) plus the rocket-missile fire fix (§9.1) |
 | `contrib/code/computer_space_motion_single_domain.patch` | imported `motion_board.vhd` | the internal `clk` net (`not MB_20` = game_clk) becomes an enable; its processes and the two `v74161_16bit` instances run on `super_clk`; applied after the two patches above |
@@ -135,7 +135,8 @@ sw13-15 as fixed by the convention; sw0-12 unused.
 | `contrib/basys3/code/computer_space_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated) |
 
 Setup extensions (`setup_computer_space.sh`): `--de10-dir rtl`, `--extra-exclude` (the
-motion-board patches), `--binary`.
+motion-board patches; `create_project.sh` normalizes the imported `motion_board.vhd`
+copy and applies them).
 
 ### 9.1 Rocket-missile fire fix
 
@@ -209,3 +210,4 @@ hardware reflash.
 - Diode-matrix input (note only): not needed (parallel `signal_*` bus). For many controls
   over few Pmod pins, a scanned row x column matrix with steering diodes is the pattern;
   out of scope.
+

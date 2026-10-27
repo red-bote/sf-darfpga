@@ -29,9 +29,8 @@ reference machine `Pooyan-by-Dar` (`PORTING_SPEC.md` §2).
   and a `contrib/basys3/PORTING_SPEC.md`.
 - The root `Makefile` delegates to per-machine Makefiles:
   `make <step>-<machine>` (e.g. `make setup-galaga`, `make synth-pooyan`).
-- Root `README.md` is the machine index with clock frequencies, project names,
-  romsets, and a one-line status per machine.
-- Each machine's `README.md` carries its dated `## Status`, controls, switches and IO;
+- Root `README.md` is the machine index (romsets, links) and the overall status.
+- Each machine's `README.md` carries connections, controls, switches and clocks;
   its `contrib/basys3/PORTING_SPEC.md` carries the design detail.
 - `tools/vhdl_formatter.py` — stdlib-only VHDL indent/alignment formatter
   (`--check`, `--align`, `--indent N`).
@@ -108,8 +107,9 @@ request.
 - Machines needing two romsets (Galaga, Tron, Popeye) require the extra set for
   color PROMs, CPU/speech ROMs absent from the plain set (resolved via
   `ROMZIP2`).
-- Each machine README `## Status` is the current record of its verified state; the
-  root `README.md` Status section summarizes it.
+- Verification results are recorded in commit messages; the root `README.md` states the
+  overall status.
 - Don't trust other agents' doc (e.g. `CLAUDE.md`) for counts/status — they
   drift; the root `Makefile` `PORTS` list and the present machine dirs are the
-  live record (the root `README.md` Status can lag a dir removal).
+  live record (the root `README.md` index can lag a dir removal).
+

@@ -302,3 +302,4 @@ changed lines).
 Each change: `make clk_wiz` (records the solve), README "Solved MMCM",
 PORTING_SPEC, catalog, TODO.md; synthesis and bitstream only on explicit
 request; acceptance on both displays.
+

@@ -2,7 +2,7 @@ diff --git a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd b
 --- a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
 +++ b/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
 @@ -294,6 +294,7 @@
- component v74161_16bit 
+ component v74161_16bit
  	port(
  	clk 													: in std_logic;
 +	ce  													: in std_logic;
@@ -13,9 +13,9 @@ diff --git a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd b
  begin
  
  -----------------------------------------------------------------------------
---- clk is the game_clk																		--	
-+-- clk is the game_clk enable (48 MHz single domain)																		--	
- -- replaces a6_8, a6_6, a6_4, a6_2														--	
+--- clk is the game_clk																		--
++-- clk is the game_clk enable (48 MHz single domain)																		--
+ -- replaces a6_8, a6_6, a6_4, a6_2														--
  -----------------------------------------------------------------------------
  clk <= not MB_20;
 @@ -446,7 +447,8 @@
@@ -63,11 +63,11 @@ diff --git a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd b
 +if rising_edge (super_clk) and clk = '1' then
  	f1_13_old <= f1_13;
  	if (f1_13_old = '0') and (f1_13 = '1') then
- 		f1_15 <=  f1_3;		-- vertical velocity or not	
+ 		f1_15 <=  f1_3;		-- vertical velocity or not
 @@ -1361,9 +1363,9 @@
  -- When missile is about to launch it is synchronized with current TV 		--
  -- beam position, and consequently its relative position to the rocket.		--
- -----------------------------------------------------------------------------	
+ -----------------------------------------------------------------------------
 -process (clk)
 +process (super_clk)
  begin

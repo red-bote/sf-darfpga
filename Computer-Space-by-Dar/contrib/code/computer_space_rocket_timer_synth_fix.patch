@@ -1,22 +1,21 @@
 diff --git a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd b/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
 --- a/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
 +++ b/computer_space_basys3.srcs/sources_1/imports/rtl/motion_board.vhd
-@@ -539,20 +539,23 @@
+@@ -542,20 +542,23 @@
  -- MB_2_rocket is used instead of MB_2 and g1_11 - for the rocket missile	--
  -- audio.																						--
  -----------------------------------------------------------------------------
 -process (timer_base_clk, MB_Y, missile_timer, missile_life_time_counter, rocket_missile_life_time_duration)
 +process (timer_base_clk, MB_Y)
  begin
--if (MB_Y = '1' and missile_timer = '0') then 
-+if (MB_Y = '1' and missile_timer = '0') then
+ if (MB_Y = '1' and missile_timer = '0') then
  	d6_1 <= '0';
  	missile_timer <= '1';
  	MB_2_rocket <= '1';	-- rocket missile sound sample trigger on
--elsif (rising_edge(timer_base_clk) and missile_timer = '1') then 
+-elsif (rising_edge(timer_base_clk) and missile_timer = '1') then
 -	missile_life_time_counter <= missile_life_time_counter + 1;
 -elsif (rising_edge(timer_base_clk) and
--		missile_life_time_counter > rocket_missile_life_time_duration) then 
+-		missile_life_time_counter > rocket_missile_life_time_duration) then
 -	missile_life_time_counter <= 0;
 -	missile_timer <= '0';
 -	d6_1 <= '1';

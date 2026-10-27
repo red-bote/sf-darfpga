@@ -1,3 +1,4 @@
+diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye.vhd b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye.vhd
 --- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye.vhd
 +++ b/vhdl_popeye_rev_0_3_2020_01_27/rtl_dar/popeye.vhd
 @@ -376,7 +376,7 @@

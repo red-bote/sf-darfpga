@@ -1,7 +1,7 @@
 # Satans-Hollow-by-Dar: porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -95,7 +95,9 @@ duplicate `YM2149` entity by listing only the `_sep` file).
 
 `contrib/tools/prep_roms.sh`: `make_satans_hollow_proms.bat` → shell; romset `shollow.zip`
 (`ROMZIP`); `82s123.12d` renamed to `midssio_82s123.12d` (the SSIO PROM ships in the same
-set, unlike Tron's separate `midssio.zip`).
+set, unlike Tron's separate `midssio.zip`). Romset pre/post-flight checks. Output (referenced in
+place): `satans_hollow_cpu`, `satans_hollow_sound_cpu`, `satans_hollow_bg_bits_1/2`,
+`satans_hollow_sp_bits`, `midssio_82s123` (`.vhd`).
 
 ## 11. Build
 
@@ -106,3 +108,4 @@ at `vhdl_satans_hollow_rev_0_2_2019_11_22/basys3/satans_hollow_basys3.xpr`.
 
 - Core-internal HDL 9-3240 at `rtl_dar/satans_hollow.vhd:934` (pre-existing; left as is,
   user decision pending).
+

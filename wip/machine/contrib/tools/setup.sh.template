@@ -6,7 +6,7 @@
 # SourceForge archive into dloads/, extract it, apply contrib/code/*.patch, except
 # *_de10_lite_to_basys3.patch and *scandoubler_fix.patch, which that shared function
 # never applies to the pristine tree; then run contrib/tools/prep_roms.sh).
-# Add --binary when the fix patches must keep CRLF line endings.
+# Fix-patch targets are normalized (whitespace only) before the LF patches apply.
 #
 # Roms and the generated PROM VHDL stay local (never distributed).
 #

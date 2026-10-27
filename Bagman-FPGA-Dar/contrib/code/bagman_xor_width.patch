@@ -16,10 +16,3 @@ diff --git a/vhdl_bagman_rev_0_1_2018_06_05/rtl_dar/bagman.vhd b/vhdl_bagman_rev
  						end case;
  				else
  					tile_graph_rom_addr <= attr_sp_bg(4) & attr_sp_bg(5) & bg_tile_code & y_line_shift(2 downto 0);
-@@ -667,4 +667,4 @@
- 	data  => tile_graph_rom_bit1_do
- );
- ------------------------------------------
--end architecture;
-\ No newline at end of file
-+end architecture;

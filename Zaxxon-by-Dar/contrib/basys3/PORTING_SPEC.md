@@ -98,6 +98,7 @@ channel open. `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
   the USB-HID host) is removed: single domain. Hardware-verified 2026-10-20.
 - Core inputs: active-high; `p1_input` is read by the CPU as a level
   (`zaxxon.vhd:451`), so fire needs no debounce; `coin1_mem`/`coin2_mem` are edge-latched.
+  Player 2 mirrors player 1: the core's `*_c` cocktail inputs take the player 1 signals.
 - Merge: JXADC1 right, JXADC2 left, JXADC3 down, JXADC4 up, JXADC7 fire, OR-merged with
   the keys; coin 1 = key 5, btnU, btnD; coin 2 = key 6; start 1 = key 1, btnL; start 2 =
   key 2, btnR.
@@ -147,3 +148,4 @@ tree and imports `scandoubler.v` (then applies the fix patch).
 
 - Register-derived scandoubler `clk_sys` (§5); candidate: Pooyan-style single domain
   (needs a hardware test).
+

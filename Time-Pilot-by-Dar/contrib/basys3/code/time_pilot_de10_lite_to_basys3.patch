@@ -1,56 +1,79 @@
 diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 --- a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 +++ b/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
-@@ -1,348 +1,352 @@
-----------------------------------------------------------------------------------
+@@ -1,40 +1,33 @@
+ ---------------------------------------------------------------------------------
 --- DE10_lite Top level for Time pilot by Dar (darfpga@aol.fr) (29/10/2017)
 --- http://darfpga.blogspot.fr
-----------------------------------------------------------------------------------
---- Educational use only
++-- Basys 3 top level for Time Pilot
++-- Source: time_pilot_de10_lite.vhd by Dar (darfpga@aol.fr,
++--   http://darfpga.blogspot.fr); see that file for its history.
++---------------------------------------------------------------------------------
++--
++-- 10/26/2026: initial Basys 3 release by Red~Bote
++--
+ ---------------------------------------------------------------------------------
+ -- Educational use only
 --- Do not redistribute synthetized file with roms
---- Do not redistribute roms whatever the form
---- Use at your own risk
-----------------------------------------------------------------------------------
++-- Do not redistribute synthesized file with roms
+ -- Do not redistribute roms whatever the form
+ -- Use at your own risk
+ ---------------------------------------------------------------------------------
 --- Use time_pilot_lite.sdc to compile (Timequest constraints)
 --- /!\
---- Don't forget to set device configuration mode with memory initialization 
+--- Don't forget to set device configuration mode with memory initialization
 ---  (Assignments/Device/Pin options/Configuration mode)
 ----------------------------------------------------------------------------------
 ---
 --- Main features :
----  PS2 keyboard input @gpio pins 35/34 (beware voltage translation/protection) 
----  Audio pwm output   @gpio pins 1/3 (beware voltage translation/protection) 
+---  PS2 keyboard input @gpio pins 35/34 (beware voltage translation/protection)
+---  Audio pwm output   @gpio pins 1/3 (beware voltage translation/protection)
 ---
 --- Uses 1 pll for 12MHz and 14MHz generation from 50MHz
 ---
 --- Board key :
 ---   0 : reset game
----
+ --
 --- Keyboard players inputs :
 ---
 ---   F3 : Add coin
 ---   F2 : Start 2 players
 ---   F1 : Start 1 player
----   SPACE       : Fire  
+---   SPACE       : Fire
 ---   RIGHT arrow : rotate right
 ---   LEFT  arrow : rotate left
----   UP    arrow : rotate up 
+---   UP    arrow : rotate up
 ---   DOWN  arrow : rotate down
 ---
 --- Other details : see time_pilot.vhd
 --- For USB inputs and SGT5000 audio output see my other project: xevious_de10_lite
-----------------------------------------------------------------------------------
--
--library ieee;
--use ieee.std_logic_1164.all;
--use ieee.std_logic_unsigned.all;
--use ieee.numeric_std.all;
--
--library work;
++-- Main features:
++--  Connections:
++--   VGA monitor (15 kHz RGB monitor with sw13 up)
++--   USB keyboard on the USB-HID host connector
++--   Atari-type joystick on Pmod JXADC
++--   PmodAMP2 with speaker on Pmod JA
++--  Controls       keyboard       stick          button
++--   up / down     arrows         up / down
++--   left / right  arrows         left / right
++--   fire          left ctrl      fire
++--   coin          5, 6                          btnU, btnD
++--   start1/2      1, 2                          btnL, btnR
++--   reset                                       btnC
++--  Switches: sw15 audio off, sw14 gain, sw13 15 kHz RGB,
++--   sw11-8 coinage A (DIP 1 bits 3-0), sw7-0 DIP 2
+ ---------------------------------------------------------------------------------
+ 
+ library ieee;
+@@ -43,306 +36,319 @@
+ use ieee.numeric_std.all;
+ 
+ library work;
 ---use work.usb_report_pkg.all;
--
+ 
 -entity time_pilot_de10_lite is
--port(
++entity time_pilot_basys3 is
+ port(
 - max10_clk1_50  : in std_logic;
 --- max10_clk2_50  : in std_logic;
 --- adc_clk_10     : in std_logic;
@@ -82,35 +105,58 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 - vga_b     : out std_logic_vector(3 downto 0);
 - vga_hs    : out std_logic;
 - vga_vs    : out std_logic;
-- 
+-
 --- gsensor_cs_n : out   std_logic;
---- gsensor_int  : in    std_logic_vector(2 downto 0); 
+--- gsensor_int  : in    std_logic_vector(2 downto 0);
 --- gsensor_sdi  : inout std_logic;
 --- gsensor_sdo  : inout std_logic;
 --- gsensor_sclk : out   std_logic;
 -
---- arduino_io      : inout std_logic_vector(15 downto 0); 
+--- arduino_io      : inout std_logic_vector(15 downto 0);
 --- arduino_reset_n : inout std_logic;
-- 
+-
 - gpio          : inout std_logic_vector(35 downto 0)
--);
++  clk  : in  std_logic;
++  sw   : in  std_logic_vector(15 downto 0);
++  btnC : in  std_logic;
++  btnU : in  std_logic;  -- coin
++  btnD : in  std_logic;  -- coin
++  btnL : in  std_logic;  -- start1
++  btnR : in  std_logic;  -- start2
++
++  JXADC   : in  std_logic_vector(4 downto 0);  -- joystick
++  ps2_dat : in  std_logic;
++  ps2_clk : in  std_logic;
++
++  O_PMODAMP2_AIN   : out std_logic;
++  O_PMODAMP2_GAIN  : out std_logic;
++  O_PMODAMP2_SHUTD : out std_logic;
++
++  vga_r  : out std_logic_vector(3 downto 0);
++  vga_g  : out std_logic_vector(3 downto 0);
++  vga_b  : out std_logic_vector(3 downto 0);
++  vga_hs : out std_logic;
++  vga_vs : out std_logic
+ );
 -end time_pilot_de10_lite;
--
++end time_pilot_basys3;
+ 
 -architecture struct of time_pilot_de10_lite is
--
++architecture struct of time_pilot_basys3 is
+ 
 - signal clock_12  : std_logic;
 - signal clock_14  : std_logic;
 - signal reset     : std_logic;
 - signal clock_6   : std_logic;
-- 
+-
 --- signal max3421e_clk : std_logic;
-- 
+-
 - signal r         : std_logic_vector(4 downto 0);
 - signal g         : std_logic_vector(4 downto 0);
 - signal b         : std_logic_vector(4 downto 0);
 - signal csync     : std_logic;
 - signal blankn    : std_logic;
-- 
+-
 - signal audio           : std_logic_vector(10 downto 0);
 - signal pwm_accumulator : std_logic_vector(12 downto 0);
 -
@@ -119,7 +165,7 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 - alias ps2_dat         : std_logic is gpio(34); --gpio(1);
 - alias pwm_audio_out_l : std_logic is gpio(1);  --gpio(2);
 - alias pwm_audio_out_r : std_logic is gpio(3);  --gpio(3);
-- 
+-
 - signal kbd_intr      : std_logic;
 - signal kbd_scancode  : std_logic_vector(7 downto 0);
 - signal joyPCFRLDU : std_logic_vector(7 downto 0);
@@ -128,13 +174,90 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 --- signal start : std_logic := '0';
 --- signal usb_report : usb_report_t;
 --- signal new_usb_report : std_logic := '0';
-- 
--signal dbg_cpu_addr : std_logic_vector(15 downto 0);
--
--begin
--
++  component scandoubler
++  port (
++    clk_sys   : in  std_logic;
++    scanlines : in  std_logic_vector(1 downto 0);
++    ce_x1     : in  std_logic;
++    ce_x2     : in  std_logic;
++    hs_in     : in  std_logic;
++    vs_in     : in  std_logic;
++    r_in      : in  std_logic_vector(5 downto 0);
++    g_in      : in  std_logic_vector(5 downto 0);
++    b_in      : in  std_logic_vector(5 downto 0);
++    hs_out    : out std_logic;
++    vs_out    : out std_logic;
++    r_out     : out std_logic_vector(5 downto 0);
++    g_out     : out std_logic_vector(5 downto 0);
++    b_out     : out std_logic_vector(5 downto 0)
++  );
++end component;
++
++signal clk_core    : std_logic;  -- 24.573991 MHz, the only clock
++signal mmcm_locked : std_logic;
++signal reset_s     : std_logic_vector(1 downto 0) := "11";
++signal reset       : std_logic;
++attribute ASYNC_REG : string;
++attribute ASYNC_REG of reset_s : signal is "TRUE";
++
++signal ph       : std_logic_vector(1 downto 0) := "00";
++signal ce6      : std_logic;  -- e0
++signal ce6n     : std_logic;  -- e2
++signal ce12     : std_logic;  -- e0, e2
++signal ce12n    : std_logic;  -- e1, e3
++signal clk6_lvl : std_logic;  -- clock_6 equivalent level: '1' from e0 to e2
++
++constant CE14_INC : unsigned(20 downto 0) := to_unsigned(610959, 21);
++signal ce14_acc   : unsigned(20 downto 0) := (others => '0');
++signal ce14       : std_logic;
++
++signal r      : std_logic_vector(4 downto 0);
++signal g      : std_logic_vector(4 downto 0);
++signal b      : std_logic_vector(4 downto 0);
++signal csync  : std_logic;
++signal blankn : std_logic;
++signal hsync  : std_logic;
++signal vsync  : std_logic;
++
++signal audio           : std_logic_vector(10 downto 0);
++signal pwm_accumulator : std_logic_vector(12 downto 0);
++signal pwm_prev        : std_logic_vector(12 downto 0);  -- '0' & accumulator(11:0)
++signal audio_x4        : std_logic_vector(12 downto 0);  -- audio & "00"
++
++signal vga_ro   : std_logic_vector(5 downto 0);
++signal vga_go   : std_logic_vector(5 downto 0);
++signal vga_bo   : std_logic_vector(5 downto 0);
++signal vga_hs_o : std_logic;
++signal vga_vs_o : std_logic;
++
++signal video_ri : std_logic_vector(5 downto 0);
++signal video_gi : std_logic_vector(5 downto 0);
++signal video_bi : std_logic_vector(5 downto 0);
++
++signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
++type in_sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
++signal in_s : in_sync_t := (others => (others => '1'));
++attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
++signal stick_s                        : std_logic_vector(4 downto 0);
++signal btnU_s, btnL_s, btnR_s, btnD_s : std_logic;
++
++signal kbd_intr     : std_logic;
++signal kbd_scancode : std_logic_vector(7 downto 0);
++signal kbd_rel      : std_logic := '0';
++signal kbd_joy      : std_logic_vector(7 downto 0) := (others => '0');
++signal joyPCFRLDU   : std_logic_vector(7 downto 0);
+ 
+ signal dbg_cpu_addr : std_logic_vector(15 downto 0);
+ 
++-- dip_switch_1: Coinage_A (bits 3-0) on sw11-8; Coinage_B (bits 7-4) fixed.
++constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := X"FF";
++signal dip1           : std_logic_vector(7 downto 0);
+ begin
+ 
 -reset <= not reset_n;
--
++-- DIP switch 1 from sw11-8
++dip1 <= DIP1_DEFAULT xor (x"0" & sw(11 downto 8));  -- Coinage_A on sw11-8
+ 
 --- tv15Khz_mode <= sw();
 -
 ---arduino_io not used pins
@@ -146,20 +269,63 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 -
 --- Clock 12.288MHz for time_pilot core, 14.318MHz for sound_board
 -clocks : entity work.max10_pll_12M_14M
--port map(
++-- MMCM: 100 MHz to clk_core
++clocks : entity work.clk_wiz_0
+ port map(
 - inclk0 => max10_clk1_50,
 - c0 => clock_12,
 - c1 => clock_14,
 - locked => open --pll_locked
--);
--
---- Time pilot
--time_pilot : entity work.time_pilot
--port map(
++  clk_in1  => clk,
++  clk_out1 => clk_core,
++  reset    => btnC,
++  locked   => mmcm_locked
+ );
+ 
++-- Reset asserted asynchronously, released synchronously to clk_core.
++process (clk_core, btnC, mmcm_locked)
++begin
++  if btnC = '1' or mmcm_locked = '0' then
++    reset_s <= "11";
++  elsif rising_edge(clk_core) then
++    reset_s <= reset_s(0) & '0';
++  end if;
++end process;
++reset <= reset_s(1);
++
++-- Clock enables
++-- Phase counter: 4 clk_core edges per 6 MHz period.
++--   e0 = clock_6 rising (end of ph="11"), e1 = clock_12 falling (ph="00"),
++--   e2 = clock_6 falling (ph="01"),       e3 = clock_12 falling (ph="10").
++-- 14.318181 MHz sound enable: 20-bit phase accumulator,
++-- 610959 / 2^20 x 24.573991 MHz = 14.318181 MHz (-0.06 ppm vs 315/22 MHz).
++process (clk_core)
++begin
++  if rising_edge(clk_core) then
++    if reset = '1' then
++      ph <= "00";
++    else
++      ph <= ph + '1';
++    end if;
++    ce14_acc <= ('0' & ce14_acc(19 downto 0)) + CE14_INC;
++  end if;
++end process;
++
++-- clock enables from the phase counter and the sound accumulator
++ce6      <= '1' when ph = "11" else '0';
++ce6n     <= '1' when ph = "01" else '0';
++ce12     <= ph(0);
++ce12n    <= not ph(0);
++clk6_lvl <= not ph(1);
++ce14     <= ce14_acc(20);
++
+ -- Time pilot
+ time_pilot : entity work.time_pilot
+ port map(
 - clock_12   => clock_12,
 - clock_14   => clock_14,
 - reset      => reset,
-- 
+-
 --- tv15Khz_mode => tv15Khz_mode,
 - video_r      => r,
 - video_g      => g,
@@ -169,14 +335,14 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 - video_hs     => open, --hsync, -- not tested
 - video_vs     => open, --vsync, -- not tested
 - audio_out    => audio,
-- 
+-
 - dip_switch_1 => X"FF", -- Coinage_B / Coinage_A
 - dip_switch_2 => X"4F", -- Sound(8)/Difficulty(7-5)/Bonus(4)/Cocktail(3)/lives(2-1)
-- 
+-
 - start2      => joyPCFRLDU(7),
 - start1      => joyPCFRLDU(6),
 - coin1       => joyPCFRLDU(5),
-- 
+-
 - fire1       => joyPCFRLDU(4),
 - right1      => joyPCFRLDU(3),
 - left1       => joyPCFRLDU(2),
@@ -188,10 +354,47 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 - left2       => joyPCFRLDU(2),
 - down2       => joyPCFRLDU(1),
 - up2         => joyPCFRLDU(0),
--
++  clk_core   => clk_core,
++  ce6        => ce6,
++  ce6n       => ce6n,
++  ce12       => ce12,
++  ce12n      => ce12n,
++  clk6_lvl   => clk6_lvl,
++  ce14       => ce14,
++  reset      => reset,
++
++  video_r      => r,
++  video_g      => g,
++  video_b      => b,
++  video_csync  => csync,
++  video_blankn => blankn,
++  video_hs     => hsync,
++  video_vs     => vsync,
++  audio_out    => audio,
++
++  dip_switch_1 => dip1,            -- Coinage_B (fixed) / Coinage_A (sw11-8)
++  dip_switch_2 => sw(7 downto 0),  -- Sound(8)/Difficulty(7-5)/Bonus(4)/Cocktail(3)/lives(2-1)
++
++  start2      => joyPCFRLDU(7),
++  start1      => joyPCFRLDU(6),
++  coin1       => joyPCFRLDU(5),
++
++  fire1       => joyPCFRLDU(4),
++  right1      => joyPCFRLDU(3),
++  left1       => joyPCFRLDU(2),
++  down1       => joyPCFRLDU(1),
++  up1         => joyPCFRLDU(0),
++
++  fire2       => joyPCFRLDU(4),
++  right2      => joyPCFRLDU(3),
++  left2       => joyPCFRLDU(2),
++  down2       => joyPCFRLDU(1),
++  up2         => joyPCFRLDU(0),
+ 
 - dbg_cpu_addr => dbg_cpu_addr
--);
--
++  dbg_cpu_addr => dbg_cpu_addr
+ );
+ 
 --- adapt video to 4bits/color only
 -vga_r <= r(4 downto 1) when blankn = '1' else "0000";
 -vga_g <= g(4 downto 1) when blankn = '1' else "0000";
@@ -203,36 +406,84 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 --- commutation rapide / synchro verticale
 -vga_vs <= '1';
 --- vga_vs <= '1'   when tv15Khz_mode = '1' else vsync;
--
++-- 31 kHz VGA via the MiST scandoubler; RGB gated on blankn (black during blank).
++-- Core outputs 5 bits/color; pad 1 bit.
++video_ri <= (r & "0") when blankn = '1' else "000000";
++video_gi <= (g & "0") when blankn = '1' else "000000";
++video_bi <= (b & "0") when blankn = '1' else "000000";
++
++scandoubler_inst : scandoubler
++port map(
++  clk_sys   => clk_core,
++  scanlines => "00",
++  ce_x1     => ce6,   -- 6.1435 MHz pixel enable
++  ce_x2     => ce12,  -- exactly 2 x ce_x1
++  hs_in     => hsync,
++  vs_in     => vsync,
++  r_in      => video_ri,
++  g_in      => video_gi,
++  b_in      => video_bi,
++  hs_out    => vga_hs_o,
++  vs_out    => vga_vs_o,
++  r_out     => vga_ro,
++  g_out     => vga_go,
++  b_out     => vga_bo
++);
+ 
 ---sound_string <= "00" & audio & "000" & "00" & audio & "000";
--
++-- video output: scandoubler or 15 kHz RGB (sw13)
++vga_r  <= vga_ro(5 downto 2) when sw(13) = '0' else video_ri(5 downto 2);
++vga_g  <= vga_go(5 downto 2) when sw(13) = '0' else video_gi(5 downto 2);
++vga_b  <= vga_bo(5 downto 2) when sw(13) = '0' else video_bi(5 downto 2);
++vga_hs <= vga_hs_o           when sw(13) = '0' else csync;
++vga_vs <= vga_vs_o           when sw(13) = '0' else '1';
+ 
 --- get scancode from keyboard
 -process (reset, clock_12)
--begin
++-- input synchronizers
++process (clk_core)
+ begin
 -	if reset='1' then
 -		clock_6  <= '0';
--	else 
+-	else
 -		if rising_edge(clock_12) then
 -				clock_6  <= not clock_6;
 -		end if;
 -	end if;
--end process;
--
--keyboard : entity work.io_ps2_keyboard
--port map (
++  if rising_edge(clk_core) then
++    ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
++    ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
++    in_s(0)   <= btnD & btnR & btnL & btnU & JXADC;
++    in_s(1)   <= in_s(0);
++  end if;
+ end process;
+ 
++-- synchronized stick and buttons
++stick_s <= in_s(1)(4 downto 0);
++btnU_s  <= in_s(1)(5);
++btnL_s  <= in_s(1)(6);
++btnR_s  <= in_s(1)(7);
++btnD_s  <= in_s(1)(8);
++
++-- get scancode from keyboard
+ keyboard : entity work.io_ps2_keyboard
+ port map (
 -  clk       => clock_6, -- synchrounous clock with core
 -  kbd_clk   => ps2_clk,
 -  kbd_dat   => ps2_dat,
--  interrupt => kbd_intr,
--  scancode  => kbd_scancode
--);
--
++  clk       => clk_core,  -- synchronous clock with core
++  kbd_clk   => ps2_clk_s(1),
++  kbd_dat   => ps2_dat_s(1),
+   interrupt => kbd_intr,
+   scancode  => kbd_scancode
+ );
+ 
 --- translate scancode to joystick
 -joystick : entity work.kbd_joystick
 -port map (
 -  clk           => clock_6, -- synchrounous clock with core
 -  kbdint        => kbd_intr,
--  kbdscancode   => std_logic_vector(kbd_scancode), 
+-  kbdscancode   => std_logic_vector(kbd_scancode),
 -  joyPCFRLDU => joyPCFRLDU
 -);
 -
@@ -244,11 +495,11 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 --- clk     => max3421e_clk,
 --- reset   => reset,
 --- start   => start,
---- 
+---
 --- usb_report => usb_report,
 --- new_usb_report => new_usb_report,
---- 
---- spi_cs_n  => arduino_io(10), 
+---
+--- spi_cs_n  => arduino_io(10),
 --- spi_clk   => arduino_io(13),
 --- spi_mosi  => arduino_io(11),
 --- spi_miso  => arduino_io(12)
@@ -259,10 +510,10 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 ---keyboard_decoder : entity work.usb_keyboard_decoder
 ---port map(
 --- clk     => max3421e_clk,
---- 
+---
 --- usb_report => usb_report,
 --- new_usb_report => new_usb_report,
---- 
+---
 --- joyBCPPFRLDU  => joyBCPPFRLDU
 ---);
 -
@@ -271,15 +522,40 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 ---joystick_decoder : entity work.usb_joystick_decoder
 ---port map(
 --- clk     => max3421e_clk,
---- 
+---
 --- usb_report => usb_report,
 --- new_usb_report => new_usb_report,
---- 
+---
 --- joyBCPPFRLDU  => open --joyBCPPFRLDU
 ---);
 -
 --- debug display
--
++-- key decoder: scancode to kbd_joy
++-- kbd_joy bit order matches joyPCFRLDU below: 5 = coin, 6 = start1, 7 = start2.
++process (clk_core)
++begin
++  if rising_edge(clk_core) then
++    if kbd_intr = '1' then
++      if kbd_scancode = x"F0" then
++        kbd_rel <= '1';
++      elsif kbd_scancode /= x"E0" then
++        kbd_rel <= '0';
++        case kbd_scancode is
++          when x"75" => kbd_joy(0) <= not kbd_rel;          -- up arrow
++          when x"72" => kbd_joy(1) <= not kbd_rel;          -- down arrow
++          when x"6B" => kbd_joy(2) <= not kbd_rel;          -- left arrow
++          when x"74" => kbd_joy(3) <= not kbd_rel;          -- right arrow
++          when x"14" => kbd_joy(4) <= not kbd_rel;          -- left ctrl: fire
++          when x"2E" | x"36" => kbd_joy(5) <= not kbd_rel;  -- 5 / 6: coin
++          when x"16" => kbd_joy(6) <= not kbd_rel;          -- 1: start1
++          when x"1E" => kbd_joy(7) <= not kbd_rel;          -- 2: start2
++          when others => null;
++        end case;
++      end if;
++    end if;
++  end if;
++end process;
+ 
 ---ledr(8 downto 0) <= joyBCPPFRLDU;
 ---
 -h0 : entity work.decodeur_7_seg port map(dbg_cpu_addr( 3 downto  0),hex0);
@@ -289,9 +565,9 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 ---h4 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+0)(3 downto 0),hex4);
 ---h5 : entity work.decodeur_7_seg port map(usb_report(to_integer(unsigned(sw))+0)(7 downto 4),hex5);
 -
---- audio for sgtl5000 
+--- audio for sgtl5000
 -
----sample_data <= "00" & audio & "000" & "00" & audio & "000";				
+---sample_data <= "00" & audio & "000" & "00" & audio & "000";
 -
 --- Clock 1us for ym_8910
 -
@@ -300,13 +576,13 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 ---	if rising_edge(max10_clk1_50) then
 ---		if cnt_1us = 0 then
 ---			cnt_1us  <= 49;
----			clk_1us  <= '1'; 
+---			clk_1us  <= '1';
 ---		else
 ---			cnt_1us  <= cnt_1us - 1;
----			clk_1us <= '0'; 
+---			clk_1us <= '0';
 ---		end if;
----	end if;	
----end process;	 
+---	end if;
+---end process;
 -
 --- sgtl5000 (teensy audio shield on top of usb host shield)
 -
@@ -314,391 +590,60 @@ diff --git a/vhdl_time_pilot_rev_0_0_2017_11_05/rtl_dar/time_pilot_de10_lite.vhd
 ---port map(
 --- clock_18   => clock_18,
 --- reset      => reset,
---- i2c_clock  => clk_1us,  
+--- i2c_clock  => clk_1us,
 ---
 --- sample_data  => sample_data,
---- 
---- i2c_sda   => arduino_io(0), -- i2c_sda, 
---- i2c_scl   => arduino_io(1), -- i2c_scl, 
+---
+--- i2c_sda   => arduino_io(0), -- i2c_sda,
+--- i2c_scl   => arduino_io(1), -- i2c_scl,
 ---
 --- tx_data   => arduino_io(2), -- sgtl5000 tx
---- mclk      => arduino_io(4), -- sgtl5000 mclk 
---- 
+--- mclk      => arduino_io(4), -- sgtl5000 mclk
+---
 --- lrclk     => arduino_io(3), -- sgtl5000 lrclk
---- bclk      => arduino_io(6), -- sgtl5000 bclk   
---- 
+--- bclk      => arduino_io(6), -- sgtl5000 bclk
+---
 --- -- debug
 --- hex0_di   => open, -- hex0_di,
 --- hex1_di   => open, -- hex1_di,
 --- hex2_di   => open, -- hex2_di,
 --- hex3_di   => open, -- hex3_di,
---- 
+---
 --- sw => sw(7 downto 0)
 ---);
--
---- pwm sound output
--
--process(clock_14)  -- use same clock as time_pilot_sound_board
--begin
--  if rising_edge(clock_14) then
--    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned(audio & "00"));
--  end if;
--end process;
--
--pwm_audio_out_l <= pwm_accumulator(12);
--pwm_audio_out_r <= pwm_accumulator(12); 
--
--
--end struct;
-+---------------------------------------------------------------------------------
-+-- Basys 3 top level for Time Pilot by Red~Bote, derived from
-+-- time_pilot_de10_lite.vhd by Dar (darfpga@aol.fr, http://darfpga.blogspot.fr);
-+-- see that file for its history.
-+---------------------------------------------------------------------------------
-+--
-+-- v0.1 (10/26/2026) : initial Basys 3 release
-+--
-+---------------------------------------------------------------------------------
-+-- Educational use only
-+-- Do not redistribute synthesized file with roms
-+-- Do not redistribute roms whatever the form
-+-- Use at your own risk
-+---------------------------------------------------------------------------------
-+--
-+-- Main features:
-+--  Single clock domain: clk_wiz_0 derives clk_core = 24.574 MHz from 100 MHz; the
-+--  former 12/6/14 MHz clocks are clock enables (core patch)
-+--  Joystick on JXADC, OR-merged with the PS/2 keyboard (onboard USB-HID)
-+--  Mono PWM audio on PmodAMP2 (JA pins 1/2/4); sw15 up = audio off, sw14 up = gain
-+--  31 kHz VGA via the MiST scandoubler; sw13 = 15 kHz TV (csync on HS)
-+--  Keyboard: MAME default keys (arrows, Left Ctrl = fire, 1/2 = start, 5/6 = coin)
-+--  btnC = reset, btnU/btnD = coin, btnL/btnR = start
-+--  DIP switches: dip_switch_2 on sw7-0, Coinage_A on sw11-8
-+---------------------------------------------------------------------------------
-+
-+library ieee;
-+use ieee.std_logic_1164.all;
-+use ieee.std_logic_unsigned.all;
-+use ieee.numeric_std.all;
-+
-+library work;
-+
-+entity time_pilot_basys3 is
-+port(
-+ clk            : in  std_logic;
-+ sw             : in  std_logic_vector(15 downto 0);
-+ btnC           : in  std_logic;
-+ btnU           : in  std_logic;  -- coin
-+ btnD           : in  std_logic;  -- coin
-+ btnL           : in  std_logic;  -- 1P start
-+ btnR           : in  std_logic;  -- 2P start
-+
-+ JXADC             : in  std_logic_vector(4 downto 0);  -- joystick
-+ ps2_dat        : in  std_logic;
-+ ps2_clk        : in  std_logic;
-+
-+ O_PMODAMP2_AIN : out std_logic;
-+ O_PMODAMP2_GAIN: out std_logic;
-+ O_PMODAMP2_SHUTD: out std_logic;
-+
-+ vga_r : out std_logic_vector(3 downto 0);
-+ vga_g : out std_logic_vector(3 downto 0);
-+ vga_b : out std_logic_vector(3 downto 0);
-+ vga_hs: out std_logic;
-+ vga_vs: out std_logic
-+);
-+end time_pilot_basys3;
-+
-+architecture struct of time_pilot_basys3 is
-+
-+ component scandoubler
-+     port (
-+         clk_sys   : in  std_logic;
-+         scanlines : in  std_logic_vector(1 downto 0);
-+         ce_x1     : in  std_logic;
-+         ce_x2     : in  std_logic;
-+         hs_in     : in  std_logic;
-+         vs_in     : in  std_logic;
-+         r_in      : in  std_logic_vector(5 downto 0);
-+         g_in      : in  std_logic_vector(5 downto 0);
-+         b_in      : in  std_logic_vector(5 downto 0);
-+         hs_out    : out std_logic;
-+         vs_out    : out std_logic;
-+         r_out     : out std_logic_vector(5 downto 0);
-+         g_out     : out std_logic_vector(5 downto 0);
-+         b_out     : out std_logic_vector(5 downto 0)
-+     );
-+ end component;
-+
-+ signal clk_core    : std_logic;  -- 24.573991 MHz, the only clock
-+ signal mmcm_locked : std_logic;
-+ signal reset_s     : std_logic_vector(1 downto 0) := "11";
-+ signal reset       : std_logic;
-+ attribute ASYNC_REG : string;
-+ attribute ASYNC_REG of reset_s : signal is "TRUE";
-+
-+ -- Phase counter: 4 clk_core edges per former 6 MHz period.
-+ --   e0 = clock_6 rising (end of ph="11"), e1 = clock_12 falling (ph="00"),
-+ --   e2 = clock_6 falling (ph="01"),       e3 = clock_12 falling (ph="10").
-+ signal ph       : std_logic_vector(1 downto 0) := "00";
-+ signal ce6      : std_logic;  -- e0
-+ signal ce6n     : std_logic;  -- e2
-+ signal ce12     : std_logic;  -- e0, e2
-+ signal ce12n    : std_logic;  -- e1, e3
-+ signal clk6_lvl : std_logic;  -- former clock_6 level: '1' from e0 to e2
-+
-+ -- 14.318181 MHz sound enable: 20-bit phase accumulator,
-+ -- 610959 / 2^20 x 24.573991 MHz = 14.318181 MHz (-0.06 ppm vs 315/22 MHz).
-+ constant CE14_INC : unsigned(20 downto 0) := to_unsigned(610959, 21);
-+ signal ce14_acc  : unsigned(20 downto 0) := (others => '0');
-+ signal ce14      : std_logic;
-+
-+ signal r         : std_logic_vector(4 downto 0);
-+ signal g         : std_logic_vector(4 downto 0);
-+ signal b         : std_logic_vector(4 downto 0);
-+ signal csync     : std_logic;
-+ signal blankn    : std_logic;
-+ signal hsync     : std_logic;
-+ signal vsync     : std_logic;
-+
-+ signal audio           : std_logic_vector(10 downto 0);
-+ signal pwm_accumulator : std_logic_vector(12 downto 0);
-+ signal pwm_prev        : std_logic_vector(12 downto 0);  -- '0' & accumulator(11:0)
-+ signal audio_x4        : std_logic_vector(12 downto 0);  -- audio & "00"
-+
-+ signal vga_ro    : std_logic_vector(5 downto 0);
-+ signal vga_go    : std_logic_vector(5 downto 0);
-+ signal vga_bo    : std_logic_vector(5 downto 0);
-+ signal vga_hs_o  : std_logic;
-+ signal vga_vs_o  : std_logic;
-+
-+ signal video_ri  : std_logic_vector(5 downto 0);
-+ signal video_gi  : std_logic_vector(5 downto 0);
-+ signal video_bi  : std_logic_vector(5 downto 0);
-+
-+ -- PS/2, JXADC(4 downto 0) and btnD/btnR/btnL/btnU, 2-FF synchronized (index 1 = output).
-+ signal ps2_clk_s, ps2_dat_s : std_logic_vector(1 downto 0) := "11";
-+ type in_sync_t is array (1 downto 0) of std_logic_vector(8 downto 0);
-+ signal in_s : in_sync_t := (others => (others => '1'));
-+ attribute ASYNC_REG of ps2_clk_s, ps2_dat_s, in_s : signal is "TRUE";
-+ signal ja_s      : std_logic_vector(4 downto 0);
-+ signal btnU_s, btnL_s, btnR_s, btnD_s : std_logic;
-+
-+ signal kbd_intr      : std_logic;
-+ signal kbd_scancode  : std_logic_vector(7 downto 0);
-+ signal kbd_rel       : std_logic := '0';
-+ signal kbd_joy       : std_logic_vector(7 downto 0) := (others => '0');
-+ signal joyPCFRLDU    : std_logic_vector(7 downto 0);
-+
-+ signal dbg_cpu_addr : std_logic_vector(15 downto 0);
-+
-+ -- DIP switches on spare board switches (PORTING_SPEC.md 3.2): switch down = DE10
-+ -- default, switch up inverts the bit.
-+ -- dip_switch_1: Coinage_A (bits 3-0) on sw11-8; Coinage_B (bits 7-4) fixed.
-+ constant DIP1_DEFAULT : std_logic_vector(7 downto 0) := X"FF";
-+ signal dip1 : std_logic_vector(7 downto 0);
-+begin
-+
-+dip1 <= DIP1_DEFAULT xor (x"0" & sw(11 downto 8));  -- Coinage_A on sw11-8
-+
-+-- 100 MHz -> clk_core 24.573991 MHz (single output)
-+clocks : entity work.clk_wiz_0
-+port map(
-+ clk_in1  => clk,
-+ clk_out1 => clk_core,
-+ reset    => btnC,
-+ locked   => mmcm_locked
-+);
-+
-+-- Core held in reset until the MMCM locks;
-+-- asserted asynchronously, released synchronously to clk_core.
-+process (clk_core, btnC, mmcm_locked)
-+begin
-+	if btnC = '1' or mmcm_locked = '0' then
-+		reset_s <= "11";
-+	elsif rising_edge(clk_core) then
-+		reset_s <= reset_s(0) & '0';
-+	end if;
-+end process;
-+reset <= reset_s(1);
-+
-+-- Clock enables
-+process (clk_core)
-+begin
-+	if rising_edge(clk_core) then
-+		if reset = '1' then
-+			ph <= "00";
-+		else
-+			ph <= ph + '1';
-+		end if;
-+		ce14_acc <= ('0' & ce14_acc(19 downto 0)) + CE14_INC;
-+	end if;
-+end process;
-+
-+ce6      <= '1' when ph = "11" else '0';
-+ce6n     <= '1' when ph = "01" else '0';
-+ce12     <= ph(0);
-+ce12n    <= not ph(0);
-+clk6_lvl <= not ph(1);
-+ce14     <= ce14_acc(20);
-+
-+-- Time pilot
-+time_pilot : entity work.time_pilot
-+port map(
-+ clk_core   => clk_core,
-+ ce6        => ce6,
-+ ce6n       => ce6n,
-+ ce12       => ce12,
-+ ce12n      => ce12n,
-+ clk6_lvl   => clk6_lvl,
-+ ce14       => ce14,
-+ reset      => reset,
-+
-+ video_r      => r,
-+ video_g      => g,
-+ video_b      => b,
-+ video_csync  => csync,
-+ video_blankn => blankn,
-+ video_hs     => hsync,
-+ video_vs     => vsync,
-+ audio_out    => audio,
-+
-+ dip_switch_1 => dip1, -- Coinage_B (fixed) / Coinage_A (sw11-8)
-+ dip_switch_2 => sw(7 downto 0), -- Sound(8)/Difficulty(7-5)/Bonus(4)/Cocktail(3)/lives(2-1)
-+
-+ start2      => joyPCFRLDU(7),
-+ start1      => joyPCFRLDU(6),
-+ coin1       => joyPCFRLDU(5),
-+
-+ fire1       => joyPCFRLDU(4),
-+ right1      => joyPCFRLDU(3),
-+ left1       => joyPCFRLDU(2),
-+ down1       => joyPCFRLDU(1),
-+ up1         => joyPCFRLDU(0),
-+
-+ fire2       => joyPCFRLDU(4),
-+ right2      => joyPCFRLDU(3),
-+ left2       => joyPCFRLDU(2),
-+ down2       => joyPCFRLDU(1),
-+ up2         => joyPCFRLDU(0),
-+
-+ dbg_cpu_addr => dbg_cpu_addr
-+);
-+
-+-- 31 kHz VGA via the MiST scandoubler; RGB gated on blankn (black during blank).
-+-- Core outputs 5 bits/color; pad 1 bit.
-+video_ri <= (r & "0") when blankn = '1' else "000000";
-+video_gi <= (g & "0") when blankn = '1' else "000000";
-+video_bi <= (b & "0") when blankn = '1' else "000000";
-+
-+scandoubler_inst : scandoubler
-+port map(
-+ clk_sys   => clk_core,
-+ scanlines => "00",
-+ ce_x1     => ce6,    -- 6.1435 MHz pixel enable
-+ ce_x2     => ce12,   -- exactly 2 x ce_x1
-+ hs_in     => hsync,
-+ vs_in     => vsync,
-+ r_in      => video_ri,
-+ g_in      => video_gi,
-+ b_in      => video_bi,
-+ hs_out    => vga_hs_o,
-+ vs_out    => vga_vs_o,
-+ r_out     => vga_ro,
-+ g_out     => vga_go,
-+ b_out     => vga_bo
-+);
-+
-+-- Display mode via sw(13): 0 = 31 kHz VGA (scandoubler), 1 = 15 kHz TV
-+-- (native RGB gated on blankn, csync on HS, VS high).
-+vga_r  <= vga_ro(5 downto 2) when sw(13) = '0' else video_ri(5 downto 2);
-+vga_g  <= vga_go(5 downto 2) when sw(13) = '0' else video_gi(5 downto 2);
-+vga_b  <= vga_bo(5 downto 2) when sw(13) = '0' else video_bi(5 downto 2);
-+vga_hs <= vga_hs_o           when sw(13) = '0' else csync;
-+vga_vs <= vga_vs_o           when sw(13) = '0' else '1';
-+
-+-- Input synchronizers (2-FF) into clk_core
-+process (clk_core)
-+begin
-+	if rising_edge(clk_core) then
-+		ps2_clk_s <= ps2_clk_s(0) & ps2_clk;
-+		ps2_dat_s <= ps2_dat_s(0) & ps2_dat;
-+		in_s(0)   <= btnD & btnR & btnL & btnU & JXADC;
-+		in_s(1)   <= in_s(0);
-+	end if;
-+end process;
-+
-+ja_s   <= in_s(1)(4 downto 0);
-+btnU_s <= in_s(1)(5);
-+btnL_s <= in_s(1)(6);
-+btnR_s <= in_s(1)(7);
-+btnD_s <= in_s(1)(8);
-+
-+-- get scancode from keyboard
-+keyboard : entity work.io_ps2_keyboard
-+port map (
-+  clk       => clk_core,
-+  kbd_clk   => ps2_clk_s(1),
-+  kbd_dat   => ps2_dat_s(1),
-+  interrupt => kbd_intr,
-+  scancode  => kbd_scancode
-+);
-+
-+-- translate scancode to joystick (MAME default keys, PS/2 set 2 codes), replaces
-+-- kbd_joystick. F0 marks a release; E0 is ignored (keypad 8/2/4/6 alias the arrows,
-+-- Right Ctrl aliases Left Ctrl), PORTING_SPEC.md 3.1.
-+-- kbd_joy bit order matches joyPCFRLDU below: 5 = coin, 6 = start 1, 7 = start 2.
-+process (clk_core)
-+begin
-+	if rising_edge(clk_core) then
-+		if kbd_intr = '1' then
-+			if kbd_scancode = x"F0" then
-+				kbd_rel <= '1';
-+			elsif kbd_scancode /= x"E0" then
-+				kbd_rel <= '0';
-+				if kbd_scancode = x"75" then kbd_joy(0) <= not kbd_rel; end if; -- up arrow
-+				if kbd_scancode = x"72" then kbd_joy(1) <= not kbd_rel; end if; -- down arrow
-+				if kbd_scancode = x"6B" then kbd_joy(2) <= not kbd_rel; end if; -- left arrow
-+				if kbd_scancode = x"74" then kbd_joy(3) <= not kbd_rel; end if; -- right arrow
-+				if kbd_scancode = x"14" then kbd_joy(4) <= not kbd_rel; end if; -- left ctrl: fire
-+				if kbd_scancode = x"2E" or kbd_scancode = x"36" then kbd_joy(5) <= not kbd_rel; end if; -- 5 / 6: coin
-+				if kbd_scancode = x"16" then kbd_joy(6) <= not kbd_rel; end if; -- 1: start 1
-+				if kbd_scancode = x"1E" then kbd_joy(7) <= not kbd_rel; end if; -- 2: start 2
-+			end if;
-+		end if;
-+	end if;
-+end process;
-+
-+-- OR-merge the Atari-style joystick on JXADC with the PS/2 keyboard joystick.
-+-- JXADC physical map: JXADC1=right, JXADC2=left, JXADC3=down, JXADC4=up, JXADC7=fire,
-+-- i.e. JXADC(0)=right, JXADC(1)=left, JXADC(2)=down, JXADC(3)=up, JXADC(4)=fire.
-+-- JXADC is active-low (pressed shorts to ground); invert so a press reads active-high,
-+-- matching the core's active-high input boundary and the keyboard path.
-+-- Coin/start come from the keyboard and btnU/btnD/btnL/btnR.
-+joyPCFRLDU(0) <= kbd_joy(0) or not ja_s(3);               -- up    (JXADC4)
-+joyPCFRLDU(1) <= kbd_joy(1) or not ja_s(2);               -- down  (JXADC3)
-+joyPCFRLDU(2) <= kbd_joy(2) or not ja_s(1);               -- left  (JXADC2)
-+joyPCFRLDU(3) <= kbd_joy(3) or not ja_s(0);               -- right (JXADC1)
-+joyPCFRLDU(4) <= kbd_joy(4) or not ja_s(4);               -- fire  (JXADC7)
-+joyPCFRLDU(5) <= kbd_joy(5) or btnU_s or btnD_s; -- coin = btnU / btnD
-+joyPCFRLDU(6) <= kbd_joy(6) or btnL_s; -- start1 = btnL
-+joyPCFRLDU(7) <= kbd_joy(7) or btnR_s; -- start2 = btnR
-+
-+-- pwm sound output (accumulates at the former clock_14 rate)
++-- player inputs: keyboard OR stick OR buttons
++joyPCFRLDU(0) <= kbd_joy(0) or not stick_s(3);    -- up: up arrow / stick up
++joyPCFRLDU(1) <= kbd_joy(1) or not stick_s(2);    -- down: down arrow / stick down
++joyPCFRLDU(2) <= kbd_joy(2) or not stick_s(1);    -- left: left arrow / stick left
++joyPCFRLDU(3) <= kbd_joy(3) or not stick_s(0);    -- right: right arrow / stick right
++joyPCFRLDU(4) <= kbd_joy(4) or not stick_s(4);    -- fire: left ctrl / stick fire
++joyPCFRLDU(5) <= kbd_joy(5) or btnU_s or btnD_s;  -- coin: 5, 6 / btnU, btnD
++joyPCFRLDU(6) <= kbd_joy(6) or btnL_s;            -- start1: 1 / btnL
++joyPCFRLDU(7) <= kbd_joy(7) or btnR_s;            -- start2: 2 / btnR
+ 
+ -- pwm sound output
 +-- (concatenations assigned to typed signals first: inside a type conversion the
 +--  result type of '&' is ambiguous with numeric_std and std_logic_unsigned visible)
 +pwm_prev <= '0' & pwm_accumulator(11 downto 0);
 +audio_x4 <= audio & "00";
-+
-+process(clk_core)
-+begin
+ 
+-process(clock_14)  -- use same clock as time_pilot_sound_board
++-- PWM accumulator on the sound enable
++process(clk_core)  -- use same clock as time_pilot_sound_board
+ begin
+-  if rising_edge(clock_14) then
+-    pwm_accumulator  <=  std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned(audio & "00"));
 +  if rising_edge(clk_core) and ce14 = '1' then
-+    pwm_accumulator  <=  std_logic_vector(unsigned(pwm_prev) + unsigned(audio_x4));
-+  end if;
-+end process;
-+
++    pwm_accumulator <= std_logic_vector(unsigned(pwm_prev) + unsigned(audio_x4));
+   end if;
+ end process;
+ 
+-pwm_audio_out_l <= pwm_accumulator(12);
+-pwm_audio_out_r <= pwm_accumulator(12);
+-
++-- PmodAMP2: PWM audio, shutdown and gain
 +O_PMODAMP2_AIN   <= pwm_accumulator(12);
-+O_PMODAMP2_SHUTD <= not sw(15); -- sw15 up = amp shut down (audio disabled)
-+O_PMODAMP2_GAIN  <= not sw(14); -- sw14 up = gain active (GAIN active low)
-+
-+end struct;
++O_PMODAMP2_SHUTD <= not sw(15);
++O_PMODAMP2_GAIN  <= not sw(14);
+ 
+ end struct;

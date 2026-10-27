@@ -7,14 +7,14 @@
 # ioa_inreg is combinational (ioa_inreg <= I_IOA), so this is a real
 # simulation/logic bug, not just a lint warning. Added ioa_inreg to the list,
 # and iob_inreg (same pattern for Port B read-back, addr = x"F").
-# See README.md "Applying the linmix sensitivity fix" for details.
+
 diff --git a/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd b/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
 --- a/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
 +++ b/vhdl_popeye_rev_0_3_2020_01_27/rtl_mikej/ym_2149_linmix.vhd
 @@ -292,7 +292,7 @@
   -- END LATCHED
   --
-   
+ 
 -  p_rdata                : process(busctrl_re, addr, reg)
 +  p_rdata                : process(busctrl_re, addr, reg, ioa_inreg, iob_inreg)
    begin

@@ -3,8 +3,8 @@ diff --git a/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd b/v
 +++ b/vhdl_burnin_rubber_rev_0_0_2017_12_22/rtl_dar/burnin_rubber.vhd
 @@ -615,7 +615,7 @@
    end if;
-   
-   if hcnt = hcnt_base then 
+ 
+   if hcnt = hcnt_base then
 -	 if vcnt = 240 then
 +	 if vcnt = 248 then -- vsync at vblank onset (240 lost the last 8 active lines)
  	   vsync_cnt := X"0";

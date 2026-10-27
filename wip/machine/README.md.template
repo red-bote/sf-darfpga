@@ -1,81 +1,85 @@
 # <Machine>-by-Dar
 
-Basys 3 port of <Game> (<Manufacturer>, <year>), original core by Dar (darfpga@aol.fr),
-<http://darfpga.blogspot.fr>. Source: `<archive>.zip` (<release, date>), `dloads/`.
+<Game> (<Maker>, <year>) on the Digilent Basys 3. FPGA core by Dar (darfpga@aol.fr,
+<http://darfpga.blogspot.fr>), rev <rev> (<yyyy-mm-dd>): <SourceForge URL>, copy in
+`dloads/`. Design detail: `contrib/basys3/PORTING_SPEC.md`.
 
-## Status
+## Connections
 
-<Hardware-verified YYYY-MM-DD: picture (31 kHz VGA / 15 kHz TV), sound, keyboard, JXADC
-joystick, buttons, DIP switches.> <Open items, or "none".>
-
-## Features (Basys 3)
-
-- Video: <31 kHz VGA via MiST scandoubler | native progressive>; sw13 up = 15 kHz TV.
-- Keyboard: onboard USB-HID port, MAME default keys.
-- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/fire, active
-  low, pull-ups in the XDC.
-- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
-- <Machine-specific features.>
+- VGA monitor; with sw13 up, 15 kHz RGB (csync on HS) for a 15 kHz monitor.
+- USB keyboard on the USB-HID host connector.
+- Atari-type joystick on Pmod JXADC (pins 1/2/3/4/7 = right/left/down/up/fire).
+- PmodAMP2 with speaker on Pmod JA. Mono.
 
 ## Controls
 
-| Action | Keyboard | JXADC | Basys 3 |
-|---|---|---|---|
-| move | arrows | pins 1-4 | |
-| <button 1> | Left Ctrl | pin 7 | |
-| start 1P / 2P | 1 / 2 | | btnL / btnR |
-| coin | 5 / 6 | | btnU / btnD |
-| reset | | | btnC |
-
-Player 2 mirrors player 1. <Combos, toggles, debounce notes.>
+| Function                 | Keyboard  | Joystick | Button     |
+|--------------------------|-----------|----------|------------|
+| up / down / left / right | arrows    | stick    |            |
+| fire                     | Left Ctrl | fire     |            |
+| coin                     | 5, 6      |          | btnU, btnD |
+| start 1 / 2              | 1, 2      |          | btnL, btnR |
+| reset                    |           |          | btnC       |
 
 ## Switches
 
-| Switch | Function | Down | Up |
-|---|---|---|---|
-| sw15 | audio | on | off |
-| sw14 | amp gain | low | high |
-| sw13 | display | 31 kHz VGA | 15 kHz TV |
-| <swN..M> | <DIP setting> | <Dar default> | <setting> |
+| Switch | Function       | Down               | Up         |
+|--------|----------------|--------------------|------------|
+| sw15   | audio          | on                 | off        |
+| sw14   | amplifier gain | low                | high       |
+| sw13   | display        | 31 kHz VGA         | 15 kHz RGB |
+| <swN>  | <DIP field>    | <original default> | <setting>  |
 
-## IO mapping
+Notes:
 
-| Basys 3 resource | Wrapper port | Function |
-|---|---|---|
-| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
-| btnC / btnU / btnD / btnL / btnR | `btnC` ... | reset / coin / coin / start 1 / start 2 |
-| sw(15:0) | `sw` | see Switches |
-| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
-| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
-| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `<red/green/blue(3:0)>`, `<hsync>`, `<vsync>` | 4-4-4 RGB |
+1. <detail of a cell too long for the table, referenced as "note 1">
 
-## Clocking
+## Clocks
 
-`clk_wiz_0`: <achieved MHz> (<D / M / O>), single domain; original <crystal>. Video H
-<kHz> / V <Hz>. Details: `contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`.
+| Clock    | Original   | Basys 3    | Difference               |
+|----------|------------|------------|--------------------------|
+| Main CPU | <MHz>      | <MHz>      | <%>                      |
+| Pixel    | <MHz>      | <MHz>      | <%>                      |
+| Sound    | <MHz>      | <MHz>      | <%>                      |
+| Video    | <kHz / Hz> | <kHz / Hz> | <lines doubled / native> |
 
-## Required ROMs
+Basys 3 video values are for the VGA mode (sw13 down).
 
-`<set>.zip` (MAME romset; `ROMZIP`, default `~/roms/<set>.zip`). Not included.
-**Do not redistribute roms or anything generated from them.**
+Original values: MAME `<driver>.cpp`.
+
+## ROMs
+
+`<set>.zip` (MAME romset) in `~/roms/` or `$ROMZIP`. Not included. Do not redistribute
+roms or anything generated from them.
 
 ## Building
 
-Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
-patch), `make check` (parse-only), `make bitstream`, `make load`.
+Requirements:
+
+- gcc
+- unzip
+- Vivado 2020.2 (the `VIVADO` variable overrides the install path)
+- openFPGALoader
+
+Make targets, run from this directory:
+
+- `make`: extract the sources, generate the PROM VHDL from the romset, create the
+  Vivado project, generate the clock IP and install the Basys 3 top level.
+- `make check`: parse-only syntax check, no synthesis.
+- `make bitstream`: synthesis, implementation and bitstream.
+- `make load`: program the Basys 3 with the built bitstream.
+- `make clean`: remove the extracted sources and build output.
+- `make help`: list all targets.
 
 ## Known issues
 
-<None, or entries with `../KNOWN_ISSUES.md` references.>
+<None open, or one line per open issue.>
 
-## Issues addressed for Basys 3
+## Changes to third-party sources
 
-- <Each patch: file, problem, fix.>
+- `contrib/code/<m>_<fix>.patch`
+  - Origin: Dar archive
+  - Change: <change and reason>
+  - Files:
+    - `rtl_dar/<file>.vhd`
 
-## Third-party sources
-
-| Resource | Source | Notes |
-|---|---|---|
-| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| <scandoubler.v (MiST, GPL-3.0)> | <url> | `contrib/code/` |

@@ -1,103 +1,114 @@
 # Time-Pilot-by-Dar
 
-Basys 3 port of Time Pilot (Konami, 1982), FPGA core by Dar (darfpga@aol.fr),
-<http://darfpga.blogspot.fr>. Source: `vhdl_time_pilot_rev_0_0_2017_11_05.zip`
-(2017-11-05), `dloads/`. Basys 3 port by Red~Bote. Dar's release notes: `README.txt` in the
-extracted archive.
+Time Pilot (Konami, 1982) on the Digilent Basys 3. FPGA core by Dar (darfpga@aol.fr,
+<http://darfpga.blogspot.fr>), rev 0.0 (2017-11-05):
+<https://sourceforge.net/projects/darfpga/files/Software%20VHDL/time_pilot/>, copy in
+`dloads/`. Design detail: `contrib/basys3/PORTING_SPEC.md`.
 
-## Status
+## Connections
 
-Hardware-verified 2026-10-20: picture (31 kHz VGA), sound, keyboard (MAME keys), JXADC
-joystick, buttons, DIP switches (sw7-0 confirmed 2026-10-02; sw11-8 Coinage A 2026-10-21).
-15 kHz TV (sw13) hardware-confirmed 2026-10-02.
-
-## Features (Basys 3)
-
-- Video: 31 kHz VGA via the MiST scandoubler (as Pooyan); sw13 up = 15 kHz TV (native
-  RGB, composite sync on HS).
-- Keyboard: onboard USB-HID port, MAME default keys, decoded in the wrapper (2026-10-20,
-  replaces `kbd_joystick`; F0 = release, E0 ignored; `../PORTING_SPEC.md` §3.1).
-- Joystick: Atari-style on Pmod JXADC, pins 1/2/3/4/7 = right/left/down/up/fire, active
-  low, pull-ups in the XDC.
-- Audio: PmodAMP2 on Pmod JA pins 1/2/4, mono.
-- Single clock domain (2026-10-05); 264-line frame, 60.61 Hz (2026-10-06).
+- VGA monitor; with sw13 up, 15 kHz RGB (csync on HS) for a 15 kHz monitor.
+- USB keyboard on the USB-HID host connector.
+- Atari-type joystick on Pmod JXADC (pins 1/2/3/4/7 = right/left/down/up/fire).
+- PmodAMP2 with speaker on Pmod JA. Mono.
 
 ## Controls
 
-| Action | Keyboard | JXADC | Basys 3 |
-|---|---|---|---|
-| move | arrows | pins 1-4 | |
-| fire | Left Ctrl | pin 7 | |
-| start 1P / 2P | 1 / 2 | | btnL / btnR |
-| coin | 5 / 6 | | btnU / btnD |
-| reset | | | btnC |
+| Function                 | Keyboard  | Joystick | Button     |
+|--------------------------|-----------|----------|------------|
+| up / down / left / right | arrows    | stick    |            |
+| fire                     | Left Ctrl | fire     |            |
+| coin                     | 5, 6      |          | btnU, btnD |
+| start 1 / 2              | 1, 2      |          | btnL, btnR |
+| reset                    |           |          | btnC       |
 
-Player 2 mirrors player 1 movement/fire. No joystick combos (coin/start combos removed
-2026-10-02).
+Player 2 uses the same controls.
 
 ## Switches
 
-| Switch | Function | Down | Up |
-|---|---|---|---|
-| sw15 | audio | on | off |
-| sw14 | amp gain | low | high |
-| sw13 | display | 31 kHz VGA | 15 kHz TV |
-| sw11-8 | `dip_switch_1` bits 3-0, Coinage A | Dar `X"FF"` | bit inverted |
-| sw7-0 | `dip_switch_2`: Sound(8) / Difficulty(7-5) / Bonus(4) / Cocktail(3) / Lives(2-1) | `0` | `1` (direct, not inverted; Dar's DE10 constant was `X"4F"`) |
+| Switch | Function                   | Down             | Up           |
+|--------|----------------------------|------------------|--------------|
+| sw15   | audio                      | on               | off          |
+| sw14   | amplifier gain             | low              | high         |
+| sw13   | display                    | 31 kHz VGA       | 15 kHz RGB   |
+| sw11-8 | DIP 1 Coinage A (bits 3-0) | original default | bit inverted |
+| sw7-0  | DIP 2 (note 1)             | bit = 0          | bit = 1      |
 
-Coinage B (`dip_switch_1` bits 7-4) fixed at Dar's value.
+Notes:
 
-## IO mapping
+1. DIP 2 bits:
+   - 8: sound
+   - 7-5: difficulty
+   - 4: bonus
+   - 3: cocktail
+   - 2-1: lives
 
-| Basys 3 resource | Wrapper port | Function |
-|---|---|---|
-| clk (W5, 100 MHz) | `clk` | into `clk_wiz_0` |
-| btnC / btnU / btnD / btnL / btnR | `btnC` ... `btnR` | reset / coin / coin / start 1 / start 2 |
-| sw(15:0) | `sw` | see Switches |
-| USB-HID C17 / B17 | `ps2_clk` / `ps2_dat` | keyboard |
-| JXADC1-4, JXADC7 | `JXADC(0..4)` | joystick |
-| JA1 / JA2 / JA4 | `O_PMODAMP2_AIN` / `_GAIN` / `_SHUTD` | audio |
-| VGA | `vga_r/vga_g/vga_b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB |
+## Clocks
 
-## Clocking
+| Clock                     | Original         | Basys 3             | Difference    |
+|---------------------------|------------------|---------------------|---------------|
+| Main CPU (Z80)            | 3.072 MHz        | 3.0717 MHz          | -0.007%       |
+| Pixel                     | 6.144 MHz        | 6.1435 MHz          | -0.007%       |
+| Sound (Z80, 2x AY-3-8910) | 1.790 MHz        | 1.790 MHz           | 0             |
+| Video (note 1)            | 16.0 kHz / 60 Hz | 32.0 kHz / 60.61 Hz | lines doubled |
 
-`clk_wiz_0`: 24.573991 MHz (5 / 34.25 / 27.875), single domain `clk_core`; the former
-12.288 / 6.144 MHz and 14.318 MHz sound clocks are clock enables
-(`contrib/code/time_pilot_single_domain.patch`). Pixel 6.1435 MHz; 264 lines
-(`contrib/code/time_pilot_vcnt_264_lines.patch`, reload `0x0F8`, per MAME `konami/pooyan.cpp`
-`set_raw`; pristine 260 lines / 61.54 Hz) → VGA 31.997 kHz / 60.61 Hz. Details:
-`contrib/basys3/PORTING_SPEC.md` §2, `../CLOCK_CRYSTAL_CATALOG.md`, `../CLOCKING_SPEC.md`
-5.7.
+Notes:
 
-## Required ROMs
+1. The original video values are nominal.
 
-`timeplt.zip` (MAME romset; `ROMZIP`, default `~/roms/timeplt.zip`). Not included.
-**Do not redistribute roms or anything generated from them.**
+Basys 3 video values are for the VGA mode (sw13 down).
+
+Original values: MAME `konami/timeplt.cpp` (18.432 MHz and 14.31818 MHz crystals).
+
+## ROMs
+
+`timeplt.zip` (MAME romset) in `~/roms/` or `$ROMZIP`. Not included. Do not redistribute
+roms or anything generated from them.
 
 ## Building
 
-Requires gcc, unzip, Vivado 2020.2, openFPGALoader. `make help`; `make` (setup, project,
-clk_wiz, patch), `make check` (parse-only), `make bitstream`, `make load`.
+Requirements:
+
+- gcc
+- unzip
+- Vivado 2020.2 (the `VIVADO` variable overrides the install path)
+- openFPGALoader
+
+Make targets, run from this directory:
+
+- `make`: extract the sources, generate the PROM VHDL from the romset, create the
+  Vivado project, generate the clock IP and install the Basys 3 top level.
+- `make check`: parse-only syntax check, no synthesis.
+- `make bitstream`: synthesis, implementation and bitstream.
+- `make load`: program the Basys 3 with the built bitstream.
+- `make clean`: remove the extracted sources and build output.
+- `make help`: list all targets.
 
 ## Known issues
 
 None open.
 
-## Issues addressed for Basys 3
+## Changes to third-party sources
 
-- VGA failed to sync on about half of the btnC resets: register-derived clocks left the
-  core-to-scandoubler path untimed. Single clock domain with enables
-  (`contrib/code/time_pilot_single_domain.patch`, 2026-10-05; `../KNOWN_ISSUES.md`).
-- 260-line frame (61.54 Hz) → 264 lines, 60.61 Hz
-  (`contrib/code/time_pilot_vcnt_264_lines.patch`, 2026-10-06).
-- MiST `scandoubler.v`: Vivado reads it as Verilog-2001; blocks with local declarations
-  named, `sd_buffer` declared with a full range (`contrib/code/scandoubler_fix.patch`,
-  applied to the project copy).
-- Raw PS/2 at 24.57 MHz misbehaved (2026-10-05); 2-FF synchronizer on `ps2_clk`/`ps2_dat`.
+- `contrib/code/time_pilot_single_domain.patch`
+  - Origin: Dar archive
+  - Change: core and sound board on one clock with clock enables
+  - Files:
+    - `rtl_dar/gen_ram.vhd`
+    - `rtl_dar/time_pilot.vhd`
+    - `rtl_dar/time_pilot_sound_board.vhd`
 
-## Third-party sources
+- `contrib/code/time_pilot_vcnt_264_lines.patch`
+  - Origin: Dar archive
+  - Change: 264 lines per frame (60.61 Hz), as MAME
+  - Files:
+    - `rtl_dar/time_pilot.vhd`
 
-| Resource | Source | Notes |
-|---|---|---|
-| Basys-3-Master.xdc | <https://github.com/Digilent/digilent-xdc> | `contrib/basys3/vivado/` |
-| scandoubler.v (MiST, Till Harbaum, GPL-3.0) | <https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v> | `contrib/code/`; Vivado fixes in `scandoubler_fix.patch` |
+- `contrib/code/scandoubler_fix.patch`
+  - Origin: [mist-modules@147aa5c][mist-modules] (Till Harbaum, GPL-3.0)
+  - Change: named blocks, full `sd_buffer` range (Vivado)
+  - Files:
+    - `scandoubler.v` (copy in `contrib/code/`)
+
+[mist-modules]: https://github.com/mist-devel/mist-modules/blob/147aa5c11b117eaeda3fd9e81dbff2dc5f12cb14/scandoubler.v
+

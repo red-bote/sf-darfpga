@@ -1,7 +1,7 @@
 # Sky-skipper-by-Dar: porting spec
 
 Design record for the Basys 3 port. Procedure and conventions:
-`../../../PORTING_SPEC.md`. Status: `../../README.md`.
+`../../../PORTING_SPEC.md`. User-facing summary: `../../README.md`.
 
 ## 1. Upstream and reference model
 
@@ -89,12 +89,17 @@ core drivers.
 ## 10. PROM generation
 
 `contrib/tools/prep_roms.sh`: `make_sky_skipper_proms.bat` → shell; romset `skyskipr.zip`
-(`ROMZIP`).
+(`ROMZIP`). Output (referenced in place): `sky_skipper_cpu`, `sky_skipper_ch_bits`,
+`sky_skipper_sp_bits_1..4`, `sky_skipper_ch_palette_rgb`, `sky_skipper_sp_palette_gb`,
+`sky_skipper_sp_palette_rg`, `sky_skipper_bg_palette_rgb` (`.vhd`).
 
 ## 11. Build
 
 `make` (setup, project, clk_wiz, patch), `make check`, `make bitstream`. The `.xpr` lives
 at `vhdl_sky_skipper_rev_01_2020_01_28/basys3/sky_skipper_basys3.xpr`.
+The project lists all 25 core sources: an incomplete list left the modular T80 CPU as a
+black box (`[DRC INBB-3]` at implementation). Post-route WNS 21.853 ns; 1906 LUTs /
+815 FFs / 18.5 BRAM tiles.
 
 ## 12. Open items
 
