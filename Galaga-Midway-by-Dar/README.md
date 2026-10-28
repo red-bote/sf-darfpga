@@ -71,8 +71,7 @@ Make targets, run from this directory:
 
 ## Known issues
 
-- After a reset, the status tiles are sometimes distorted or missing pixels; under
-  investigation.
+None open.
 
 ## Changes to third-party sources
 
@@ -87,6 +86,18 @@ Make targets, run from this directory:
   - Change: start accepted after a coin (51xx credit mode re-enabled on each coin)
   - Files:
     - `rtl_dar/galaga.vhd`
+
+- `contrib/code/galaga_single_domain.patch`
+  - Origin: Dar archive
+  - Change: core, sound and stars machines and the 54xx on one 36.864 MHz clock with
+    clock enables; exported pixel strobe for the scandoubler
+  - Files:
+    - `rtl_dar/galaga.vhd`
+    - `rtl_dar/gen_ram.vhd`
+    - `rtl_dar/mb88.vhd`
+    - `rtl_dar/sound_machine.vhd`
+    - `rtl_dar/stars.vhd`
+    - `rtl_dar/stars_machine.vhd`
 
 - `contrib/code/galaga_vga_sync.patch`
   - Origin: Dar archive

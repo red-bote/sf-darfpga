@@ -62,11 +62,12 @@ end galaga_basys3;
 
 architecture struct of galaga_basys3 is
 
-  signal clock_36    : std_logic;
-  signal clock_18    : std_logic;
-  signal clock_6     : std_logic;
-  signal clock_12    : std_logic;
-  signal slot        : std_logic_vector(2 downto 0);
+  signal clk_core    : std_logic;
+  signal ce18        : std_logic := '0';
+  signal ce_pix      : std_logic;
+  signal ce_pix_d    : std_logic_vector(4 downto 0) := (others => '0');
+  signal ce_x1       : std_logic;
+  signal ce_x2       : std_logic;
   signal reset       : std_logic;
   signal mmcm_locked : std_logic;
 
@@ -138,32 +139,30 @@ b_test_in <= B_TEST_DEFAULT xor sw(12);  -- test/service mode on sw12
 -- core reset: btnC or MMCM not locked
 reset <= btnC or not mmcm_locked;
 
--- Clock 36.864 MHz (signal clock_36) for the core clock chain and the scan
--- doubler's clock divider.
+-- Clock 36.864 MHz (signal clk_core): the single clock of the core, scandoubler,
+-- keyboard, synchronizers and PWM.
 clocks : entity work.clk_wiz_0
 port map(
   clk_in1  => clk,
-  clk_out1 => clock_36,
+  clk_out1 => clk_core,
   reset    => btnC,
   locked   => mmcm_locked
 );
 
--- Halve clock_36 to clock_18 for the galaga core (36/2).
-process (reset, clock_36)
+-- ce18: the core's 18.432 MHz clock enable, every other clk_core cycle
+process (clk_core)
 begin
-  if reset='1' then
-    clock_18 <= '0';
-  else
-    if rising_edge(clock_36) then
-      clock_18 <= not clock_18;
-    end if;
+  if rising_edge(clk_core) then
+    ce18 <= not ce18;
   end if;
 end process;
 
 -- Galaga
 galaga : entity work.galaga
 port map(
-  clock_18     => clock_18,
+  clk_core     => clk_core,
+  ce18         => ce18,
+  ce_pix       => ce_pix,
   reset        => reset,
 
   video_r      => r,
@@ -195,33 +194,24 @@ vga_r_i <= r & r     when blankn = '1' else "000000";
 vga_g_i <= g & g     when blankn = '1' else "000000";
 vga_b_i <= b & b & b when blankn = '1' else "000000";
 
--- Derive the scandoubler clocks: clock_12 (clk_sys) and clock_6 (ce_x1) from a
--- mod-6 counter clocked by clock_36.
-process (clock_36)
+-- scandoubler enables: ce_x1 samples mid-pixel, after the core output settles.
+-- ce_x2 runs at twice that rate.
+process (clk_core)
 begin
-  if rising_edge(clock_36) then
-    clock_12 <= '0';
-    if slot = "101" then
-      slot <= (others => '0');
-    else
-      slot <= std_logic_vector(unsigned(slot) + 1);
-    end if;
-    if slot = "100" or slot = "001" then
-      clock_6 <= not clock_6;
-    end if;
-    if slot = "100" or slot = "001" then
-      clock_12 <= '1';
-    end if;
+  if rising_edge(clk_core) then
+    ce_pix_d <= ce_pix_d(3 downto 0) & ce_pix;
   end if;
 end process;
+ce_x1 <= ce_pix_d(1);
+ce_x2 <= ce_pix_d(1) or ce_pix_d(4);
 
 -- scandoubler: 15 kHz video to 31 kHz VGA
 scandoubler_inst : scandoubler
 port map(
-  clk_sys   => clock_12,
+  clk_sys   => clk_core,
   scanlines => "00",
-  ce_x1     => clock_6,
-  ce_x2     => '1',
+  ce_x1     => ce_x1,
+  ce_x2     => ce_x2,
   hs_in     => hsync,
   vs_in     => vsync,
   r_in      => vga_r_i,
@@ -248,9 +238,9 @@ vga_hs <= csync   when sw(13) = '1' else hsync_o;
 vga_vs <= '1'     when sw(13) = '1' else vsync_o;
 
 -- input synchronizers
-process (clock_18)
+process (clk_core)
 begin
-  if rising_edge(clock_18) then
+  if rising_edge(clk_core) then
     ps2_clk_meta <= ps2_clk;
     ps2_clk_s    <= ps2_clk_meta;
     ps2_dat_meta <= ps2_dat;
@@ -262,10 +252,10 @@ begin
   end if;
 end process;
 
--- get scancode from keyboard (on clock_18, the core clock)
+-- get scancode from keyboard (on clk_core, the core clock)
 keyboard : entity work.io_ps2_keyboard
 port map (
-  clk       => clock_18,
+  clk       => clk_core,
   kbd_clk   => ps2_clk_s,
   kbd_dat   => ps2_dat_s,
   interrupt => kbd_intr,
@@ -274,9 +264,9 @@ port map (
 
 -- key decoder: scancode to kbd_joy
 -- kbd_joy bit order matches joyPCFRLDU below: 5 = start1, 6 = start2, 7 = coin.
-process (clock_18)
+process (clk_core)
 begin
-  if rising_edge(clock_18) then
+  if rising_edge(clk_core) then
     if kbd_intr = '1' then
       if kbd_scancode = x"F0" then
         kbd_rel <= '1';
@@ -296,13 +286,13 @@ begin
   end if;
 end process;
 
--- Debounce: btn_db follows its input after 2**18 stable clock_18 cycles (14.2 ms).
+-- Debounce: btn_db follows its input after 2**18 stable ce18 cycles (14.2 ms).
 -- The core edge-detects coin and fire, so contact bounce would add presses.
--- Clocked on clock_18, the core clock. Index 4 = stick fire, 3..0 = btnU/D/L/R.
+-- Index 4 = stick fire, 3..0 = btnU/D/L/R.
 db_in <= (not stick_s(4)) & btn_s;
-process(clock_18)
+process(clk_core)
 begin
-  if rising_edge(clock_18) then
+  if rising_edge(clk_core) and ce18 = '1' then
     for i in 0 to 4 loop
       if db_in(i) = btn_db(i) then
         btn_cnt(i) <= (others => '0');
@@ -328,9 +318,9 @@ joyPCFRLDU(6) <= kbd_joy(6) or btn_db(0);               -- start2: 2 / btnR
 joyPCFRLDU(7) <= kbd_joy(7) or btn_db(3) or btn_db(2);  -- coin: 5, 6 / btnU, btnD
 
 -- pwm sound output
-process(clock_18)
+process(clk_core)
 begin
-  if rising_edge(clock_18) then
+  if rising_edge(clk_core) and ce18 = '1' then
     pwm_accumulator <= std_logic_vector(unsigned('0' & pwm_accumulator(11 downto 0)) + unsigned(audio & "000"));
   end if;
 end process;

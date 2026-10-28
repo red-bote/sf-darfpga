@@ -17,14 +17,34 @@ Design record for the Basys 3 port. Procedure and conventions:
 
 - Original: 18.432 MHz crystal; CPUs 3.072 MHz, pixel 6.144 MHz (MAME `galaga`).
 - `clk_wiz_0`: request 36.864 MHz, achieved 36.863711 MHz (DIVCLK 6 / MULT_F 56.125 /
-  CLKOUT0_DIVIDE_F 25.375), single output `clock_36`. Forced by `sed` in
+  CLKOUT0_DIVIDE_F 25.375), single output `clk_core`. Forced by `sed` in
   `make_clk_wiz_0.sh`: Vivado's own solve (36.86594 MHz) puts VGA H at 32.0017 kHz.
   Retargeted 2026-10-01 from 36.000 MHz (5 / 49.5 / 27.5; -2.34% speed,
   `../../../CLOCKING_SPEC.md` §4).
-- `clock_18` = `clock_36` / 2 (toggle): core clock, keyboard, synchronizers, debounce,
-  PWM. The DE10 top derived a `clock_9` for the keyboard; on Basys 3 `clock_9` was used
-  until 2026-10-20 and is removed (keyboard on `clock_18`).
-- Scandoubler: `clock_12` / `clock_6` from a mod-6 counter on `clock_36` (§5).
+- Single clock domain (2026-10-28): `clk_core` clocks the core, the scandoubler, the
+  keyboard, the synchronizers, the debounce and the PWM. No fabric-derived clocks.
+- Enables, from a free-running toggle `ce18` in the wrapper (an enable is high in the
+  `clk_core` cycle that ends at its edge):
+
+  | Enable | Edge | Replaces |
+  |---|---|---|
+  | `ce18` | every other `clk_core` edge | `rising_edge(clock_18)`; T80 `CLKEN = cpuN_ena and ce18`; `mb88` `ce`; stars and sound machines; `spram1/2`; debounce, PWM |
+  | `ce18n` (`not ce18`) | the other edges | `clock_18n`: IO/latch process, `bgram`, `wram1-3`, sound RAMs, stars ROM, `mb88` `ce_n` |
+  | `ce_pix` (`ena_vidgen and ce18`) | 1 in 6 edges, 6.144 MHz | video generator `enable`; scandoubler `ce_x1` after a 2-cycle delay (§5.1) |
+
+- Memories: `gen_ram` gains `ce : in std_logic := '1'` gating write and registered read.
+  Generated PROMs have no enable: each ROM address is held between its enabled edges
+  (captured on its enable, live while enabled), so each ROM output changes only on its
+  former edge. Core patch: `contrib/code/galaga_single_domain.patch` (§9).
+- History: until 2026-10-28 the core ran on `clock_18`, a fabric toggle of `clock_36`
+  with async reset, and the scandoubler on `clock_12` / `clock_6` from a free-running
+  mod-6 counter on `clock_36`. `clock_18` restarted at an arbitrary point after each MMCM
+  lock, so the offset between pixel update and scandoubler sample changed per start;
+  about 1 in 5 starts showed distorted static tiles until the next start
+  (`../../../KNOWN_ISSUES.md`). User decision 2026-10-28: single domain (Pooyan /
+  Time-Pilot pattern), chosen over a minimal fix (exported pixel enable, `clock_18` kept)
+  for long-term maintainability; cost: core RTL patch. The DE10 top derived a `clock_9` for
+  the keyboard; on Basys 3 it was used until 2026-10-20.
 - Video: pixel 6.144 MHz, 384 counts/line, 264 lines → 16.0 kHz / 60.61 Hz native,
   31.9998 kHz after doubling.
 
@@ -49,7 +69,8 @@ DE10-lite → Basys 3 port list (confirmed against `rtl_dar/galaga_de10_lite.vhd
 | `gpio(1)`/`gpio(3)` (aliased `pwm_audio_out_l`/`_r`, both driven from one PWM accumulator) | `O_PMODAMP2_AIN/GAIN/SHUTD` (JA1/2/4) | PWM audio (PmodAMP2), mono |
 | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | `vga_r/g/b(3:0)`, `vga_hs`, `vga_vs` | 4-4-4 RGB, unchanged port shape; source changes from direct `csync`/`'1'` to the scandoubler (§5) |
 
-- `galaga` entity (after `galaga_vga_sync.patch`, §9): `clock_18`, `reset` in;
+- `galaga` entity (after `galaga_single_domain.patch` and `galaga_vga_sync.patch`, §9):
+  `clk_core`, `ce18`, `reset` in; `ce_pix` out;
   `video_r(2:0)`, `video_g(2:0)`, `video_b(1:0)`, `video_clk`, `video_csync`, `video_blankn`,
   `video_hs`, `video_vs` out; `audio(9:0)` out; inputs `b_test`, `b_svce`, `coin`,
   `start1/2`, `left1/2`, `right1/2`, `fire1/2`. No DIP bank ports (DIP banks are constants
@@ -64,10 +85,10 @@ instance `scandoubler_inst`, `COLOR_DEPTH = 6`, `HCNT_WIDTH = 9` (defaults).
 
 | Port | Direction | Connected signal | Type/width |
 |---|---|---|---|
-| `clk_sys` | in | `clock_12` | `std_logic` |
+| `clk_sys` | in | `clk_core` | `std_logic` |
 | `scanlines` | in | `"00"` (literal) | `std_logic_vector(1 downto 0)` |
-| `ce_x1` | in | `clock_6` | `std_logic` |
-| `ce_x2` | in | `'1'` (literal) | `std_logic` |
+| `ce_x1` | in | `ce_x1` (`ce_pix` delayed 2 cycles) | `std_logic` |
+| `ce_x2` | in | `ce_x2` | `std_logic` |
 | `hs_in` | in | `hsync` | `std_logic` |
 | `vs_in` | in | `vsync` | `std_logic` |
 | `r_in` | in | `vga_r_i` | `std_logic_vector(5 downto 0)` |
@@ -83,38 +104,28 @@ instance `scandoubler_inst`, `COLOR_DEPTH = 6`, `HCNT_WIDTH = 9` (defaults).
   264 lines), no intermediate logic. `video_csync` drives `vga_hs` only in TV mode.
 - RGB: 3/3/2 bits padded to 6 by MSB replication, black while `blankn = '0'`:
   `vga_r_i <= r & r`, `vga_g_i <= g & g`, `vga_b_i <= b & b & b`. Output `(5 downto 2)`.
-- `scanlines` `"00"`; `ce_x2` `'1'`.
+- `scanlines` `"00"`.
 
 ### 5.1 Scandoubler clocks
 
-`clk_sys` = `clock_12`, `ce_x1` = `clock_6`, from one mod-6 `slot` counter on `clock_36`:
-
-```vhdl
-process (clock_36)
-begin
-    if rising_edge(clock_36) then
-        clock_12 <= '0';
-        if slot = "101" then
-            slot <= (others => '0');
-        else
-            slot <= std_logic_vector(unsigned(slot) + 1);
-        end if;
-        if slot = "100" or slot = "001" then
-            clock_6 <= not clock_6;
-        end if;
-        if slot = "100" or slot = "001" then
-            clock_12 <= '1';
-        end if;
-    end if;
-end process;
-```
-
-- `clock_6`: toggles on slots 4 and 1, 36 / 6 = 6 MHz square wave.
-- `clock_12`: one-`clock_36`-cycle pulse every 3 cycles (12 MHz rate, ~1:3 duty), a fabric
-  register used as the `clk_sys` clock net (no BUFG, no MMCM).
-- A source comment (`-- clock_18, video_clk i clock_36 no funciona`) records that
-  `clock_18` and `clock_36` as `clk_sys` did not work. The Pooyan pattern (`clk_sys` = core
-  clock, `ce_x2` = 2 × `ce_x1`) was not tried here.
+- `clk_sys` = `clk_core` (36.864 MHz MMCM output).
+- `ce_x1` = `ce_pix` delayed 2 `clk_core` cycles. `ce_pix` (one cycle in 6) marks the
+  edge R0 where the video generator advances `hcnt`. Core output per pixel (`ce18` edges
+  R0, R1, R2): `bgpalette_do` changes at R1, `rgb_palette_do` at R2; the video mux
+  registers `video_r/g/b` on every `ce18` edge and at R2 combines the new
+  `rgb_palette_addr` (its `"1111"` star/transparent test) with the old `rgb_palette_do`.
+  The output is final from R0 to R2 and transient from R2 to the next R0. A sample at
+  `ce_pix` (just before R0) stores the transient: with `ce_x1 = ce_pix` (2026-10-28 08:05
+  build) every start showed wrong pixels at text and status tile edges. Valid sample
+  edges: R0+1 to R0+4 `clk_core` cycles; R0+2 is used. The path is timed (one clock).
+- `ce_x2` = `ce_x1` or `ce_x1` delayed 3 `clk_core` cycles (12.288 MHz, contains every
+  `ce_x1` strobe), the Pooyan pattern.
+- In the former asynchronous scheme the sample point relative to R0 changed per start and
+  landed in the transient on some starts (about 1 in 5).
+- Former scheme (until 2026-10-28, §2 History): `clk_sys` = fabric `clock_12` pulse train,
+  `ce_x1` = fabric `clock_6`, `ce_x2` = `'1'`. A source comment (`-- clock_18, video_clk i
+  clock_36 no funciona`) records that Dar's attempts with `clock_18` or `clock_36` as
+  `clk_sys` did not work.
 
 Signal flow:
 
@@ -128,9 +139,9 @@ video_b(1:0), video_blankn --------> r, g, b, blankn
                                       vga_r_i <= r&r      (or 0 if !blankn) ---> r_in
                                       vga_g_i <= g&g      (or 0 if !blankn) ---> g_in
                                       vga_b_i <= b&b&b    (or 0 if !blankn) ---> b_in
-                                      clock_12 ------------------------------> clk_sys
-                                      clock_6 -------------------------------> ce_x1
-                                      '1' ------------------------------------> ce_x2
+                                      clk_core ------------------------------> clk_sys
+                                      ce_x1 ---------------------------------> ce_x1
+                                      ce_x2 ----------------------------------> ce_x2
                                       "00" ------------------------------------> scanlines
                                                                                  hs_out ---> hsync_o -------> vga_hs
                                                                                  vs_out ---> vsync_o -------> vga_vs
@@ -149,13 +160,13 @@ video_b(1:0), video_blankn --------> r, g, b, blankn
 
 ## 6. Audio
 
-Dar's 13-bit PWM accumulator on `clock_18` (`'0' & acc(11:0)` + `audio & "000"`),
+Dar's 13-bit PWM accumulator on `clk_core` gated by `ce18` (`'0' & acc(11:0)` + `audio & "000"`),
 `O_PMODAMP2_AIN` = bit 12; the DE10 top drove both `pwm_audio_out_l/_r` from it; mono here.
 `SHUTD <= not sw(15)`, `GAIN <= not sw(14)`.
 
 ## 7. Inputs
 
-- Keyboard: `io_ps2_keyboard` on `clock_18`, wrapper decoder (2026-10-20, replaces
+- Keyboard: `io_ps2_keyboard` on `clk_core`, wrapper decoder (2026-10-20, replaces
   `kbd_joystick`; `../../../PORTING_SPEC.md` §3.1, `rb-fpga/ref-repos` Galaga mapping), F0 =
   release, E0 ignored. Left 6B, Right 74, fire Left Ctrl 14, coin 5 2E / 6 36, start 1 16 /
   2 1E. Previous map (Dar `kbd_joystick`): Space fire, F3 coin, F1/F2 start.
@@ -164,10 +175,11 @@ Dar's 13-bit PWM accumulator on `clock_18` (`'0' & acc(11:0)` + `audio & "000"`)
 - Merge: left = Left arrow or `not JXADC(1)`; right = Right arrow or `not JXADC(0)`; fire =
   Left Ctrl or debounced JXADC7; coin = 5/6 or btnU/btnD; start 1/2 = 1/2 or btnL/btnR.
   JXADC3/4 unused.
-- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clock_18` (2026-10-20;
+- Synchronizers: 2-FF `ASYNC_REG` on PS/2, JXADC, buttons, on `clk_core` (2026-10-20;
   previously buttons only).
-- Debounce: btnU/D/L/R and JXADC7, 2^18 `clock_18` cycles (14.2 ms), on `clock_18` (a first
-  version on `clock_36` changed next to `clock_18` edges and btnU registered inconsistently).
+- Debounce: btnU/D/L/R and JXADC7, 2^18 `ce18` cycles (14.2 ms), on `clk_core` gated by
+  `ce18` (a first version on the ungated `clock_36` changed next to the fabric `clock_18`
+  edges and btnU registered inconsistently; with one clock domain the crossing is gone).
   Buttons since 2026-10-02 (release bounce counted extra coins). Fire since 2026-10-20
   (bounce on `rb-fpga/ref-repos` hardware 2026-10-19); removed for one test with a CX40-type
   joystick, restored 2026-10-21 (fire on press and release).
@@ -222,7 +234,8 @@ Applied by `setup_galaga.sh` (`patch -p1 --forward`), except `scandoubler_fix.pa
 |---|---|---|---|
 | `contrib/code/galaga_bgpalette_xor_length_fix.patch` | `rtl_dar/galaga.vhd` `bgpalette_addr` (~l.521) | `xor` of a 3-bit (prefix bit concatenated first) and a 2-bit operand; parenthesize `hcnt(1 downto 0) xor (flip_h & flip_h)`, then prefix | `grep -n 'xor (flip_h & flip_h))))' <SRC_DIR>/rtl_dar/galaga.vhd` |
 | `contrib/code/galaga_credit_mode_fix.patch` | `rtl_dar/galaga.vhd:848` | Start ignored after coin; `cs51XX_credit_mode <= '1'` on every coin edge (investigation on hold: `contrib/code/51xx_credit_state_machine_investigation.md`) | `grep -n "cs51XX_credit_mode <= '1'" ...` |
-| `contrib/code/galaga_vga_sync.patch` | `rtl_dar/galaga.vhd` | uncomments `video_hs`/`video_vs` and wires the video generator's `hsync`/`vsync` to them | `grep -n "hsync   => video_hs" ...` |
+| `contrib/code/galaga_single_domain.patch` | `rtl_dar/galaga.vhd`, `gen_ram.vhd`, `mb88.vhd`, `sound_machine.vhd`, `stars.vhd`, `stars_machine.vhd` | single clock domain (§2): `clk_core` with `ce18` / `ce18n` / `ce_pix` enables, `gen_ram` `ce`, ROM address hold, exported `ce_pix` | `grep -n "ce_pix  <= ena_pix" ...` |
+| `contrib/code/galaga_vga_sync.patch` | `rtl_dar/galaga.vhd` | applied after `galaga_single_domain.patch` (glob order; its context includes `enable  => ena_pix`); uncomments `video_hs`/`video_vs` and wires the video generator's `hsync`/`vsync` to them | `grep -n "hsync   => video_hs" ...` |
 | `contrib/code/scandoubler_fix.patch` | project `imports/mist/scandoubler.v` | Vivado (Verilog-2001): block labels for local declarations, `sd_buffer` full range | |
 | `contrib/basys3/code/galaga_de10_lite_to_basys3.patch` | DE10 top | provenance record (generated by `make patch`) | |
 
@@ -247,10 +260,9 @@ patch), `make check`, `make synth` / `make bitstream`. Project `basys3/galaga_ba
 - Fix patches live in `contrib/code/` (the convention for new ports; Pooyan differs).
 - `ROMZIP1`/`ROMZIP2` instead of a single `ROMZIP`: intentional, two romsets.
 - 51XX credit state machine investigation on hold (§9).
-- `clk_sys` = fabric `clock_12` is a register-derived clock (§5.1); the Pooyan pattern was
-  not tried.
 - Keyboard sticking to the right (former README known issue): not observed on recent
   builds (user, 2026-10-27); entry removed from the README.
-- Status tiles sometimes distorted or missing pixels after reset (user, 2026-10-27):
-  open, `../../../KNOWN_ISSUES.md`.
+- Status tiles distorted or missing pixels after reset (user, 2026-10-27): fixed
+  2026-10-28 by the single-domain conversion (§2) and the sample point after the output
+  transient (§5.1); 10 of 10 starts clean (user, hardware). `../../../KNOWN_ISSUES.md`.
 

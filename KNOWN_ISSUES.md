@@ -106,17 +106,48 @@ Entry format:
 - **Tried**: n/a (by inspection).
 - **Status**: open; candidate fix: `set_false_path` from the synchronized asynchronous inputs (`btn*`, `sw*`, `JXADC*`, `ps2_*`), optional output constraints for VGA/PWM.
 
-### Galaga-Midway-by-Dar: status tiles sometimes distorted after reset
-- **Reported**: 2026-10-27 (user, hardware, 2026-10-27 build)
-- **Symptom**: after a reset, the status tiles are sometimes distorted or missing pixels.
-  Intermittent.
-- **Tried**: n/a (not yet investigated). Leads, unconfirmed: btnC reset is not synchronized
-  (`reset <= btnC or not mmcm_locked`; `TODO.md` btnC reset synchronizer item);
-  register-derived `clock_18`/`clock_12` in the core (Galaga PORTING_SPEC §5.1);
-  Pooyan/Time-Pilot precedent of an intermittent after-reset fault (Fixed section).
-- **Status**: open
+### (cross-machine): scandoubler sample phase not locked to the core pixel timing
+- **Reported**: 2026-10-28 (audit after the Galaga fix, by inspection)
+- **Symptom**: none observed (user, 2026-10-28). Same structure as the fixed Galaga fault
+  (Fixed section): the scandoubler `ce_x1` comes from a wrapper divider that is not
+  reset with the core, so its phase relative to the core pixel update varies per start.
+  - Traverse-USA: free-running mod-6 counter on `clock_36` makes `clk_sys`/`ce_x1`
+    (register-derived, untimed); core `pix_ena` from `clock_cnt`, reset by `reset`;
+    6 phases per start.
+  - Burger-Time, Burnin-Rubber, Defender: free-running `ce_x1` toggle on `clock_12`;
+    core `clock_6` toggle reset by `reset`, core output on that fabric clock; 2 phases
+    per start, untimed (at worst a 1-pixel shift or a hold race on one phase).
+  - Fixed phase, no per-start variation: Phoenix (core `video_clk`), Zaxxon (core
+    `pix_clk_div`), Xevious (wrapper mod-3 and core `slot` on `clock_18`, neither reset).
+- **Tried**: n/a (by inspection).
+- **Status**: open, record only; no preventive change (user, 2026-10-28). Fix pattern if
+  a symptom appears: Galaga PORTING_SPEC §2, §5.1.
 
 ## Fixed
+
+### Galaga-Midway-by-Dar: status tiles sometimes distorted after reset
+- **Reported**: 2026-10-27 (user, hardware, 2026-10-27 build)
+- **Symptom**: about 1 in 5 starts (end of programming or btnC) show distorted or
+  missing-pixel static tiles for the whole session; sprites look unaffected (user,
+  2026-10-28). No 15 kHz display available to test the bypass mode.
+- **Tried**: analysis by inspection (2026-10-28). btnC also resets the MMCM; the core clock
+  `clock_18` (fabric toggle of `clock_36`, async reset) restarts when the unsynchronized
+  `mmcm_locked` rises, while the scandoubler's `clock_12`/`clock_6` come from a mod-6
+  counter on `clock_36` that is never reset. The offset between the core pixel update and
+  the scandoubler sample is one of 6 per start; one lands on the transition (path untimed,
+  register-derived clocks). Matches the rate and the per-session persistence; thin
+  high-contrast tile strokes show it most. Same structure as the Pooyan/Time-Pilot fault
+  (Fixed section). Single-domain build with `ce_x1 = ce_pix` (2026-10-28 08:05, timing
+  met, 0 `no_clock`): artifacts on 10 of 10 starts (user). Refined cause: the core's
+  video mux holds a transient value in the last `ce18` cycle of each pixel (new
+  `rgb_palette_addr` with old `rgb_palette_do`); `ce_pix` samples exactly that value, and
+  the former asynchronous phase hit it on some starts.
+- **Fix**: single clock domain (user decision 2026-10-28): core, scandoubler, keyboard and
+  PWM on `clk_core` (36.864 MHz MMCM) with `ce18`/`ce18n`/`ce_pix` enables;
+  `contrib/code/galaga_single_domain.patch`; wrapper `ce_x1` = `ce_pix` delayed 2
+  `clk_core` cycles, inside the stable part of the pixel (Galaga PORTING_SPEC §2, §5.1).
+  `make check` rc 0.
+- **Status**: fixed 2026-10-28: 10 of 10 starts without tile artifacts (user, hardware).
 
 ### Popeye-by-Dar, Zaxxon-by-Dar, Traverse-USA-by-Dar: wrapper `clock_kbd` is a register-derived clock
 - **Reported**: 2026-10-07 (build-log warning review, `build-logs/`, by inspection)

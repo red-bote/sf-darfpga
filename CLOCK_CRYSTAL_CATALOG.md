@@ -384,7 +384,12 @@ current solves (re-surveyed 2026-10-02 against generated
   `sed` override in `make_clk_wiz_0.sh`; the `clk_wiz_0.v` header shows
   Vivado's auto-solve (`clk_out1__36.86594`), not the forced value
   (retarget 2026-10-01, was 36.000 MHz).
-- **Fabric-derived clocks (not single-clock)**: the core does not run on
+- **Single clock (2026-10-28)**: core, scandoubler, keyboard and PWM run on
+  `clk_out1` (`clk_core`) with clock enables `ce18` (every other cycle), `ce18n`
+  and `ce_pix` (6.143952 MHz pixel strobe, scandoubler `ce_x1`);
+  `galaga_single_domain.patch` (Galaga PORTING_SPEC §2). The paragraph below
+  describes the former scheme.
+- **Fabric-derived clocks (until 2026-10-28)**: the core did not run on
   `clk_out1`. The wrapper (`galaga_basys3.vhd`) derives:
   `clock_18` = `clock_36`/2 = 18.431856 MHz toggle (lines 134-143), the
   core clock (`galaga.vhd` port `clock_18`; `ena_vidgen` 2 of 6 slots =

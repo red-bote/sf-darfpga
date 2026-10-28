@@ -156,3 +156,4 @@ the generated PROMs. Bitstream:
 ## 12. Open items
 
 - `blankn` gating before the doubler possibly redundant (§5); no action.
+

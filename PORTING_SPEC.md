@@ -414,6 +414,12 @@ Findings that apply across machines:
   clock). §4.1, `CLOCKING_SPEC.md` §5.2.
 - MiST scandoubler: `clk_sys` = core clock, `ce_x1` = pixel enable, `ce_x2` = exactly
   2 × `ce_x1`; a fabric-derived `clk_sys` is untimed. §4.5.
+- Scandoubler sample point: take `ce_x1` from the core's own pixel enable and place it in
+  the stable part of the pixel; a core's video output can hold a transient value in the
+  last core-clock cycle of each pixel (Galaga video mux). A free-running wrapper divider
+  not reset with the core gives a sample phase that changes per start (Galaga: distorted
+  tiles on about 1 in 5 starts); a fixed bad phase fails on every start. Galaga
+  PORTING_SPEC §2, §5.1.
 - Synchronize and debounce inputs on the clock the core samples them with. §4.4.
 - A core that edge-detects an input at the full clock rate (fire, coin) counts contact
   bounce as presses and needs a debounce; a level read by the CPU once per frame does
@@ -425,3 +431,4 @@ Findings that apply across machines:
 - Expression actuals in port maps go through a signal (Vivado HDL 9-3240). §4.2.
 - A source list missing core files leaves a black box that fails only at implementation
   (`[DRC INBB-3]`, Sky-skipper); the skill `xpr-dependency-closure` checks the list.
+
